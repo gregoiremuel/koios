@@ -4,208 +4,220 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Koîos · Partie</title>
+<title>Koîos · Chapitre 3</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Young+Serif&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
-/* Une partie : la question sur une page de vieux livre, les réponses en tuiles épaisses, le Rival qui réagit, un verdict sourcé. */
+/* Un chapitre de formation : la fiche « À retenir », trois exercices, un bilan. Page de livre, traits fins, le Rival annote en marge. */
 :root {
-  --papier: #fbf6ec; --page: #fffdf8; --ligne: #e8dcc6; --ligne-forte: #d7c4a3;
-  --encre: #2f241c; --encre-2: #6e5d4e;
-  --vert: #3e7a5a; --vert-fonce: #2c5a41; --vert-pale: #e3efe6;
-  --bordeaux: #8e2f3c; --bordeaux-fonce: #6f2330; --bordeaux-pale: #f6e3e3;
-  --prusse: #2f5d8a; --prusse-fonce: #224566; --prusse-pale: #e2ebf4;
-  --or-pale: #f6ecd6; --or-fonce: #8c6720;
-  --titre: "Young Serif", "Iowan Old Style", Georgia, serif;
+  --papier: #f8f3ea; --page: #fffdf9; --ligne: #e4d9c7; --ligne-forte: #cdbb9c;
+  --encre: #2a2119; --encre-2: #6b5d4f;
+  --vert: #3b6b52; --vert-fonce: #2a4f3c; --vert-pale: #e4ede6;
+  --bordeaux: #7d2a35; --bordeaux-fonce: #5f1f29; --bordeaux-pale: #f3e4e4;
+  --prusse: #2c5378; --prusse-fonce: #203d59; --prusse-pale: #e3eaf2;
+  --or: #a8802f; --or-fonce: #7f6022; --or-pale: #f3ead6;
+  --livre: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --ui: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  --vieux: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.46 0 0 0 0 0.24 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --vieux: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.46 0 0 0 0 0.24 0 0 0 0.13 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
   color-scheme: light;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
 button { font: inherit; color: inherit; }
 img { max-width: 100%; }
 [hidden] { display: none !important; }
-:focus-visible { outline: 3px solid var(--prusse); outline-offset: 2px; }
-.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px 40px; display: grid; gap: 18px; }
-.ico { width: 24px; height: 24px; flex: none; display: block; }
-.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 2px solid var(--prusse); outline-offset: 2px; }
+.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 6px 40px; display: grid; gap: 18px; }
+.i { width: 20px; height: 20px; flex: none; display: block; }
+.lib { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--encre-2); }
+.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: lining-nums tabular-nums; }
 
-.haut { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
-.quitter { width: 44px; height: 44px; display: grid; place-items: center; font-size: 28px; line-height: 1; text-decoration: none; color: var(--encre-2); border-radius: 12px; }
-.avance { height: 16px; border-radius: 999px; background: var(--ligne); overflow: hidden; }
-.avance i { display: block; height: 100%; width: 0; background: var(--vert); border-radius: 999px; transition: width 0.4s ease; }
-.compte { font-weight: 600; font-size: 15px; font-variant-numeric: lining-nums tabular-nums; }
-.infos { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.puce { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; font-size: 14px; font-weight: 600; border: 2px solid transparent; }
-.puce.dom { background: var(--bordeaux-pale); color: var(--bordeaux-fonce); }
-.puce.temps { background: var(--page); border-color: var(--ligne); font-variant-numeric: tabular-nums; }
-.puce.temps.vite { color: var(--bordeaux); border-color: #e7b7b7; }
-.puce .ico { width: 22px; height: 22px; }
+.haut { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-height: 48px; }
+.retour { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding-right: 6px; font-weight: 600; font-size: 14px; color: var(--encre-2); text-decoration: none; }
+.retour .i { width: 18px; height: 18px; }
+.titre-chap { text-align: center; font-family: var(--livre); font-weight: 600; font-size: 16px; }
+.temps { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; font-size: 14px; font-variant-numeric: lining-nums tabular-nums; color: var(--encre-2); min-width: 56px; justify-content: flex-end; }
+.temps.vite { color: var(--bordeaux); }
+.temps .i { width: 18px; height: 18px; }
+.etapes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: -6px; }
+.etapes i { height: 4px; border-radius: 2px; background: var(--ligne); }
+.etapes i.fait { background: var(--vert); }
+.etapes i.cours { background: var(--encre); }
 
-.feuille { background-color: #fdf7ea; background-image: var(--vieux); border: 2px solid var(--ligne); border-bottom-width: 5px; border-bottom-color: var(--ligne-forte); border-radius: 18px; padding: 18px; display: grid; gap: 12px; }
-.feuille .lib { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); }
-h1 { margin: 0; font-family: var(--titre); font-weight: 400; font-size: 25px; line-height: 1.25; text-wrap: balance; }
+.feuille { background-color: #fffaf0; background-image: var(--vieux); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 20px 18px; display: grid; gap: 12px; }
+h1 { margin: 0; font-family: var(--livre); font-weight: 500; font-size: 24px; line-height: 1.3; text-wrap: balance; }
+h2 { margin: 0; font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 1.25; }
 figure { margin: 0; display: grid; gap: 6px; }
-figure img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; border: 2px solid var(--ligne); background: var(--ligne); }
-figcaption { font-size: 12px; color: var(--encre-2); }
+figure img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--ligne); background: var(--ligne); }
+figcaption { font-family: var(--livre); font-style: italic; font-size: 13px; color: var(--encre-2); }
 
-.reponses { display: grid; gap: 10px; }
+.reperes { list-style: none; margin: 0; padding: 0; display: grid; }
+.reperes li { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding-block: 10px; border-top: 1px solid var(--ligne); }
+.reperes li:first-child { border-top: 0; }
+.reperes time { font-family: var(--livre); font-weight: 600; color: var(--or-fonce); font-variant-numeric: lining-nums; }
+.reperes span { font-family: var(--livre); font-size: 17px; line-height: 1.4; }
+
+.reponses { display: grid; gap: 8px; }
 .reponses.deux { grid-template-columns: 1fr 1fr; }
-.tuile { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; min-height: 58px; padding: 8px 14px 8px 10px; text-align: left; background: var(--page); border: 2px solid var(--ligne); border-bottom-width: 5px; border-bottom-color: var(--ligne-forte); border-radius: 16px; font-size: 19px; font-weight: 600; cursor: pointer; transition: transform 0.08s; }
-.tuile:active { transform: translateY(2px); }
-.tuile .lettre { width: 34px; height: 34px; display: grid; place-items: center; border: 2px solid var(--ligne); border-radius: 10px; font-size: 14px; color: var(--encre-2); background: var(--papier); }
-.tuile .marque { width: 26px; height: 26px; }
-.tuile[aria-pressed="true"] { background: var(--prusse-pale); border-color: #8fb0d2; border-bottom-color: var(--prusse); color: var(--prusse-fonce); }
+.tuile { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; min-height: 56px; padding: 8px 14px 8px 10px; text-align: left; background: var(--page); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; border-radius: 8px; font-family: var(--livre); font-size: 19px; cursor: pointer; }
+.tuile .lettre { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--ligne-forte); border-radius: 6px; font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
+.tuile .marque { width: 22px; height: 22px; }
+.tuile[aria-pressed="true"] { background: var(--prusse-pale); border-color: var(--prusse); }
 .tuile[aria-pressed="true"] .lettre { border-color: var(--prusse); color: var(--prusse); }
-.tuile.juste { background: var(--vert-pale); border-color: #9cc6ab; border-bottom-color: var(--vert); color: var(--vert-fonce); }
+.tuile.juste { background: var(--vert-pale); border-color: var(--vert); color: var(--vert-fonce); }
 .tuile.juste .lettre { border-color: var(--vert); color: var(--vert); }
-.tuile.faux { background: var(--bordeaux-pale); border-color: #e2aeb4; border-bottom-color: var(--bordeaux); color: var(--bordeaux-fonce); }
+.tuile.faux { background: var(--bordeaux-pale); border-color: var(--bordeaux); color: var(--bordeaux-fonce); }
 .tuile.faux .lettre { border-color: var(--bordeaux); color: var(--bordeaux); }
-.tuile:disabled { cursor: default; transform: none; }
-.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 6px; min-height: 104px; padding: 12px; }
-.reponses.deux .tuile .ico { width: 40px; height: 40px; }
+.tuile:disabled { cursor: default; }
+.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 6px; min-height: 92px; padding: 12px; font-size: 18px; }
+.reponses.deux .tuile .i { width: 30px; height: 30px; color: var(--encre-2); }
 
 .pari { display: grid; gap: 8px; }
-.pari .ligne-titre { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.pari .ligne-titre span:first-child { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.jetons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.jetons button { min-height: 48px; background: var(--page); border: 2px solid var(--ligne); border-bottom-width: 4px; border-bottom-color: var(--ligne-forte); border-radius: 12px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
-.jetons button[aria-pressed="true"] { background: var(--prusse-pale); border-color: #8fb0d2; border-bottom-color: var(--prusse); color: var(--prusse-fonce); }
+.pari .ligne-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.jetons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.jetons button { min-height: 46px; background: var(--page); border: 1px solid var(--ligne-forte); border-radius: 8px; font-weight: 600; font-size: 15px; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+.jetons button[aria-pressed="true"] { background: var(--prusse-pale); border-color: var(--prusse); color: var(--prusse-fonce); }
 
-.btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 54px; padding: 0 18px; border: 0; border-radius: 14px; background: var(--vert); color: #fff; box-shadow: 0 4px 0 var(--vert-fonce); font-weight: 600; font-size: 16px; letter-spacing: 0.03em; text-transform: uppercase; text-decoration: none; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s; }
-.btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--vert-fonce); }
-.btn.rouge { background: var(--bordeaux); box-shadow: 0 4px 0 var(--bordeaux-fonce); }
-.btn.clair { background: var(--page); color: var(--prusse); border: 2px solid var(--ligne); box-shadow: 0 4px 0 var(--ligne-forte); }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--vert); color: #fff; border-bottom: 2px solid var(--vert-fonce); font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer; }
+.btn:active { transform: translateY(1px); }
+.btn.trait { background: transparent; color: var(--encre); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; }
 .alerte { margin: -6px 0 0; font-size: 14px; font-weight: 600; color: var(--bordeaux); }
 
-.verdict { border-radius: 18px; padding: 18px; display: grid; gap: 12px; border: 2px solid; }
-.verdict.ok { background: var(--vert-pale); border-color: #9cc6ab; }
-.verdict.ko { background: var(--bordeaux-pale); border-color: #e2aeb4; }
-.verdict .titre { display: flex; align-items: center; gap: 10px; }
-.verdict .titre .ico { width: 36px; height: 36px; animation: pop 0.45s ease-out; }
-.verdict .titre strong { font-family: var(--titre); font-weight: 400; font-size: 23px; flex: 1; }
-.verdict.ok .titre strong { color: var(--vert-fonce); }
-.verdict.ko .titre strong { color: var(--bordeaux-fonce); }
-.verdict .pts { font-weight: 600; font-variant-numeric: tabular-nums; }
+.verdict { background: var(--page); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+.verdict .titre { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ligne); }
+.verdict .titre .i { width: 28px; height: 28px; }
+.verdict.ok .titre .i, .verdict.ok .titre strong { color: var(--vert-fonce); }
+.verdict.ko .titre .i, .verdict.ko .titre strong { color: var(--bordeaux); }
+.verdict .titre strong { font-family: var(--livre); font-weight: 600; font-size: 21px; flex: 1; }
+.verdict .pts { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
 .verdict p { margin: 0; }
-details.sources { background: rgba(255,255,255,0.6); border-radius: 12px; padding: 10px 12px; }
-details.sources summary { cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
-details.sources ul { margin: 8px 0 2px; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
-details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0; }
-.rival { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; }
-.rival p { font-family: var(--titre); font-size: 17px; line-height: 1.35; }
-.bulle-bluff { display: grid; gap: 6px; }
-.bulle-bluff .bulle { margin-bottom: 0; }
-.bulle-bluff .bulle::before { left: 34px; top: -10px; bottom: auto; border-left: 2px solid var(--ligne); border-top: 2px solid var(--ligne); border-bottom: 0; }
-.bulle { position: relative; background: var(--page); border: 2px solid var(--ligne); border-radius: 18px; padding: 14px 16px; margin-bottom: 22px; font-family: var(--titre); font-size: 20px; line-height: 1.3; }
-.bulle::before { content: ""; position: absolute; left: -10px; bottom: 18px; width: 16px; height: 16px; background: var(--page); border-left: 2px solid var(--ligne); border-bottom: 2px solid var(--ligne); transform: rotate(45deg); }
+.explication { font-family: var(--livre); font-size: 17px; line-height: 1.5; }
+details.sources { border-top: 1px solid var(--ligne); padding-top: 4px; }
+details.sources summary { cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
+details.sources summary .i { color: var(--vert); }
+details.sources ul { margin: 0 0 4px; padding-left: 18px; font-size: 14px; }
+details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; }
+.marge { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: center; }
+.marge p { font-family: var(--livre); font-style: italic; font-size: 17px; line-height: 1.4; color: var(--encre); margin: 0; }
+.marge small { display: block; font-family: var(--ui); font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); }
+.affirmation { margin: 0; font-family: var(--livre); font-style: italic; font-size: 21px; line-height: 1.4; }
 
-.rayon { display: grid; gap: 8px; }
-.case { display: grid; grid-template-columns: 34px 1fr; gap: 12px; align-items: center; min-height: 56px; padding: 8px 12px 8px 10px; border: 2px dashed var(--ligne-forte); border-radius: 14px; font-weight: 600; }
+.rayon { display: grid; gap: 6px; }
+.case { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: center; min-height: 54px; padding: 8px 12px 8px 10px; border: 1px dashed var(--ligne-forte); border-radius: 8px; font-family: var(--livre); font-size: 18px; }
 .case.pleine { border-style: solid; background: var(--page); }
-.case.ok { border-style: solid; background: var(--vert-pale); border-color: #9cc6ab; }
-.case.ko { border-style: solid; background: var(--bordeaux-pale); border-color: #e2aeb4; }
-.case .num { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--papier); border: 2px solid var(--ligne); font-size: 14px; color: var(--encre-2); }
-.case em { font-style: normal; font-weight: 400; color: var(--encre-2); }
-.case small { display: block; font-weight: 400; font-size: 13px; color: var(--bordeaux-fonce); }
-.pioche { display: grid; gap: 8px; }
-.pioche .tuile { grid-template-columns: 26px 1fr auto; font-size: 17px; }
-.pioche .tuile .etat { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); }
+.case.ok { border-style: solid; background: var(--vert-pale); border-color: var(--vert); }
+.case.ko { border-style: solid; background: var(--bordeaux-pale); border-color: var(--bordeaux); }
+.case .num { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--ligne-forte); font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
+.case em { color: var(--encre-2); font-size: 16px; }
+.case small { display: block; font-family: var(--ui); font-size: 13px; color: var(--bordeaux-fonce); }
+.pioche { display: grid; gap: 6px; }
+.pioche .tuile { grid-template-columns: 1fr auto; font-size: 18px; }
+.pioche .tuile .etat { font-family: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); }
+.pioche .tuile[aria-pressed="true"] { background: var(--papier); border-style: dashed; color: var(--encre-2); }
 
-.bilan { display: grid; gap: 16px; justify-items: center; text-align: center; }
-.bilan > .ico { width: 84px; height: 84px; animation: pop 0.6s ease-out; }
-.bilan .score { font-family: var(--titre); font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
-.bilan .actions { display: grid; gap: 14px; width: 100%; margin-top: 6px; }
+.bilan { display: grid; gap: 14px; }
+.bilan .score { display: flex; align-items: baseline; gap: 14px; }
+.bilan .score strong { font-family: var(--livre); font-weight: 500; font-size: 52px; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.revoir { list-style: none; margin: 0; padding: 0; display: grid; }
+.revoir li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding-block: 8px; border-top: 1px solid var(--ligne); font-family: var(--livre); font-size: 17px; }
+.revoir .i { width: 20px; height: 20px; margin-top: 3px; }
+.actions { display: grid; gap: 10px; }
 .credit { font-size: 12px; color: var(--encre-2); text-align: center; margin: 0; }
-@keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .verdict .titre .ico, .bilan > .ico { animation: none; } .tuile, .btn, .avance i { transition: none; } }
 </style>
 </head>
 <body>
 <div class="page">
   <div class="haut">
-    <a class="quitter" href="index.html" aria-label="Quitter la partie">×</a>
-    <div class="avance" role="progressbar" aria-label="Avancement" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0" id="avance"><i id="avance-barre"></i></div>
-    <span class="compte" id="compte">1 / 3</span>
+    <a class="retour" href="index.html"><span data-ico="retour"></span>Bibliothèque</a>
+    <span class="titre-chap">Chapitre 3</span>
+    <span class="temps" id="temps" hidden><span data-ico="sablier"></span><span id="secondes">25 s</span></span>
   </div>
-  <div class="infos">
-    <span class="puce dom"><img class="ico" src="emojis/globe_showing_europe-africa_flat.svg" alt="">Histoire et géographie</span>
-    <span class="puce temps" id="temps"><img class="ico" src="emojis/hourglass_not_done_flat.svg" alt=""><span id="secondes">25 s</span></span>
-  </div>
+  <div class="etapes" role="progressbar" aria-label="Avancement du chapitre" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="etapes"><i></i><i></i><i></i><i></i><i></i></div>
   <main id="scene"></main>
-  <p class="credit">Maquette 2 sur 2 · chaque réponse vérifiée par 2 sources au moins · émojis Fluent de Microsoft (licence MIT)</p>
+  <p class="credit">Maquette 2 sur 2 · chaque notion vérifiée par 2 sources au moins · icônes Phosphor (licence MIT)</p>
 </div>
 
+<script src="icones.js"></script>
 <script src="rival.js"></script>
 <script>
 (function () {
-  var QUESTIONS = [
+  var FP = "https://commons.wikimedia.org/wiki/Special:FilePath/";
+  var FICHE = {
+    chapitre: "De la Révolution à l’Empire",
+    figure: { src: FP + "Couder_Stati_generali.jpg?width=800", alt: "Tableau de l’ouverture des États généraux à Versailles", credit: "Auguste Couder, Ouverture des États généraux, 1839 · domaine public · Wikimedia Commons" },
+    reperes: [
+      ["5 mai 1789", "Ouverture des États généraux à Versailles, à l’hôtel des Menus‑Plaisirs."],
+      ["14 juillet 1789", "Prise de la Bastille ; la forteresse ne détient alors que sept prisonniers."],
+      ["14 juillet 1790", "Fête de la Fédération au Champ-de-Mars, un an après."],
+      ["2 décembre 1804", "Sacre de Napoléon à Notre-Dame de Paris."]
+    ],
+    sources: [
+      ["Assemblée nationale · La réunion des états généraux, mai 1789", "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"],
+      ["Château de Versailles · Versailles au cœur de la Révolution", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
+      ["Larousse · La Bastille", "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"],
+      ["BnF Essentiels · La fête de la Fédération", "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"],
+      ["Fondation Napoléon · Le sacre du 2 décembre 1804", "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"]
+    ]
+  };
+  var EXERCICES = [
     {
-      type: "qcm",
-      lib: "Question à choix",
+      type: "qcm", lib: "Exercice 1 · question à choix", theme: "La date des États généraux",
       enonce: "En quelle année les États généraux s’ouvrent‑ils à Versailles ?",
-      figure: { src: "https://commons.wikimedia.org/wiki/Special:FilePath/Couder_Stati_generali.jpg?width=800", alt: "Tableau de l’ouverture des États généraux à Versailles", credit: "Auguste Couder, Ouverture des États généraux, 1839 · domaine public · Wikimedia Commons" },
-      reponses: ["1787", "1789", "1791", "1793"],
-      bonne: 1,
-      correction: "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, dans la salle bâtie à l’hôtel des Menus-Plaisirs.",
+      reponses: ["1787", "1789", "1791", "1793"], bonne: 1,
+      correction: "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
+      figure: null,
       sources: [
         ["Assemblée nationale · La réunion des états généraux, mai 1789", "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"],
         ["Château de Versailles · Versailles au cœur de la Révolution", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
         ["Centre de musique baroque de Versailles · L’hôtel des Menus-Plaisirs", "https://cmbv.fr/en/node/2691"]
       ],
       rivalJuste: "Juste. Louis XVI a mis plus longtemps que toi à saisir l’enjeu.",
-      rivalFaux: "Raté. La Révolution n’a pas attendu que tu arrives."
+      rivalFaux: "La Révolution n’a pas attendu que tu arrives."
     },
     {
-      type: "bluff",
-      lib: "Le Rival bluffe ?",
-      affirmation: "Le Danube traverse quatre capitales : Vienne, Bratislava, Budapest et Belgrade.",
-      figure: { src: "https://commons.wikimedia.org/wiki/Special:FilePath/Budapest_city_099.jpg?width=800", alt: "Le pont des Chaînes sur le Danube à Budapest", credit: "Budapest, pont des Chaînes · photo Wilfredor, CC BY-SA 3.0 · Wikimedia Commons" },
-      vrai: true,
-      correction: "C’est exact : Vienne, Bratislava, Budapest et Belgrade sont toutes les quatre sur le Danube.",
+      type: "bluff", lib: "Exercice 2 · le Rival bluffe-t-il ?", theme: "Les prisonniers de la Bastille",
+      affirmation: "Le 14 juillet 1789, les émeutiers libèrent des centaines de prisonniers de la Bastille.",
+      vrai: false,
+      correction: "C’était un bluff. Ce jour-là, la Bastille ne détenait que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
+      figure: null,
       sources: [
-        ["ICPDR, commission internationale pour la protection du Danube", "https://www.icpdr.org/publications/flow-danube-cooperation-history-shared-responsibility"],
-        ["Encyclopædia Universalis · Danube", "https://www.universalis.fr/encyclopedie/danube/"],
-        ["Larousse · Danube", "https://www.larousse.fr/encyclopedie/riviere-lac/Danube/115634"]
+        ["Présidence de la République · La fête nationale du 14 juillet", "https://www.elysee.fr/la-presidence/la-fete-nationale-du-14-juillet"],
+        ["Larousse · La Bastille", "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"],
+        ["Encyclopædia Britannica · Storming of the Bastille", "https://www.britannica.com/print/article/2214626"]
       ],
-      rivalJuste: "Bien vu. La prochaine fois, je mentirai mieux.",
-      rivalFaux: "Je ne bluffe pas toujours. C’est ce qui me rend dangereux."
+      rivalJuste: "Repéré. La légende des cachots pleins a la vie dure, pas chez toi.",
+      rivalFaux: "Sept prisonniers. Je savais que la légende te plairait plus que les archives."
     },
     {
-      type: "frise",
-      lib: "Frise",
+      type: "frise", lib: "Exercice 3 · frise", theme: "L’ordre des grandes dates",
       enonce: "Range ces événements du plus ancien au plus récent.",
-      figure: { src: "https://commons.wikimedia.org/wiki/Special:FilePath/Le_Sacre_de_Napol%C3%A9on,_David,_1804.jpg?width=800", alt: "Le Sacre de Napoléon peint par Jacques-Louis David", credit: "Jacques-Louis David, Le Sacre de Napoléon, musée du Louvre · domaine public · Wikimedia Commons" },
       elements: ["Sacre de Napoléon", "Prise de la Bastille", "Fête de la Fédération"],
       ordre: ["Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
       dates: { "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
-      correction: "La Bastille tombe en 1789, la Fédération la fête un an plus tard, et Napoléon se fait sacrer à Notre-Dame en 1804.",
+      correction: "La Bastille tombe en 1789, la Fédération la célèbre en 1790, et Napoléon se fait sacrer à Notre-Dame en 1804.",
+      figure: { src: FP + "Le_Sacre_de_Napol%C3%A9on,_David,_1804.jpg?width=800", alt: "Le Sacre de Napoléon peint par Jacques-Louis David", credit: "Jacques-Louis David, Le Sacre de Napoléon, musée du Louvre · domaine public · Wikimedia Commons" },
       sources: [
         ["Encyclopædia Universalis · Quatorze juillet 1789", "https://www.universalis.fr/encyclopedie/quatorze-juillet-1789/"],
         ["BnF Essentiels · La fête de la Fédération", "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"],
         ["Fondation Napoléon · Le sacre du 2 décembre 1804", "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"],
         ["Musée du Louvre · Le Sacre, de Jacques-Louis David", "https://collections.louvre.fr/en/ark:/53355/cl010065720"]
       ],
-      rivalJuste: "Dans l’ordre. Même l’Empereur aurait signé.",
+      rivalJuste: "Dans l’ordre. L’Empereur lui-même n’aurait rien à redire.",
       rivalFaux: "La chronologie ne pardonne pas. Moi non plus."
     }
   ];
   var BAREME = { 50: [6, -1], 70: [8, -4], 90: [9, -8], 100: [10, -20] };
   var DUREE = 25;
-  var E = "emojis/";
 
   var scene = document.getElementById("scene");
-  var compte = document.getElementById("compte");
-  var avance = document.getElementById("avance");
-  var avanceBarre = document.getElementById("avance-barre");
-  var tempsPuce = document.getElementById("temps");
+  var etapes = document.getElementById("etapes");
+  var temps = document.getElementById("temps");
   var secondes = document.getElementById("secondes");
-  var index = 0, justes = 0, total = 0, chrono = null;
+  var etape = 0, justes = 0, total = 0, chrono = null, erreurs = [];
 
   function el(tag, attrs, enfants) {
     var n = document.createElement(tag);
@@ -217,13 +229,17 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0;
     (enfants || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
   }
-  function ico(nom, cls, alt) { return el("img", { "class": cls || "ico", src: E + nom, alt: alt || "" }); }
+  function icone(nom, cls, alt) {
+    var s = el("span", { "class": "ic", html: window.ico ? ico(nom, cls || "i") : "" });
+    if (alt) { s.setAttribute("role", "img"); s.setAttribute("aria-label", alt); }
+    return s;
+  }
   function pts(n) { return (n < 0 ? "−" + Math.abs(n) : (n > 0 ? "+" + n : "0")) + (Math.abs(n) > 1 ? " points" : " point"); }
   function signe(n) { return n < 0 ? "−" + Math.abs(n) : "+" + n; }
-  function rival(humeur, texte, taille) {
-    var b = el("div", { "class": "rival" });
-    b.innerHTML = window.rivalSVG ? rivalSVG(humeur, taille || 64) : "";
-    b.appendChild(el("p", { text: texte, style: "margin:0" }));
+  function marge(humeur, texte) {
+    var b = el("div", { "class": "marge" });
+    b.innerHTML = window.rivalSVG ? rivalSVG(humeur, 44) : "";
+    b.appendChild(el("p", {}, [el("small", { text: "Le Rival, en marge" }), texte]));
     return b;
   }
   function figure(f) {
@@ -233,68 +249,81 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0;
     img.addEventListener("error", function () { fig.remove(); });
     return fig;
   }
-
+  function sources(liste) {
+    var ul = el("ul");
+    liste.forEach(function (s) { ul.appendChild(el("li", {}, [el("a", { href: s[1], target: "_blank", rel: "noopener", text: s[0] })])); });
+    return el("details", { "class": "sources" }, [el("summary", {}, [icone("verifie"), "Vérifié par " + liste.length + " sources"]), ul]);
+  }
+  function majEtapes() {
+    etapes.querySelectorAll("i").forEach(function (b, k) { b.className = k < etape ? "fait" : (k === etape ? "cours" : ""); });
+    etapes.setAttribute("aria-valuenow", String(etape + 1));
+  }
   function lancerChrono(surFin) {
     clearInterval(chrono);
     var reste = DUREE;
-    tempsPuce.hidden = false;
-    tempsPuce.classList.remove("vite");
+    temps.hidden = false;
+    temps.classList.remove("vite");
     secondes.textContent = reste + " s";
     chrono = setInterval(function () {
       reste -= 1;
       secondes.textContent = Math.max(reste, 0) + " s";
-      if (reste <= 5) tempsPuce.classList.add("vite");
+      if (reste <= 5) temps.classList.add("vite");
       if (reste <= 0) { clearInterval(chrono); surFin(); }
     }, 1000);
   }
-  function arreterChrono() { clearInterval(chrono); }
+  function arreter() { clearInterval(chrono); }
 
-  function verdict(q, juste, gagne, texte, horsTemps) {
-    arreterChrono();
-    if (juste) justes += 1;
+  function verdict(q, juste, gagne, horsTemps) {
+    arreter();
+    if (juste) justes += 1; else erreurs.push(q.theme);
     total += gagne;
-    avanceBarre.style.width = ((index + 1) / QUESTIONS.length * 100) + "%";
-    avance.setAttribute("aria-valuenow", String(index + 1));
-    var liste = el("ul");
-    q.sources.forEach(function (s) { liste.appendChild(el("li", {}, [el("a", { href: s[1], target: "_blank", rel: "noopener", text: s[0] })])); });
-    var bloc = el("section", { "class": "verdict " + (juste ? "ok" : "ko"), role: "status" }, [
-      el("div", { "class": "titre" }, [
-        ico(juste ? "party_popper_flat.svg" : "cross_mark_flat.svg"),
-        el("strong", { text: horsTemps ? "Temps écoulé" : (juste ? "Bien joué !" : "Pas cette fois") }),
-        el("span", { "class": "pts", text: pts(gagne) })
-      ]),
-      el("p", { text: texte }),
+    var b = el("section", { "class": "verdict " + (juste ? "ok" : "ko"), role: "status" }, [
+      el("div", { "class": "titre" }, [icone(juste ? "juste" : "faux"), el("strong", { text: horsTemps ? "Temps écoulé" : (juste ? "Exact" : "Inexact") }), el("span", { "class": "pts", text: pts(gagne) })]),
+      el("p", { "class": "explication", text: q.correction }),
       figure(q.figure),
-      el("details", { "class": "sources" }, [
-        el("summary", {}, [ico("check_mark_button_flat.svg", "ico"), "Vérifié par " + q.sources.length + " sources"]),
-        liste
-      ]),
-      rival(juste ? "vexe" : "ravi", juste ? q.rivalJuste : q.rivalFaux, 60)
+      sources(q.sources),
+      marge(juste ? "vexe" : "ravi", juste ? q.rivalJuste : q.rivalFaux)
     ]);
-    var dernier = index === QUESTIONS.length - 1;
-    var suite = el("button", { "class": "btn" + (juste ? "" : " rouge"), type: "button", id: "continuer", text: dernier ? "Voir le bilan" : "Continuer" });
-    suite.addEventListener("click", function () { index += 1; afficher(); });
-    bloc.appendChild(suite);
-    return bloc;
+    var suite = el("button", { "class": "btn", type: "button", id: "continuer", text: etape === EXERCICES.length ? "Voir le bilan du chapitre" : "Exercice suivant" });
+    suite.addEventListener("click", function () { etape += 1; afficher(); });
+    b.appendChild(suite);
+    return b;
   }
   function poser(zone, bloc) {
     zone.appendChild(bloc);
     var calme = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     bloc.scrollIntoView({ behavior: calme ? "auto" : "smooth", block: "nearest" });
-    setTimeout(function () { var b = bloc.querySelector("#continuer"); if (b) b.focus({ preventScroll: true }); }, 0);
+    setTimeout(function () { var s = bloc.querySelector("#continuer"); if (s) s.focus({ preventScroll: true }); }, 0);
+  }
+
+  function fiche() {
+    temps.hidden = true;
+    var liste = el("ol", { "class": "reperes" });
+    FICHE.reperes.forEach(function (r) { liste.appendChild(el("li", {}, [el("time", { text: r[0] }), el("span", { text: r[1] })])); });
+    var go = el("button", { "class": "btn", type: "button", id: "commencer", text: "Commencer les 3 exercices" });
+    go.addEventListener("click", function () { etape = 1; afficher(); });
+    return el("div", { style: "display:grid;gap:18px" }, [
+      el("div", { "class": "feuille" }, [
+        el("span", { "class": "lib", text: "Histoire et géographie · chapitre 3" }),
+        el("h1", { text: FICHE.chapitre }),
+        figure(FICHE.figure),
+        el("h2", { text: "À retenir" }),
+        liste,
+        sources(FICHE.sources)
+      ]),
+      marge("explique", "Quatre dates, et je te les demanderai toutes. Prends ton temps."),
+      go,
+      el("p", { "class": "meta", style: "margin:-8px 0 0;text-align:center", text: "3 exercices · 25 secondes chacun" })
+    ]);
   }
 
   function qcm(q) {
     var choisi = null, certitude = 70;
     var lettres = ["A", "B", "C", "D"];
     var rep = el("div", { "class": "reponses", role: "group", "aria-label": "Réponses" });
-    var tuiles = q.reponses.map(function (r, i) {
-      var t = el("button", { "class": "tuile", type: "button", "aria-pressed": "false" }, [el("span", { "class": "lettre", text: lettres[i] }), el("span", { text: r }), el("span", { "class": "fin" })]);
-      t.addEventListener("click", function () {
-        choisi = i;
-        tuiles.forEach(function (x, j) { x.setAttribute("aria-pressed", j === i ? "true" : "false"); });
-        alerte.hidden = true;
-      });
+    var tuiles = q.reponses.map(function (r, k) {
+      var t = el("button", { "class": "tuile", type: "button", "aria-pressed": "false" }, [el("span", { "class": "lettre", text: lettres[k] }), el("span", { text: r }), el("span", { "class": "fin" })]);
+      t.addEventListener("click", function () { choisi = k; tuiles.forEach(function (x, j) { x.setAttribute("aria-pressed", j === k ? "true" : "false"); }); alerte.hidden = true; });
       rep.appendChild(t);
       return t;
     });
@@ -303,21 +332,14 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0;
     var jetons = el("div", { "class": "jetons", role: "group", "aria-label": "Ta certitude" });
     [50, 70, 90, 100].forEach(function (c) {
       var b = el("button", { type: "button", "aria-pressed": c === certitude ? "true" : "false", text: c + " %" });
-      b.addEventListener("click", function () {
-        certitude = c;
-        jetons.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
-        majRegle();
-      });
+      b.addEventListener("click", function () { certitude = c; jetons.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); majRegle(); });
       jetons.appendChild(b);
     });
     majRegle();
-    var pari = el("div", { "class": "pari" }, [
-      el("div", { "class": "ligne-titre" }, [el("span", {}, [ico("bookmark_flat.svg"), "Ton pari de confiance"]), regle]),
-      jetons
-    ]);
+    var pari = el("div", { "class": "pari" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "lib", text: "Ta certitude" }), regle]), jetons]);
     var alerte = el("p", { "class": "alerte", text: "Choisis d’abord une réponse.", hidden: "" });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider" });
-    var zone = el("div", { style: "display:grid;gap:18px" }, [
+    var zone = el("div", { style: "display:grid;gap:16px" }, [
       el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]),
       rep, pari, valider, alerte
     ]);
@@ -325,40 +347,31 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0;
       tuiles.forEach(function (t) { t.disabled = true; t.setAttribute("aria-pressed", "false"); });
       var juste = choisi === q.bonne;
       tuiles[q.bonne].classList.add("juste");
-      tuiles[q.bonne].querySelector(".fin").appendChild(ico("check_mark_button_flat.svg", "marque", "Bonne réponse"));
-      if (choisi !== null && !juste) {
-        tuiles[choisi].classList.add("faux");
-        tuiles[choisi].querySelector(".fin").appendChild(ico("cross_mark_flat.svg", "marque", "Ta réponse, fausse"));
-      }
+      tuiles[q.bonne].querySelector(".fin").appendChild(icone("juste", "i marque", "Bonne réponse"));
+      if (choisi !== null && !juste) { tuiles[choisi].classList.add("faux"); tuiles[choisi].querySelector(".fin").appendChild(icone("faux", "i marque", "Ta réponse, inexacte")); }
       pari.remove(); valider.remove(); alerte.remove();
-      var gagne = juste ? BAREME[certitude][0] : (choisi === null ? 0 : BAREME[certitude][1]);
-      poser(zone, verdict(q, juste, gagne, q.correction, horsTemps));
+      poser(zone, verdict(q, juste, juste ? BAREME[certitude][0] : (choisi === null ? 0 : BAREME[certitude][1]), horsTemps));
     }
-    valider.addEventListener("click", function () {
-      if (choisi === null) { alerte.hidden = false; return; }
-      conclure(false);
-    });
+    valider.addEventListener("click", function () { if (choisi === null) { alerte.hidden = false; return; } conclure(false); });
     lancerChrono(function () { conclure(true); });
     return zone;
   }
 
   function bluff(q) {
-    var tete = el("div");
-    tete.innerHTML = window.rivalSVG ? rivalSVG("malin", 84) : "";
     var rep = el("div", { "class": "reponses deux", role: "group", "aria-label": "Ton verdict" });
-    var vraiB = el("button", { "class": "tuile", type: "button" }, [ico("check_mark_button_flat.svg"), el("span", { text: "Il dit vrai" })]);
-    var bluffB = el("button", { "class": "tuile", type: "button" }, [ico("thinking_face_flat.svg"), el("span", { text: "Il bluffe" })]);
+    var vraiB = el("button", { "class": "tuile", type: "button" }, [icone("juste"), el("span", { text: "Il dit vrai" })]);
+    var bluffB = el("button", { "class": "tuile", type: "button" }, [icone("faux"), el("span", { text: "Il bluffe" })]);
     rep.appendChild(vraiB); rep.appendChild(bluffB);
-    var zone = el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("div", { "class": "bulle-bluff" }, [tete, el("p", { "class": "bulle", text: "« " + q.affirmation + " »" })])]),
-      rep
-    ]);
+    var tete = el("div", { "class": "marge" });
+    tete.innerHTML = window.rivalSVG ? rivalSVG("malin", 44) : "";
+    tete.appendChild(el("p", { "class": "affirmation", text: "« " + q.affirmation + " »" }));
+    var zone = el("div", { style: "display:grid;gap:16px" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), tete]), rep]);
     function conclure(dit) {
       vraiB.disabled = true; bluffB.disabled = true;
       var juste = dit === q.vrai;
       (q.vrai ? vraiB : bluffB).classList.add("juste");
       if (dit !== null && !juste) (dit ? vraiB : bluffB).classList.add("faux");
-      poser(zone, verdict(q, juste, juste ? 8 : (dit === null ? 0 : -4), q.correction, dit === null));
+      poser(zone, verdict(q, juste, juste ? 8 : (dit === null ? 0 : -4), dit === null));
     }
     vraiB.addEventListener("click", function () { conclure(true); });
     bluffB.addEventListener("click", function () { conclure(false); });
@@ -373,89 +386,82 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0;
     var alerte = el("p", { "class": "alerte", text: "Place les trois événements avant de valider.", hidden: "" });
     function dessiner() {
       rayon.innerHTML = "";
-      for (var i = 0; i < 3; i++) {
-        var nom = placees[i];
-        rayon.appendChild(el("div", { "class": "case" + (nom ? " pleine" : "") }, [el("span", { "class": "num", text: String(i + 1) }), nom ? el("span", { text: nom }) : el("em", { text: i === 0 ? "Le plus ancien" : (i === 2 ? "Le plus récent" : "Entre les deux") })]));
+      for (var k = 0; k < 3; k++) {
+        var nom = placees[k];
+        rayon.appendChild(el("div", { "class": "case" + (nom ? " pleine" : "") }, [el("span", { "class": "num", text: String(k + 1) }), nom ? el("span", { text: nom }) : el("em", { text: k === 0 ? "Le plus ancien" : (k === 2 ? "Le plus récent" : "Entre les deux") })]));
       }
-      pioche.querySelectorAll("button").forEach(function (b) {
-        var dedans = placees.indexOf(b.dataset.nom) >= 0;
-        b.setAttribute("aria-pressed", dedans ? "true" : "false");
-        b.querySelector(".etat").textContent = dedans ? "Retirer" : "Placer";
-      });
+      pioche.querySelectorAll("button").forEach(function (b) { var d = placees.indexOf(b.dataset.nom) >= 0; b.setAttribute("aria-pressed", d ? "true" : "false"); b.querySelector(".etat").textContent = d ? "Retirer" : "Placer"; });
     }
     q.elements.forEach(function (nom) {
-      var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [ico("scroll_flat.svg"), el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
-      b.addEventListener("click", function () {
-        var k = placees.indexOf(nom);
-        if (k >= 0) placees.splice(k, 1); else if (placees.length < 3) placees.push(nom);
-        alerte.hidden = true;
-        dessiner();
-      });
+      var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
+      b.addEventListener("click", function () { var k = placees.indexOf(nom); if (k >= 0) placees.splice(k, 1); else if (placees.length < 3) placees.push(nom); alerte.hidden = true; dessiner(); });
       pioche.appendChild(b);
     });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider l’ordre" });
-    var zone = el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]),
-      rayon, pioche, valider, alerte
-    ]);
+    var zone = el("div", { style: "display:grid;gap:16px" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]), rayon, pioche, valider, alerte]);
     function conclure(horsTemps) {
-      var juste = placees.length === 3 && placees.every(function (n, i) { return n === q.ordre[i]; });
+      var juste = placees.length === 3 && placees.every(function (n, k) { return n === q.ordre[k]; });
       pioche.remove(); valider.remove(); alerte.remove();
       rayon.innerHTML = "";
-      q.ordre.forEach(function (nom, i) {
-        var ok = placees[i] === nom;
-        var texte = el("span", {}, [nom + ", " + q.dates[nom]]);
-        if (!ok) texte.appendChild(el("small", { text: "Tu avais placé ici : " + (placees[i] || "rien") }));
-        rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(i + 1) }), texte]));
+      q.ordre.forEach(function (nom, k) {
+        var ok = placees[k] === nom;
+        var txt = el("span", {}, [nom + ", " + q.dates[nom]]);
+        if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici : " + (placees[k] || "rien") }));
+        rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(k + 1) }), txt]));
       });
-      poser(zone, verdict(q, juste, juste ? 10 : 0, q.correction, horsTemps));
+      poser(zone, verdict(q, juste, juste ? 10 : 0, horsTemps));
     }
-    valider.addEventListener("click", function () {
-      if (placees.length < 3) { alerte.hidden = false; return; }
-      conclure(false);
-    });
+    valider.addEventListener("click", function () { if (placees.length < 3) { alerte.hidden = false; return; } conclure(false); });
     dessiner();
     lancerChrono(function () { conclure(true); });
     return zone;
   }
 
   function bilan() {
-    arreterChrono();
-    tempsPuce.hidden = true;
-    compte.textContent = "Bilan";
-    var humeur = justes >= 2 ? "vexe" : "ravi";
-    var mot = justes === 3 ? "Trois sur trois. Je vais devoir relire mes fiches."
-      : justes === 2 ? "Deux sur trois. Honorable. Demain, je durcis le ton."
-      : justes === 1 ? "Une sur trois. Je t’attends demain pour la revanche."
-      : "Zéro. J’ai rarement gagné aussi facilement.";
-    var lienTexte = el("p", { "class": "meta", style: "margin:0" });
-    var defier = el("button", { "class": "btn clair", type: "button" }, [ico("crossed_swords_flat.svg"), "Défier un ami"]);
+    arreter();
+    temps.hidden = true;
+    var pct = Math.round(justes / EXERCICES.length * 100);
+    var valide = justes >= 2;
+    var revoir = el("ul", { "class": "revoir" });
+    if (erreurs.length) erreurs.forEach(function (e) { revoir.appendChild(el("li", {}, [icone("revision"), e])); });
+    else revoir.appendChild(el("li", {}, [icone("juste"), "Rien à revoir sur ce chapitre."]));
+    var copie = el("p", { "class": "meta", style: "margin:0" });
+    var defier = el("button", { "class": "btn trait", type: "button" }, [icone("epee"), "Défier un ami sur ce chapitre"]);
     defier.addEventListener("click", function () {
-      var lien = "koios.app/duel/7K2Q";
-      var repli = function () { lienTexte.textContent = "Copie impossible ici. Lien d’essai : " + lien; };
-      try { navigator.clipboard.writeText(lien).then(function () { lienTexte.textContent = "Lien d’essai copié : colle-le dans WhatsApp."; }, repli); } catch (e) { repli(); }
+      var lien = "koios.app/defi/7K2Q";
+      var repli = function () { copie.textContent = "Copie impossible ici. Lien d’essai : " + lien; };
+      try { navigator.clipboard.writeText(lien).then(function () { copie.textContent = "Lien d’essai copié : colle-le dans WhatsApp."; }, repli); } catch (e) { repli(); }
     });
-    var rejouer = el("button", { "class": "btn", type: "button", text: "Rejouer la série" });
-    rejouer.addEventListener("click", function () { index = 0; justes = 0; total = 0; avanceBarre.style.width = "0"; afficher(); });
-    return el("section", { "class": "bilan feuille" }, [
-      ico(justes >= 2 ? "trophy_flat.svg" : "books_flat.svg"),
-      el("span", { "class": "meta", text: "Série terminée · Histoire et géographie" }),
-      el("span", { "class": "score", text: justes + " / 3" }),
-      el("span", { style: "font-weight:600", text: pts(total) }),
-      rival(humeur, mot, 72),
-      el("div", { "class": "actions" }, [defier, lienTexte, rejouer, el("a", { "class": "btn clair", href: "index.html", text: "Retour à l’étagère" })])
+    var refaire = el("button", { "class": "btn", type: "button", text: erreurs.length ? "Revoir mes erreurs" : "Refaire le chapitre" });
+    refaire.addEventListener("click", function () { etape = 0; justes = 0; total = 0; erreurs = []; afficher(); });
+    var mot = justes === 3 ? "Trois sur trois. Je reprends mes fiches, et tu passes au chapitre 4."
+      : justes === 2 ? "Validé, de justesse. Le chapitre 4 sera moins indulgent."
+      : justes === 1 ? "Une sur trois. Relis la fiche, je t’attends."
+      : "Aucune. Relis la fiche, puis reviens me voir.";
+    return el("div", { style: "display:grid;gap:18px" }, [
+      el("section", { "class": "feuille bilan", "aria-labelledby": "bilan-titre" }, [
+        el("span", { "class": "lib", text: "Chapitre 3 · bilan" }),
+        el("h1", { id: "bilan-titre", text: valide ? "Chapitre validé" : "Chapitre à reprendre" }),
+        el("div", { "class": "score" }, [el("strong", { text: justes + "/" + EXERCICES.length }), el("span", { "class": "meta", text: pct + " % · " + pts(total) })]),
+        el("h2", { text: "Points à revoir" }),
+        revoir,
+        el("p", { "class": "meta", style: "margin:0", text: valide ? "Suite : chapitre 4, Le Consulat et l’Empire." : "Il faut 2 bonnes réponses sur 3 pour valider." })
+      ]),
+      marge(valide ? "vexe" : "ravi", mot),
+      el("div", { "class": "actions" }, [refaire, defier, copie, el("a", { "class": "btn trait", href: "index.html", text: "Retour à la bibliothèque" })])
     ]);
   }
 
   function afficher() {
     scene.innerHTML = "";
     window.scrollTo(0, 0);
-    if (index >= QUESTIONS.length) { scene.appendChild(bilan()); return; }
-    compte.textContent = (index + 1) + " / " + QUESTIONS.length;
-    var q = QUESTIONS[index];
+    majEtapes();
+    if (etape === 0) { scene.appendChild(fiche()); return; }
+    if (etape > EXERCICES.length) { scene.appendChild(bilan()); return; }
+    var q = EXERCICES[etape - 1];
     scene.appendChild(q.type === "qcm" ? qcm(q) : q.type === "bluff" ? bluff(q) : frise(q));
   }
-  window.KOIOS_QUESTIONS = QUESTIONS;
+  if (window.poserIcones) poserIcones();
   afficher();
 })();
 </script>

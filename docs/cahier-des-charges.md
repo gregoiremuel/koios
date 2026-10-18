@@ -13,6 +13,16 @@ Koîos est une app web de défis de savoir : on joue entre amis, on se lance des
 - Pilotage : Greg valide depuis son téléphone, Claude Code construit.
 - Nom : Koîos, Titan grec dont le nom signifie probablement « question ». Logo « Koîos », adresse et stores « koios ».
 
+## Mode formation (depuis le 18 octobre 2026)
+
+Koîos se présente comme une formation pour adultes. Chaque sujet est un livre de l'étagère, découpé en chapitres. Un chapitre suit toujours le même ordre :
+
+1. Une fiche « À retenir » : les repères essentiels (dates, notions), avec leurs sources.
+2. Trois exercices variés (question à choix avec pari de confiance, « le Rival bluffe-t-il ? », frise…), chronométrés.
+3. Un bilan : score, chapitre validé à partir de 2 bonnes réponses sur 3, points à revoir, chapitre suivant.
+
+Le défi de groupe devient le « cercle d'étude », et les duels deviennent les « défis entre amis ».
+
 ## Le jeu
 
 Sujets : catalogue, sujet libre tapé par le joueur, decks créés par les amis. Catalogue de départ : Histoire et géographie, Sciences et nature, Arts et culture, Gemmologie et joaillerie.
@@ -79,7 +89,7 @@ Stats : classements, courbe de progression, radar de compétences, bilan de déf
 
 ## Design
 
-Voir `DESIGN.md` (v2, « librairie ludique » : Duolingo croisé avec une vieille librairie, renard bibliothécaire, émojis dessinés Fluent, photos libres et photos de Greg). La v1 « musée » a été abandonnée le 18 octobre 2026.
+Voir `DESIGN.md` (v3, « bibliothèque d'étude » : typographie de livre, étagère de formations, icônes au trait, Rival en ex-libris). Les v1 « musée » et v2 « librairie ludique » ont été abandonnées le 18 octobre 2026.
 
 ## Écrans de la première ébauche
 

@@ -8,154 +8,152 @@
 <meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Young+Serif&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
 <style>
-/* Librairie ludique : papier de vieux livre, bois des rayonnages, reliures colorées ; boutons épais façon touche. Un seul thème, clair. */
+/* Bibliothèque d'étude : papier, bois et reliures ; typographie de livre, traits fins, une formation par livre. Un seul thème, clair. */
 :root {
-  --papier: #fbf6ec; --page: #fffdf8; --ligne: #e8dcc6; --ligne-forte: #d7c4a3;
-  --encre: #2f241c; --encre-2: #6e5d4e;
+  --papier: #f8f3ea; --page: #fffdf9; --ligne: #e4d9c7; --ligne-forte: #cdbb9c;
+  --encre: #2a2119; --encre-2: #6b5d4f;
   --bois: #6b4a2f; --bois-fonce: #4a3220;
-  --vert: #3e7a5a; --vert-fonce: #2c5a41; --vert-pale: #e3efe6;
-  --bordeaux: #8e2f3c; --bordeaux-fonce: #6f2330; --bordeaux-pale: #f6e3e3;
-  --prusse: #2f5d8a; --prusse-fonce: #224566; --prusse-pale: #e2ebf4;
-  --or: #b8892e; --or-fonce: #8c6720; --or-pale: #f6ecd6;
-  --titre: "Young Serif", "Iowan Old Style", Georgia, serif;
+  --vert: #3b6b52; --vert-fonce: #2a4f3c; --vert-pale: #e4ede6;
+  --bordeaux: #7d2a35; --bordeaux-pale: #f3e4e4;
+  --prusse: #2c5378; --prusse-pale: #e3eaf2;
+  --or: #a8802f; --or-fonce: #7f6022; --or-pale: #f3ead6;
+  --livre: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --ui: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --veines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.45' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
-  --reglure: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='30'%3E%3Cline x1='0' y1='29.5' x2='10' y2='29.5' stroke='%23d6e2ec' stroke-width='1'/%3E%3C/svg%3E");
   color-scheme: light;
   padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
 button, input { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--prusse); outline-offset: 2px; }
-.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px 112px; display: grid; gap: 22px; }
-.ico { width: 24px; height: 24px; flex: none; display: block; }
-h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 1.2; margin: 0; }
-.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
-.carte { background: var(--page); border: 2px solid var(--ligne); border-bottom-width: 5px; border-bottom-color: var(--ligne-forte); border-radius: 18px; padding: 18px; display: grid; gap: 14px; }
-.btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 18px; border: 0; border-radius: 14px; background: var(--vert); color: #fff; box-shadow: 0 4px 0 var(--vert-fonce); font-family: var(--ui); font-weight: 600; font-size: 16px; letter-spacing: 0.03em; text-transform: uppercase; text-decoration: none; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s; }
-.btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--vert-fonce); }
-.btn.clair { background: var(--page); color: var(--prusse); border: 2px solid var(--ligne); box-shadow: 0 4px 0 var(--ligne-forte); }
-.btn.clair:active { box-shadow: 0 0 0 var(--ligne-forte); }
+:focus-visible { outline: 2px solid var(--prusse); outline-offset: 2px; }
+.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px 104px; display: grid; gap: 26px; }
+.i { width: 20px; height: 20px; flex: none; display: block; }
+h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 1.25; margin: 0; letter-spacing: -0.005em; }
+.lib { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--encre-2); }
+.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: lining-nums tabular-nums; }
+.carte { background: var(--page); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--vert); color: #fff; border-bottom: 2px solid var(--vert-fonce); font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer; }
+.btn:active { transform: translateY(1px); }
+.btn.trait { background: transparent; color: var(--encre); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; }
+.lien { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; font-weight: 600; font-size: 15px; color: var(--prusse); text-decoration: none; }
+.lien .i { width: 18px; height: 18px; }
 
 .haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.marque { font-family: var(--titre); font-size: 28px; text-decoration: none; letter-spacing: -0.01em; min-height: 44px; display: inline-flex; align-items: center; }
-.stats { display: flex; align-items: center; gap: 14px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
-.stats span { display: flex; align-items: center; gap: 6px; }
-.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 14px; border: 2px solid var(--page); }
+.marque { font-family: var(--livre); font-weight: 600; font-size: 30px; letter-spacing: -0.01em; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.compte { display: flex; align-items: center; gap: 14px; font-weight: 600; font-size: 15px; font-variant-numeric: lining-nums tabular-nums; }
+.compte span { display: flex; align-items: center; gap: 6px; }
+.compte .i { color: var(--or); }
+.initiale { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 14px; background: var(--or-pale); color: var(--or-fonce); border: 1px solid var(--ligne-forte); }
 
-.rival { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: end; }
-.bulle { position: relative; background: var(--page); border: 2px solid var(--ligne); border-radius: 18px; padding: 12px 14px; font-family: var(--titre); font-size: 17px; line-height: 1.4; margin-bottom: 18px; }
-.bulle b { font-family: var(--ui); }
-.bulle::before { content: ""; position: absolute; left: -10px; bottom: 16px; width: 16px; height: 16px; background: var(--page); border-left: 2px solid var(--ligne); border-bottom: 2px solid var(--ligne); transform: rotate(45deg); }
-.bulle b { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); margin-bottom: 2px; }
+.note { display: grid; grid-template-columns: 52px 1fr; gap: 14px; align-items: center; }
+.note p { margin: 0; font-family: var(--livre); font-style: italic; font-size: 18px; line-height: 1.4; color: var(--encre); }
+.note small { display: block; font-family: var(--ui); font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); margin-bottom: 2px; }
 
-.fiche { background-color: var(--page); background-image: var(--reglure); background-position: 0 6px; position: relative; overflow: hidden; }
-.fiche::before { content: ""; position: absolute; left: 0; right: 0; top: 50px; border-top: 2px solid #e7a6a6; }
-.entete { display: flex; align-items: center; gap: 8px; min-height: 30px; }
-.entete .lib { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); flex: 1; }
-.entete .jour { font-weight: 600; font-size: 14px; color: var(--bordeaux); }
-.fiche h2 { font-size: 24px; text-wrap: balance; padding-top: 8px; }
-.joueurs { display: flex; align-items: center; gap: 10px; }
-.pile { display: flex; }
-.pile .avatar { margin-left: -8px; width: 32px; height: 32px; font-size: 13px; }
-.pile .avatar:first-child { margin-left: 0; }
-.jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; }
-.jours span { display: grid; gap: 4px; justify-items: center; font-size: 12px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
-.jours span::before { content: ""; width: 100%; height: 30px; border-radius: 4px 4px 2px 2px; background: var(--ligne); }
+.reprendre h2 { font-size: 24px; }
+.reprendre .sous { font-family: var(--livre); font-size: 18px; color: var(--encre-2); margin: -8px 0 0; }
+.infos { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.infos span { display: flex; align-items: center; gap: 6px; }
+.infos .i { color: var(--encre-2); width: 18px; height: 18px; }
+.programme { display: grid; gap: 6px; }
+.chapitres { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.chapitres i { height: 6px; border-radius: 2px; background: var(--ligne); }
+.chapitres i.fait { background: var(--or); }
+.chapitres i.cours { background: var(--page); border: 1px solid var(--or); }
+
+.titre-sec { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.etagere { position: relative; padding: 14px 12px 0; border-radius: 10px 10px 4px 4px; background: #876143 var(--veines); background-size: 400px 60px; }
+.livres { display: grid; grid-template-columns: 1.1fr 0.92fr 1fr 0.88fr; gap: 6px; align-items: end; }
+.livre { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; padding: 12px 6px 14px; border-radius: 4px 4px 2px 2px; border-left: 4px solid rgba(0,0,0,0.18); text-decoration: none; cursor: pointer; transition: transform 0.15s; }
+.livre:hover, .livre:focus-visible { transform: translateY(-5px); }
+.livre .nerfs { display: grid; gap: 6px; width: 100%; }
+.livre .nerfs i { height: 5px; background: rgba(0,0,0,0.24); border-top: 1px solid rgba(255,255,255,0.25); }
+.livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0,0,0,0.26); border: 1px solid rgba(243,213,138,0.5); border-radius: 2px; min-height: 0; }
+.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--livre); font-weight: 500; font-size: 15px; line-height: 1; white-space: nowrap; color: #f2e4bd; }
+.livre .bandes { display: grid; gap: 3px; width: 70%; }
+.livre .bandes i { height: 3px; border-radius: 1px; background: rgba(255,255,255,0.25); }
+.livre .bandes i.ok { background: #e9cd86; }
+.l1 { background: var(--bordeaux); height: 222px; } .l2 { background: var(--vert); height: 236px; } .l3 { background: var(--prusse); height: 214px; } .l4 { background: var(--or-fonce); height: 230px; }
+.planche { height: 14px; margin: 0 -12px; border-radius: 0 0 4px 4px; background: var(--bois-fonce) var(--veines); border-bottom: 3px solid #33220f; }
+.legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
+.legende span { display: grid; justify-items: center; gap: 3px; }
+.legende .i { width: 22px; height: 22px; }
+.legende b { color: var(--encre); font-size: 13px; }
+
+.jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.jours span { display: grid; gap: 4px; justify-items: center; font-size: 12px; color: var(--encre-2); font-variant-numeric: lining-nums tabular-nums; }
+.jours span::before { content: ""; width: 100%; height: 6px; border-radius: 2px; background: var(--ligne); }
 .jours .fait::before { background: var(--or); }
 .jours .auj { color: var(--encre); font-weight: 600; }
-.jours .auj::before { background: var(--page); border: 2px dashed var(--or-fonce); }
+.jours .auj::before { background: var(--page); border: 1px solid var(--or); }
+.classement { list-style: none; margin: 0; padding: 0; display: grid; }
+.classement li { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; min-height: 40px; border-top: 1px solid var(--ligne); font-variant-numeric: lining-nums tabular-nums; }
+.classement li:first-child { border-top: 0; }
+.classement .rang { font-family: var(--livre); font-weight: 600; color: var(--encre-2); }
+.classement .moi { font-weight: 600; }
 
-.bandeau { margin: 0; display: grid; gap: 6px; }
-.bandeau img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; border-radius: 18px; border: 2px solid var(--ligne); background: var(--ligne); }
-.bandeau figcaption { font-size: 12px; color: var(--encre-2); }
-.titre-sec { display: flex; justify-content: space-between; align-items: baseline; }
-.etagere { position: relative; padding: 14px 12px 0; border-radius: 16px 16px 6px 6px; background: #8a6443 var(--veines); background-size: 400px 60px; }
-.livres { display: grid; grid-template-columns: 1.1fr 0.92fr 1fr 0.88fr; gap: 6px; align-items: end; }
-.livre { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; height: 230px; padding: 12px 6px 14px; border-radius: 5px 5px 3px 3px; border: 0; border-left: 5px solid rgba(0,0,0,0.18); color: #fff; text-decoration: none; cursor: pointer; transition: transform 0.15s; }
-.livre:hover, .livre:focus-visible { transform: translateY(-6px); }
-.livre .nerfs { display: grid; gap: 6px; width: 100%; }
-.livre .nerfs i { height: 5px; background: rgba(0,0,0,0.24); border-top: 1px solid rgba(255,255,255,0.28); }
-.livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0,0,0,0.26); border: 1px solid rgba(243,213,138,0.55); border-radius: 3px; min-height: 0; }
-.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--titre); font-size: 15px; line-height: 1; white-space: nowrap; color: #f6e7bd; }
-.livre .bandes { display: grid; gap: 3px; width: 70%; }
-.livre .bandes i { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.28); }
-.livre .bandes i.ok { background: #f3d58a; }
-.livre.l1 { background: var(--bordeaux); height: 222px; }
-.livre.l2 { background: var(--vert); height: 236px; }
-.livre.l3 { background: var(--prusse); height: 214px; }
-.livre.l4 { background: var(--or-fonce); height: 230px; }
-.planche { height: 16px; margin: 0 -12px; border-radius: 0 0 6px 6px; background: var(--bois-fonce) var(--veines); border-bottom: 4px solid #33220f; }
-.legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
-.legende span { display: grid; justify-items: center; gap: 2px; }
-.legende .ico { width: 24px; height: 24px; }
-.legende b { display: block; color: var(--encre); font-size: 13px; }
-
-.libre label { font-family: var(--titre); font-size: 20px; }
-.libre input { width: 100%; min-height: 54px; padding: 0 16px; border: 2px solid var(--ligne); border-radius: 14px; background: var(--papier); font-size: 17px; }
-.libre input:focus { border-color: var(--prusse); outline: none; }
-.libre input::placeholder { color: var(--encre-2); }
-.astuce { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--encre-2); margin: 0; }
-.astuce .ico { width: 22px; height: 22px; }
+.libre label { font-family: var(--livre); font-weight: 600; font-size: 21px; }
+.libre input { width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--ligne-forte); border-radius: 8px; background: var(--papier); font-family: var(--livre); font-size: 17px; }
+.libre input:focus { border-color: var(--prusse); outline: none; box-shadow: 0 0 0 2px var(--prusse-pale); }
+.libre input::placeholder { color: var(--encre-2); font-style: italic; }
+.astuce { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--encre-2); margin: 0; }
+.astuce .i { color: var(--vert); width: 18px; height: 18px; margin-top: 2px; }
 .astuce.erreur { color: var(--bordeaux); font-weight: 600; }
 
-.duel { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 2px solid var(--ligne); }
+.duel { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 1px solid var(--ligne); }
 .duel:first-of-type { border-top: 0; padding-top: 0; }
-.duel .qui { font-weight: 600; }
-.petit { min-height: 44px; width: auto; padding: 0 14px; font-size: 14px; }
-.attente { font-size: 13px; font-weight: 600; color: var(--encre-2); background: var(--papier); border: 2px solid var(--ligne); border-radius: 999px; padding: 4px 10px; }
+.duel .qui { font-family: var(--livre); font-weight: 600; font-size: 17px; }
+.btn.petit { width: auto; min-height: 44px; padding: 0 14px; font-size: 14px; }
+.attente { font-size: 13px; color: var(--encre-2); }
+.bandeau { margin: 0; display: grid; gap: 6px; }
+.bandeau img { width: 100%; aspect-ratio: 16 / 7; object-fit: cover; border-radius: 10px; border: 1px solid var(--ligne); background: var(--ligne); }
+.bandeau figcaption { font-size: 12px; color: var(--encre-2); }
 .credit { font-size: 12px; color: var(--encre-2); text-align: center; margin: 0; }
 
-.nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--page); border-top: 2px solid var(--ligne); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-.nav nav { max-width: 32rem; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding-block: 6px; }
-.nav button { display: grid; justify-items: center; gap: 2px; min-height: 56px; padding: 4px 0; background: none; border: 2px solid transparent; border-radius: 14px; font-size: 12px; font-weight: 600; color: var(--encre-2); cursor: pointer; }
-.nav button[aria-current="page"] { background: var(--prusse-pale); border-color: #b9cde2; color: var(--prusse-fonce); }
-.nav .ico { width: 26px; height: 26px; }
-.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 16px; border-radius: 12px; max-width: calc(100% - 32px); }
-@media (prefers-reduced-motion: reduce) { .btn, .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--page); border-top: 1px solid var(--ligne-forte); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+.nav nav { max-width: 32rem; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+.nav button { display: grid; justify-items: center; gap: 3px; min-height: 58px; padding: 8px 0 6px; background: none; border: 0; border-top: 2px solid transparent; font-size: 12px; font-weight: 600; color: var(--encre-2); cursor: pointer; }
+.nav button[aria-current="page"] { color: var(--encre); border-top-color: var(--encre); }
+.nav .i { width: 22px; height: 22px; }
+.toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 14px; border-radius: 8px; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: reduce) { .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }
 </style>
 </head>
 <body>
 <div class="page">
   <header class="haut">
     <a class="marque" href="index.html">Koîos</a>
-    <div class="stats">
-      <span title="Tes points"><img class="ico" src="emojis/trophy_flat.svg" alt="">1 240</span>
-      <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)" role="img" aria-label="Ton profil, Greg">G</span>
+    <div class="compte">
+      <span title="Tes points"><span data-ico="trophee"></span>1 240</span>
+      <span class="initiale" role="img" aria-label="Ton profil, Greg">G</span>
     </div>
   </header>
 
-  <section class="rival" aria-label="Le Rival">
-    <div id="rival-tete"></div>
-    <p class="bulle"><b>Le Rival</b>Jour 3, et toujours deuxième. Robespierre aurait déjà pris des mesures.</p>
+  <section class="note" aria-label="Note du Rival">
+    <div id="rival-cachet"></div>
+    <p><small>Le Rival, en marge</small>Chapitre 3 commencé, jamais fini. Robespierre, lui, allait au bout des choses.</p>
   </section>
 
-  <section class="carte fiche" aria-labelledby="defi-titre">
-    <div class="entete">
-      <img class="ico" src="emojis/hourglass_not_done_flat.svg" alt="">
-      <span class="lib">Défi du groupe</span>
-      <span class="jour">Jour 3 sur 7</span>
+  <section class="carte reprendre" aria-labelledby="reprendre-titre">
+    <span class="lib">Formation en cours</span>
+    <h2 id="reprendre-titre">Histoire et géographie</h2>
+    <p class="sous">Chapitre 3 · De la Révolution à l’Empire</p>
+    <div class="infos meta">
+      <span><span data-ico="livre"></span>Fiche « À retenir »</span>
+      <span><span data-ico="liste"></span>3 exercices</span>
+      <span><span data-ico="sablier"></span>8 min environ</span>
     </div>
-    <h2 id="defi-titre">Expert en 7&nbsp;jours&nbsp;: la&nbsp;Révolution française</h2>
-    <div class="joueurs">
-      <div class="pile" aria-hidden="true">
-        <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)">G</span>
-        <span class="avatar" style="background: var(--prusse-pale); color: var(--prusse-fonce)">L</span>
-        <span class="avatar" style="background: var(--vert-pale); color: var(--vert-fonce)">K</span>
-        <span class="avatar" style="background: var(--bordeaux-pale); color: var(--bordeaux-fonce)">S</span>
-        <span class="avatar" style="background: #efe6da; color: var(--bois)">M</span>
+    <div class="programme">
+      <div class="chapitres" role="img" aria-label="Chapitre 3 sur 8 : deux chapitres validés">
+        <i class="fait"></i><i class="fait"></i><i class="cours"></i><i></i><i></i><i></i><i></i><i></i>
       </div>
-      <span class="meta">5 joueurs · tu es <b style="color: var(--encre)">2e</b></span>
+      <span class="meta">Chapitre 3 sur 8 · 2 validés</span>
     </div>
-    <div class="jours" role="img" aria-label="Jour 3 sur 7 : deux jours faits">
-      <span class="fait">1</span><span class="fait">2</span><span class="auj">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
-    </div>
-    <a class="btn" href="partie.html">Reprendre · jour 3</a>
+    <a class="btn" href="partie.html">Reprendre le chapitre 3</a>
   </section>
 
   <figure class="bandeau" id="bandeau">
@@ -164,67 +162,80 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
   </figure>
 
   <section aria-labelledby="etagere-titre" style="display: grid; gap: 12px">
-    <div class="titre-sec"><h2 id="etagere-titre">Ton étagère</h2><span class="meta">Choisis un livre</span></div>
+    <div class="titre-sec"><h2 id="etagere-titre">Tes formations</h2><span class="meta">4 en cours</span></div>
     <div class="etagere">
       <div class="livres">
-        <a class="livre l1" href="partie.html" aria-label="Histoire et géographie, Compagnon"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Histoire · Géo</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i></i></span></a>
-        <a class="livre l2" href="partie.html" aria-label="Sciences et nature, Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Sciences</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
-        <a class="livre l3" href="partie.html" aria-label="Arts et culture, Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Arts · Culture</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
-        <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, Maître"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Gemmologie</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
+        <a class="livre l1" href="partie.html" aria-label="Histoire et géographie, niveau Compagnon"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Histoire · Géo</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i></i></span></a>
+        <a class="livre l2" href="partie.html" aria-label="Sciences et nature, niveau Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Sciences</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l3" href="partie.html" aria-label="Arts et culture, niveau Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Arts · Culture</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, niveau Maître"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Gemmologie</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
       </div>
       <div class="planche"></div>
     </div>
     <div class="legende">
-      <span><img class="ico" src="emojis/globe_showing_europe-africa_flat.svg" alt=""><b>Compagnon</b>62 questions</span>
-      <span><img class="ico" src="emojis/microscope_flat.svg" alt=""><b>Apprenti</b>18 questions</span>
-      <span><img class="ico" src="emojis/artist_palette_flat.svg" alt=""><b>Apprenti</b>9 questions</span>
-      <span><img class="ico" src="emojis/gem_stone_flat.svg" alt=""><b>Maître</b>140 questions</span>
+      <span><span data-ico="globe" style="color: var(--bordeaux)"></span><b>Compagnon</b>35 %</span>
+      <span><span data-ico="microscope" style="color: var(--vert)"></span><b>Apprenti</b>12 %</span>
+      <span><span data-ico="palette" style="color: var(--prusse)"></span><b>Apprenti</b>8 %</span>
+      <span><span data-ico="gemme" style="color: var(--or-fonce)"></span><b>Maître</b>92 %</span>
     </div>
+  </section>
+
+  <section class="carte" aria-labelledby="cercle-titre">
+    <div class="titre-sec"><span class="lib">Cercle d’étude · 5 membres</span><span class="meta">Jour 3 sur 7</span></div>
+    <h2 id="cercle-titre">Défi : expert de la Révolution en 7&nbsp;jours</h2>
+    <div class="jours" role="img" aria-label="Jour 3 sur 7, deux jours réussis">
+      <span class="fait">1</span><span class="fait">2</span><span class="auj">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+    </div>
+    <ol class="classement" aria-label="Classement du cercle">
+      <li><span class="rang">1</span><span>Léa</span><span class="meta">420 pts</span></li>
+      <li class="moi"><span class="rang">2</span><span>Toi</span><span class="meta" style="color: var(--encre)">395 pts</span></li>
+      <li><span class="rang">3</span><span>Karim</span><span class="meta">360 pts</span></li>
+    </ol>
+    <a class="lien" href="#" id="voir-cercle">Voir tout le cercle <span data-ico="fleche"></span></a>
   </section>
 
   <section class="carte libre" aria-labelledby="libre-titre">
-    <label id="libre-titre" for="sujet">Un sujet en tête&#8239;?</label>
-    <input id="sujet" type="text" placeholder="Les volcans d’Islande, le cubisme…" autocomplete="off">
-    <button class="btn clair" type="button" id="preparer">Préparer 10 questions</button>
-    <p class="astuce" id="astuce"><img class="ico" src="emojis/light_bulb_flat.svg" alt=""><span id="astuce-texte">Le Rival croise au moins deux sources sérieuses avant d’écrire une question.</span></p>
+    <label id="libre-titre" for="sujet">Étudier un autre sujet</label>
+    <input id="sujet" type="text" placeholder="L’Islande et ses volcans, le cubisme…" autocomplete="off">
+    <button class="btn trait" type="button" id="composer">Composer un programme</button>
+    <p class="astuce" id="astuce"><span data-ico="verifie"></span><span id="astuce-texte">Chaque notion est vérifiée par au moins deux sources sérieuses avant d’entrer dans le programme.</span></p>
   </section>
 
   <section class="carte" aria-labelledby="duels-titre">
-    <div class="entete"><img class="ico" src="emojis/crossed_swords_flat.svg" alt=""><h2 id="duels-titre" style="font-size: 20px; flex: 1">Duels</h2><span class="meta">2 en cours</span></div>
+    <div class="titre-sec"><h2 id="duels-titre">Défis entre amis</h2><span class="meta">2 en cours</span></div>
     <div class="duel">
-      <span class="avatar" style="background: var(--prusse-pale); color: var(--prusse-fonce)" aria-hidden="true">L</span>
-      <span><span class="qui">Léa t’a défié</span><br><span class="meta">Arts et culture · 7 sur 10</span></span>
+      <span><span class="qui">Léa te défie</span><br><span class="meta">Arts et culture · 7 sur 10</span></span>
       <a class="btn petit" href="partie.html">Relever</a>
     </div>
     <div class="duel">
-      <span class="avatar" style="background: var(--vert-pale); color: var(--vert-fonce)" aria-hidden="true">K</span>
-      <span><span class="qui">Tu as défié Karim</span><br><span class="meta">Histoire · pas encore joué</span></span>
+      <span><span class="qui">Ton défi à Karim</span><br><span class="meta">Histoire · pas encore joué</span></span>
       <span class="attente">En attente</span>
     </div>
   </section>
 
-  <p class="credit">Maquette 1 sur 2 · prénoms et scores d’essai · émojis Fluent de Microsoft (licence MIT) · Rival dessiné pour Koîos</p>
+  <p class="credit">Maquette 1 sur 2 · prénoms et scores d’essai · icônes Phosphor (licence MIT) · Rival dessiné pour Koîos</p>
 </div>
 
 <div class="nav">
   <nav aria-label="Navigation principale">
-    <button type="button" aria-current="page"><img class="ico" src="emojis/books_flat.svg" alt="">Étagère</button>
-    <button type="button" data-ecran="Défis et ligue"><img class="ico" src="emojis/trophy_flat.svg" alt="">Défis</button>
-    <button type="button" data-ecran="Duels"><img class="ico" src="emojis/crossed_swords_flat.svg" alt="">Duels</button>
-    <button type="button" data-ecran="Profil et réglages"><img class="ico" src="emojis/scroll_flat.svg" alt="">Profil</button>
+    <button type="button" aria-current="page"><span data-ico="livres" data-cls="i"></span>Bibliothèque</button>
+    <button type="button" data-ecran="Cercle d’étude"><span data-ico="cercle" data-cls="i"></span>Cercle</button>
+    <button type="button" data-ecran="Révisions"><span data-ico="revision" data-cls="i"></span>Révisions</button>
+    <button type="button" data-ecran="Profil et réglages"><span data-ico="profil" data-cls="i"></span>Profil</button>
   </nav>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="icones.js"></script>
 <script src="rival.js"></script>
 <script>
 (function () {
+  if (window.poserIcones) poserIcones();
   var bandeau = document.getElementById("bandeau");
   var photo = bandeau.querySelector("img");
   photo.addEventListener("error", function () { bandeau.remove(); });
   if (photo.complete && photo.naturalWidth === 0) bandeau.remove();
-  var tete = document.getElementById("rival-tete");
-  if (window.rivalSVG) tete.innerHTML = rivalSVG("malin", 76);
+  if (window.rivalSVG) document.getElementById("rival-cachet").innerHTML = rivalSVG("malin", 52);
   var toast = document.getElementById("toast");
   var minuterie;
   function montrer(texte) {
@@ -236,19 +247,20 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
   document.querySelectorAll(".nav button[data-ecran]").forEach(function (b) {
     b.addEventListener("click", function () { montrer("« " + b.dataset.ecran + " » arrive dans l’ébauche jouable."); });
   });
+  document.getElementById("voir-cercle").addEventListener("click", function (e) { e.preventDefault(); montrer("Le cercle complet arrive dans l’ébauche jouable."); });
   var champ = document.getElementById("sujet");
   var astuce = document.getElementById("astuce");
   var texte = document.getElementById("astuce-texte");
-  document.getElementById("preparer").addEventListener("click", function () {
+  document.getElementById("composer").addEventListener("click", function () {
     var sujet = champ.value.trim();
     if (!sujet) {
-      texte.textContent = "Tape d’abord un sujet, par exemple « les volcans d’Islande ».";
+      texte.textContent = "Écris d’abord un sujet, par exemple « le cubisme ».";
       astuce.classList.add("erreur");
       champ.focus();
       return;
     }
     astuce.classList.remove("erreur");
-    texte.textContent = "Dans l’ébauche, le Rival préparera ici 10 questions sur « " + sujet + " », chacune vérifiée par deux sources.";
+    texte.textContent = "Dans l’ébauche, le Rival composera ici un programme en chapitres sur « " + sujet + " », chaque notion vérifiée par deux sources.";
   });
   champ.addEventListener("input", function () { astuce.classList.remove("erreur"); });
 })();
