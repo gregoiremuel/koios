@@ -13,3 +13,6 @@ Une ligne par piège rencontré, la plus récente en haut.
 - 2026-10-18 : une barre de minuteur animée en CSS doit être relancée après un recalcul de mise en page (`getBoundingClientRect()`), sinon elle saute directement à la fin.
 - 2026-10-18 : un mot composé avec trait d'union (« s'ouvrent-ils ») se coupe en fin de ligne ; utiliser le trait d'union insécable (U+2011).
 - 2026-10-18 : depuis l'espace cloud de Claude, on ne peut pas créer de dépôt GitHub ; Greg le crée sur github.com/new, puis on le relie à la session.
+- 18 octobre 2026 : le projet Cloudflare de Koîos est un **Worker** (Workers Builds, `npx wrangler deploy` sur `main`), pas un projet Pages. Vérifier le type de projet (capture de l'onglet Settings) avant d'écrire `wrangler.toml` ; tester avec `npx wrangler deploy --dry-run`.
+- 18 octobre 2026 : un message de Greg envoyé pendant un travail peut arrêter les sous-agents en cours ; vérifier leurs fichiers et les relancer si besoin.
+- 18 octobre 2026 : un script de typographie qui touche aux éléments d'une frise doit aussi corriger les clés de `valeurs` (sinon le chapitre est refusé).
