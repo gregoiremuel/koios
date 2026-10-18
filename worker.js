@@ -7,8 +7,17 @@ import * as progression from './functions/api/progression.js';
 import * as cercle from './functions/api/cercle.js';
 import * as libre from './functions/api/libre.js';
 import * as signalement from './functions/api/signalement.js';
+import * as sujets from './functions/api/sujets.js';
+import * as sujet from './functions/api/sujet.js';
+import * as chapitreIa from './functions/api/chapitre-ia.js';
+import * as melange from './functions/api/melange.js';
+import * as duel from './functions/api/duel.js';
+import * as duels from './functions/api/duels.js';
 
-const ROUTES = { etat, joueur, progression, cercle, libre, signalement };
+const ROUTES = {
+  etat, joueur, progression, cercle, libre, signalement,
+  sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels,
+};
 
 function erreur(statut, message) {
   return new Response(JSON.stringify({ erreur: message }), {
@@ -20,9 +29,9 @@ function erreur(statut, message) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const m = url.pathname.match(/^\/api\/([a-z]+)\/?$/);
+    const m = url.pathname.match(/^\/api\/([a-z-]+)\/?$/);
     if (m) {
-      const module = ROUTES[m[1]];
+      const module = Object.hasOwn(ROUTES, m[1]) ? ROUTES[m[1]] : null;
       if (!module) return erreur(404, 'Adresse inconnue.');
       const methode = request.method.charAt(0) + request.method.slice(1).toLowerCase();
       const gestionnaire = module['onRequest' + methode] || module.onRequest;

@@ -17,6 +17,16 @@ Exemple complet : `app/contenu/hg-01.json`.
   3. `frise` : `enonce` (« Range… du … au … »), `elements` (4, mélangés), `ordre` (4, dans le bon ordre), `valeurs` (objet : élément → valeur affichée, ex. date, dureté, distance).
 - Chaque exercice a aussi : `lib` (« Exercice 1 · question à choix », « Exercice 2 · le Rival bluffe-t-il ? », « Exercice 3 · frise » ou « Exercice 3 · classement »), `theme` (ce qu'on révise, 3-6 mots), `repere` (indice du repère lié dans `reperes`), `correction` (1-2 phrases), `sources` (au moins 2, dont une institutionnelle ou savante), `rivalJuste` et `rivalFaux` (répliques courtes du Rival, pince-sans-rire, jamais blessantes).
 
+## Champs facultatifs (fiche enrichie, v1.1)
+
+Chacun est couvert par les sources du chapitre. Dans le doute, on l'omet.
+
+- `sujet` : sous-thème qui regroupe des chapitres dans un domaine (« La Grèce antique », « L'Islande »). Les chapitres d'un même sujet se suivent par `numero`.
+- `chiffres` : 3 à 6 objets `{ "libelle": "Everest", "valeur": 8849, "unite": "m" }`, même unité pour tous, valeurs comparables ; l'app en tire un graphique en barres « En chiffres ». `valeur` est un nombre (pas de texte).
+- `notions` : réseau des notions, `{ "noeuds": ["Sparte", "Athènes", …] (4 à 7), "liens": [["Sparte", "Athènes", "rivales"], …] (3 à 8, relation en 1 à 3 mots) }`. Chaque nœud apparaît dans au moins un lien.
+- `citation` : `{ "texte": "…", "auteur": "…", "oeuvre": "…", "source": ["Organisme · Titre", "URL"] }`. Seulement une citation exacte, vérifiée dans une source sérieuse (pas un site de citations). Pas de citation apocryphe.
+- `saviezVous` : une phrase surprenante et sourcée.
+
 ## Règles de contenu
 
 - Au moins 2 sources indépendantes par exercice, dont une institutionnelle ou savante (musée, archives, université, bibliothèque nationale, encyclopédie éditée comme Universalis, Larousse ou Britannica, organisme officiel, revue scientifique). Wikipédia ne compte jamais.

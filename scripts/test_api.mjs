@@ -1,60 +1,36 @@
 // Tests de l'API Koîos : appelle les handlers avec un faux env.
 // Base simulée : SQLite en mémoire (node:sqlite, intégré à Node 22) derrière l'interface D1
-// (prepare / bind / first / all / run / batch), donc le SQL des routes est vraiment exécuté.
-// IA simulée : renvoie ce qu'on lui prépare. Lancer : node scripts/test_api.mjs
+// (prepare / bind / first / all / run / batch), donc le SQL des routes est vraiment exécuté (scripts/faux_d1.mjs).
+// IA simulée : renvoie ce qu'on lui prépare. Wikipédia simulé : `fetch` global remplacé.
+// Lancer : node scripts/test_api.mjs
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { DatabaseSync } from 'node:sqlite';
 
 import { TABLES, initBase, quota, sha256Hex } from '../lib/api.js';
 import { EXEMPLE, MODELES, PROMPT_SYSTEME, extraireObjet, validerChapitre } from '../lib/libre.js';
+import {
+  EXEMPLE_CHAPITRE, EXEMPLE_PLAN, PROMPT_CHAPITRE, PROMPT_PLAN, assemblerChapitre, slug, validerChapitreIA,
+  validerChiffres, validerNotions, validerPlan, validerSaviezVous,
+} from '../lib/sujets.js';
+import {
+  CREDIT_IMAGE, MAX_TEXTE, USER_AGENT, ancrer, chercher, choisirTitre, lirePage, nettoyerRequete, tronquer,
+} from '../lib/wiki.js';
+import { generateur, tirer } from '../lib/questions.js';
+import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
 import { onRequestPost as joueurPost } from '../functions/api/joueur.js';
 import { onRequestGet as progressionGet, onRequestPut as progressionPut } from '../functions/api/progression.js';
 import { onRequestGet as cercleGet } from '../functions/api/cercle.js';
 import { onRequestPost as librePost } from '../functions/api/libre.js';
 import { onRequestPost as signalementPost } from '../functions/api/signalement.js';
-
-// --- Faux D1 ---------------------------------------------------------------
-
-function fauxD1() {
-  const base = new DatabaseSync(':memory:');
-  const compteurs = { batchs: 0 };
-  function prepare(sql) {
-    let params = [];
-    const st = {
-      bind(...p) { params = p; return st; },
-      async first(colonne) {
-        const ligne = base.prepare(sql).get(...params);
-        if (!ligne) return null;
-        return colonne ? ligne[colonne] : { ...ligne };
-      },
-      async all() {
-        return { success: true, results: base.prepare(sql).all(...params).map((r) => ({ ...r })) };
-      },
-      async run() {
-        const r = base.prepare(sql).run(...params);
-        return { success: true, meta: { changes: Number(r.changes) } };
-      },
-    };
-    return st;
-  }
-  async function batch(instructions) {
-    compteurs.batchs += 1;
-    base.exec('BEGIN');
-    try {
-      const sorties = [];
-      for (const i of instructions) sorties.push(await i.run());
-      base.exec('COMMIT');
-      return sorties;
-    } catch (e) {
-      base.exec('ROLLBACK');
-      throw e;
-    }
-  }
-  return { prepare, batch, base, compteurs };
-}
+import { onRequestGet as sujetsGet } from '../functions/api/sujets.js';
+import { onRequestGet as sujetGet, onRequestPost as sujetPost } from '../functions/api/sujet.js';
+import { onRequestGet as chapitreIaGet } from '../functions/api/chapitre-ia.js';
+import { onRequestGet as melangeGet } from '../functions/api/melange.js';
+import { onRequestGet as duelGet, onRequestPost as duelPost, onRequestPut as duelPut } from '../functions/api/duel.js';
+import { onRequestGet as duelsGet } from '../functions/api/duels.js';
+import { fauxD1 } from './faux_d1.mjs';
 
 // --- Fausse IA -------------------------------------------------------------
 
@@ -87,7 +63,7 @@ const env = { DB: db, AI: undefined };
 let numeroIp = 0;
 const nouvelleIp = () => `198.51.100.${++numeroIp}`;
 
-async function appel(handler, { env: e = env, methode = 'GET', corps, brut, jeton, ip = '203.0.113.7', entetes = {} } = {}) {
+async function appel(handler, { env: e = env, methode = 'GET', corps, brut, jeton, ip = '203.0.113.7', entetes = {}, requete = '' } = {}) {
   const h = new Headers({ 'CF-Connecting-IP': ip, ...entetes });
   if (jeton) h.set('authorization', 'Bearer ' + jeton);
   let body;
@@ -96,7 +72,7 @@ async function appel(handler, { env: e = env, methode = 'GET', corps, brut, jeto
     body = JSON.stringify(corps);
     h.set('content-type', 'application/json');
   }
-  const reponse = await handler({ request: new Request('https://koios.test/api/x', { method: methode, headers: h, body }), env: e });
+  const reponse = await handler({ request: new Request('https://koios.test/api/x' + requete, { method: methode, headers: h, body }), env: e });
   const texte = await reponse.text();
   let contenu;
   try { contenu = JSON.parse(texte); } catch { contenu = texte; }
@@ -110,7 +86,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas']) db.base.exec(`DELETE FROM ${t}`);
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels']) db.base.exec(`DELETE FROM ${t}`);
 }
 const lignes = (sql, ...p) => db.base.prepare(sql).all(...p).map((r) => ({ ...r }));
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -139,6 +115,15 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
     [cercleGet, {}],
     [librePost, { methode: 'POST', jeton, corps: { sujet: 'Les phares' } }],
     [signalementPost, { methode: 'POST', jeton, corps: { chapitre: 'hg-01', exercice: 0, message: 'faux' } }],
+    [sujetsGet, {}],
+    [sujetGet, { requete: '?id=phares' }],
+    [sujetPost, { methode: 'POST', jeton, corps: { titre: 'Les phares' } }],
+    [chapitreIaGet, { requete: '?sujet=phares&n=1' }],
+    [melangeGet, {}],
+    [duelGet, { requete: '?id=abcd1234' }],
+    [duelPost, { methode: 'POST', jeton, corps: {} }],
+    [duelPut, { methode: 'PUT', jeton, corps: {} }],
+    [duelsGet, { jeton }],
   ];
   for (const [handler, options] of cas) {
     const rep = await appel(handler, { ...options, env: sansBase });
@@ -161,7 +146,16 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'joueurs', 'quotas', 'signalements']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'joueurs', 'quotas', 'signalements', 'sujets']);
+  const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+  assert.deepEqual(index, [
+    { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
+    { name: 'idx_sujets_parent', tbl_name: 'sujets' },
+  ]);
+  const colonnes = (t) => lignes(`SELECT name FROM pragma_table_info('${t}')`).map((c) => c.name);
+  assert.deepEqual(colonnes('sujets'), ['id', 'titre', 'parent', 'niveau', 'contenu', 'auteur', 'vues', 'cree']);
+  assert.deepEqual(colonnes('chapitres_ia'), ['id', 'sujet', 'numero', 'contenu', 'vues', 'cree']);
+  assert.deepEqual(colonnes('duels'), ['id', 'createur', 'questions', 'scores', 'cree']);
 });
 
 test('quota : compte, refuse au-delà, repart à zéro le lendemain', async () => {
@@ -630,8 +624,11 @@ test('initBase n’exécute les CREATE TABLE qu’une fois pour toute la série'
 });
 
 test('aucun secret dans le code', async () => {
-  const fichiers = ['../lib/api.js', '../lib/libre.js', '../functions/api/etat.js', '../functions/api/joueur.js', '../functions/api/progression.js',
-    '../functions/api/cercle.js', '../functions/api/libre.js', '../functions/api/signalement.js', '../wrangler.toml'];
+  const fichiers = ['../lib/api.js', '../lib/libre.js', '../lib/wiki.js', '../lib/sujets.js', '../lib/questions.js', '../worker.js',
+    '../functions/api/etat.js', '../functions/api/joueur.js', '../functions/api/progression.js', '../functions/api/cercle.js',
+    '../functions/api/libre.js', '../functions/api/signalement.js', '../functions/api/sujets.js', '../functions/api/sujet.js',
+    '../functions/api/chapitre-ia.js', '../functions/api/melange.js', '../functions/api/duel.js', '../functions/api/duels.js',
+    '../scripts/serveur_local.mjs', '../wrangler.toml'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);

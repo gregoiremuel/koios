@@ -94,6 +94,7 @@ def controler(chemin: pathlib.Path):
 
 def main() -> int:
     cat = {d: [] for d in DOMAINES}
+    questions = []
     echecs = 0
     for chemin in sorted(CONTENU.glob("[a-z][a-z]-[0-9][0-9].json")):
         c, pb = controler(chemin)
@@ -103,12 +104,18 @@ def main() -> int:
             for p in pb:
                 print(f"  - {p}")
             continue
-        cat[c["domaine"]].append({"id": c["id"], "numero": c["numero"], "titre": c["titre"]})
+        entree = {"id": c["id"], "numero": c["numero"], "titre": c["titre"]}
+        if c.get("sujet"):
+            entree["sujet"] = c["sujet"]
+        cat[c["domaine"]].append(entree)
+        for k, e in enumerate(c["exercices"]):
+            questions.append({"chapitre": c["id"], "titre": c["titre"], "index": k, "exercice": e})
     for d in cat:
         cat[d].sort(key=lambda x: x["numero"])
     vrais = [json.loads((CONTENU / (x["id"] + ".json")).read_text(encoding="utf-8"))["exercices"][1]["vrai"] for v in cat.values() for x in v]
     if vrais and not 0.3 <= sum(vrais) / len(vrais) <= 0.7:
         print(f"Avertissement : {sum(vrais)} bluffs vrais sur {len(vrais)} ; viser entre 30 et 70 %.")
+    (CONTENU / "questions.json").write_text(json.dumps(questions, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     (CONTENU / "catalogue.json").write_text(json.dumps({"domaines": cat}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print("Catalogue : " + ", ".join(f"{d} {len(v)}" for d, v in cat.items()))
     return 1 if echecs else 0

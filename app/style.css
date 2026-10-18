@@ -251,3 +251,43 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 11px 0;
 .nav .i { width: 22px; height: 22px; }
 .toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 14px; border-radius: 8px; max-width: calc(100% - 32px); z-index: 6; }
 @media (prefers-reduced-motion: reduce) { .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }
+
+/* v1.1 : exploration, jeux, fiches enrichies */
+.chapeau { font-family: var(--livre); font-size: 18px; line-height: 1.5; }
+.chapeau-petit { font-family: var(--livre); font-size: 17px; line-height: 1.45; }
+.titre-champ { font-family: var(--livre); font-weight: 600; font-size: 21px; }
+.attente svg { flex: none; }
+.puces { display: flex; flex-wrap: wrap; gap: 8px; }
+.puce { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; border: 1px solid var(--ligne-forte); border-radius: 22px; background: var(--page); font-family: var(--livre); font-size: 16px; color: var(--encre); text-decoration: none; cursor: pointer; }
+.puce:hover { border-color: var(--prusse); }
+.puce.verifie { border-color: var(--vert); color: var(--vert-fonce); }
+.table li.groupe { border-top: 0; padding: 14px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--or-fonce); }
+.table li.groupe:first-child { padding-top: 0; }
+.table li.groupe + li { border-top: 0; }
+details.sources.depart summary .i { color: var(--or-fonce); }
+.graphe-barres { display: grid; gap: 8px; }
+.ligne-barre { display: grid; grid-template-columns: minmax(84px, 34%) 1fr auto; gap: 10px; align-items: center; min-height: 28px; }
+.ligne-barre .nom { font-family: var(--livre); font-size: 15px; line-height: 1.25; }
+.ligne-barre .piste { height: 10px; background: var(--ligne); border-radius: 2px; overflow: hidden; }
+.ligne-barre .piste i { display: block; height: 100%; border-radius: 2px; }
+.ligne-barre .val { font-size: 13px; font-weight: 600; color: var(--encre-2); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.graphe-reseau { width: 100%; height: auto; display: block; }
+.graphe-reseau .lien-reseau { stroke: var(--or); stroke-width: 1.2; }
+.graphe-reseau .fond-relation { fill: var(--feuille); }
+.graphe-reseau .relation { font-family: var(--livre); font-style: italic; font-size: 10.5px; fill: var(--encre-2); }
+.graphe-reseau .noeud { fill: var(--page); stroke: var(--ligne-forte); stroke-width: 1; }
+.graphe-reseau .noeud.centre { fill: var(--bordeaux); stroke: var(--bordeaux-fonce); }
+.graphe-reseau .nom-noeud { font-family: var(--ui); font-size: 12px; font-weight: 600; fill: var(--encre); }
+.graphe-reseau .nom-noeud.centre { fill: #fffaf0; }
+.citation { margin: 4px 0; padding: 14px 4px 12px; border-top: 1px solid var(--ligne-forte); border-bottom: 1px solid var(--ligne-forte); display: grid; gap: 8px; }
+.citation blockquote { margin: 0; }
+.citation p { font-family: var(--livre); font-style: italic; font-size: 19px; line-height: 1.45; }
+.citation figcaption { font-size: 14px; color: var(--encre-2); }
+.citation a { color: var(--prusse-fonce); }
+.saviez { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--or-pale); border: 1px solid var(--ligne-forte); }
+.saviez .i { color: var(--or-fonce); margin-top: 2px; }
+.saviez p { font-family: var(--livre); font-size: 17px; line-height: 1.45; margin-top: 2px; }
+.chiffres { grid-template-columns: 1fr 1fr; }
+.nav nav { grid-template-columns: repeat(5, 1fr); }
+.nav a { font-size: 11px; }
+figcaption a { color: var(--prusse-fonce); }

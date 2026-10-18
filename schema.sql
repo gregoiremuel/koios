@@ -36,3 +36,35 @@ CREATE TABLE IF NOT EXISTS quotas (
   n INTEGER,
   jour TEXT
 );
+
+CREATE TABLE IF NOT EXISTS sujets (
+  id TEXT PRIMARY KEY,
+  titre TEXT,
+  parent TEXT,
+  niveau INTEGER,
+  contenu TEXT,
+  auteur TEXT,
+  vues INTEGER DEFAULT 0,
+  cree TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sujets_parent ON sujets(parent);
+
+CREATE TABLE IF NOT EXISTS chapitres_ia (
+  id TEXT PRIMARY KEY,
+  sujet TEXT,
+  numero INTEGER,
+  contenu TEXT,
+  vues INTEGER DEFAULT 0,
+  cree TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_chapitres_ia_sujet ON chapitres_ia(sujet);
+
+CREATE TABLE IF NOT EXISTS duels (
+  id TEXT PRIMARY KEY,
+  createur TEXT,
+  questions TEXT,
+  scores TEXT,
+  cree TEXT
+);
