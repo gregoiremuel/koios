@@ -6,9 +6,9 @@
  "figure": null,
  "essentiel": [
   "Le rubis et le saphir sont deux variétés d’un même minéral, le corindon, un oxyde d’aluminium (Al₂O₃).",
-  "À l’état pur, le corindon est incolore : le chrome colore le rubis en rouge, et le fer associé au titane donne les saphirs, du bleu au mauve.",
+  "À l’état pur, le corindon est incolore : le chrome colore le rubis en rouge, et le fer associé au titane donne les saphirs bleus.",
   "Il occupe le degré 9 de l’échelle de Mohs, avec une densité d’environ 4,00, supérieure à celle du diamant.",
-  "Biréfringent (de 0,008 à 0,010), il peut être pléochroïque : le rubis l’est fortement.",
+  "Biréfringent (environ 0,008), il peut être pléochroïque : le rubis l’est fortement.",
   "En 1902, le chimiste français Auguste Verneuil annonce la fusion à la flamme, qui permet de fabriquer des rubis et des saphirs synthétiques."
  ],
  "reperes": [
@@ -22,7 +22,7 @@
   ],
   [
    "Densité d’environ 4,00",
-   "Supérieure à celle du diamant (3,52), de la moissanite (3,22) et du quartz (2,65)."
+   "Supérieure à celle du diamant (3,52), de la moissanite (environ 3,2) et du quartz (2,65)."
   ],
   [
    "1902",
@@ -89,6 +89,26 @@
   [
    "Handbook of Mineralogy · Moissanite (en anglais)",
    "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 1 (gemmes, imitations et synthèses), p. 48",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 1 (gemmes, imitations et synthèses), p. 49",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 3 (corindons), p. 30",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 3 (corindons), p. 31",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Tableau des caractéristiques des gemmes (1er cycle, niveau 1), p. 1",
+   ""
   ]
  ],
  "exercices": [
@@ -115,6 +135,14 @@
     [
      "Rivista Italiana di Gemmologia · Verneuil, August Victor Louis (en anglais)",
      "https://www.rivistaitalianadigemmologia.com/en/glossary/verneuil-august-victor-louis/"
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 1 (gemmes, imitations et synthèses), p. 49",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Livret pédagogique Niveau 1, pierres synthétiques, p. 19",
+     ""
     ]
    ],
    "rivalJuste": "Fusion à la flamme. Verneuil approuve.",
@@ -141,6 +169,14 @@
     [
      "Museum of Fine Arts, Boston (CAMEO) · Ruby (en anglais)",
      "https://cameo.mfa.org/wiki/Ruby"
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 1 (gemmes, imitations et synthèses), p. 48",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 3 (corindons), p. 30",
+     ""
     ]
    ],
    "rivalJuste": "Tu ne t’es pas laissé bluffer : même minéral, deux réputations.",
@@ -164,7 +200,7 @@
     "Diamant",
     "Corindon"
    ],
-   "correction": "Le quartz (2,65) est le plus léger, puis viennent la moissanite (3,22) et le diamant (3,52). Le corindon, vers 4,00, est le plus dense des quatre.",
+   "correction": "Le quartz (2,65) est le plus léger, puis viennent la moissanite (environ 3,2) et le diamant (3,52). Le corindon, vers 4,00, est le plus dense des quatre.",
    "figure": null,
    "sources": [
     [
@@ -198,13 +234,25 @@
     [
      "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
      "https://cameo.mfa.org/wiki/Corundum"
+    ],
+    [
+     "Institut National de Gemmologie · Tableau des caractéristiques des gemmes (1er cycle, niveau 1), p. 1",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 8 (poids, densité et dureté), p. 15",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 6 (substituts du diamant), p. 78",
+     ""
     ]
    ],
    "rivalJuste": "Du plus léger au plus lourd. Rien à redire, pas même au poids.",
    "rivalFaux": "Le plus dense des quatre est le corindon, pas le diamant. Désolé pour lui.",
    "valeurs": {
     "Quartz": "2,65",
-    "Moissanite": "3,22",
+    "Moissanite": "environ 3,2",
     "Diamant": "3,52",
     "Corindon": "4,00"
    }

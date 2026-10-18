@@ -17,7 +17,7 @@
   ],
   [
    "Biréfringence",
-   "Écart entre les deux indices d’un cristal : de 0,008 à 0,010 pour le corindon."
+   "Écart entre les deux indices d’un cristal : environ 0,008 pour le corindon."
   ],
   [
    "Pléochroïsme",
@@ -82,8 +82,32 @@
    "https://www.gia.edu/ruby/gem-overview"
   ],
   [
-   "Museum of Fine Arts, Boston (CAMEO) · Sphene (en anglais)",
-   "https://cameo.mfa.org/wiki/Sphene"
+   "GIA · Peridot (en anglais)",
+   "https://www.gia.edu/peridot/gem-overview"
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 5 (réfractomètre), p. 9",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 6 (doublage et dispersion), p. 23",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 6 (doublage et dispersion), p. 25",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Gemmologie Niveau 1, module 7 (pléochroïsme), p. 19",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Tableau des caractéristiques des gemmes (1er cycle, niveau 1), p. 1",
+   ""
+  ],
+  [
+   "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 6 (substituts du diamant), p. 78",
+   ""
   ]
  ],
  "exercices": [
@@ -118,6 +142,14 @@
     [
      "International Gem Society · What is gemstone pleochroism ? (en anglais)",
      "https://www.gemsociety.org/article/what-is-gemstone-pleochroism/"
+    ],
+    [
+     "Institut National de Gemmologie · Tableau des caractéristiques des gemmes (1er cycle, niveau 1), p. 1",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 7 (pléochroïsme), p. 19",
+     ""
     ]
    ],
    "rivalJuste": "Un seul indice, un seul bon réflexe.",
@@ -144,6 +176,14 @@
     [
      "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
      "https://cameo.mfa.org/wiki/Diamond"
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 5 (réfractomètre), p. 9",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 6 (substituts du diamant), p. 78",
+     ""
     ]
    ],
    "rivalJuste": "Repéré. Sur ce critère, l’imitation dépasse l’original.",
@@ -157,17 +197,17 @@
    "enonce": "Range ces quatre gemmes de la plus faible à la plus forte biréfringence.",
    "elements": [
     "Moissanite",
-    "Sphène",
+    "Péridot",
     "Spinelle",
     "Corindon"
    ],
    "ordre": [
     "Spinelle",
     "Corindon",
-    "Moissanite",
-    "Sphène"
+    "Péridot",
+    "Moissanite"
    ],
-   "correction": "Le spinelle, cubique, n’a aucune biréfringence. Le corindon en a une faible (0,008 à 0,010), la moissanite une forte (environ 0,04) et le sphène une très forte, à partir de 0,10.",
+   "correction": "Le spinelle, cubique, n’a aucune biréfringence. Le corindon en a une faible (environ 0,008), le péridot une forte (environ 0,037) et la moissanite une plus forte encore (environ 0,043).",
    "figure": null,
    "sources": [
     [
@@ -195,17 +235,29 @@
      "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
     ],
     [
-     "Museum of Fine Arts, Boston (CAMEO) · Sphene (en anglais)",
-     "https://cameo.mfa.org/wiki/Sphene"
+     "GIA · Peridot (en anglais)",
+     "https://www.gia.edu/peridot/gem-overview"
+    ],
+    [
+     "Institut National de Gemmologie · Tableau des caractéristiques des gemmes (1er cycle, niveau 1), p. 1",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Gemmologie Niveau 1, module 6 (doublage et dispersion), p. 25",
+     ""
+    ],
+    [
+     "Institut National de Gemmologie · Livret pédagogique Niveau 2, cours 6 (substituts du diamant), p. 78",
+     ""
     ]
    ],
    "rivalJuste": "Du néant au dédoublement. Classement impeccable.",
-   "rivalFaux": "Le sphène dédouble l’image de ses facettes arrière : place-le en dernier.",
+   "rivalFaux": "La moissanite dédouble l’image de ses facettes arrière : place-la en dernier.",
    "valeurs": {
     "Spinelle": "aucune",
-    "Corindon": "0,008–0,010",
-    "Moissanite": "environ 0,04",
-    "Sphène": "0,10 et plus"
+    "Corindon": "environ 0,008",
+    "Péridot": "environ 0,037",
+    "Moissanite": "environ 0,043"
    }
   }
  ]
