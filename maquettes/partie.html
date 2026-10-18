@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Koîos · Partie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<style>
+/* Une partie : en-tête courant entre deux filets, la question en grand, les réponses en lignes. La couleur du domaine s'affirme seulement en jeu. */
+:root {
+  --paper: #ffffff;
+  --ink: #17191c;
+  --ink-2: #5a5f66;
+  --hair: #dadcdf;
+  --dom: #b42318;
+  --on-dom: #ffffff;
+  --on-ink: #ffffff;
+  --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --sans: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --paper: #141517; --ink: #ecece9; --ink-2: #a3a7ad; --hair: #2e3135; --dom: #f0705f; --on-dom: #141517; --on-ink: #141517; color-scheme: dark; }
+}
+:root[data-theme="dark"] { --paper: #141517; --ink: #ecece9; --ink-2: #a3a7ad; --hair: #2e3135; --dom: #f0705f; --on-dom: #141517; --on-ink: #141517; color-scheme: dark; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.page { max-width: 34rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 40px; display: grid; gap: 24px; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.label { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.meta { font-family: var(--sans); font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+.top { display: flex; justify-content: space-between; align-items: center; min-height: 44px; }
+.top a { font-family: var(--sans); font-size: 14px; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; }
+.runhead { border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); padding-block: 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.runhead .dom { font-family: var(--sans); font-weight: 600; font-size: 14px; }
+.runhead .dom b { color: var(--dom); font-weight: 600; margin-right: 6px; letter-spacing: 0.04em; }
+.folio { font-family: var(--sans); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+.temps { height: 3px; background: var(--hair); margin-top: -18px; }
+.temps i { display: block; height: 100%; width: 100%; background: var(--dom); transform-origin: left; }
+
+.kicker { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
+.affirmation { margin: 0; font-style: italic; font-size: 24px; line-height: 1.3; quotes: "« " " »"; text-wrap: balance; }
+.affirmation::before { content: open-quote; }
+.affirmation::after { content: close-quote; }
+
+.choix { display: grid; border-top: 1px solid var(--hair); }
+.choix button { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; text-align: left; min-height: 60px; padding: 10px 12px; background: none; border: 0; border-bottom: 1px solid var(--hair); cursor: pointer; font-family: var(--serif); font-size: 21px; }
+.choix button .lettre { font-family: var(--sans); font-weight: 600; font-size: 14px; color: var(--ink-2); }
+.choix button .etat { font-family: var(--sans); font-size: 13px; font-weight: 600; }
+.choix button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
+.choix button[aria-pressed="true"] .lettre { color: var(--on-ink); }
+.choix button.juste { background: var(--dom); color: var(--on-dom); }
+.choix button.juste .lettre { color: var(--on-dom); }
+.choix button.faux { background: none; color: var(--ink-2); text-decoration: line-through; }
+.choix button.faux .lettre { color: var(--ink-2); }
+.choix button:disabled { cursor: default; }
+.deux { grid-template-columns: 1fr 1fr; gap: 8px; border-top: 0; }
+.deux button { grid-template-columns: 1fr auto; padding: 0 14px; border: 1.5px solid var(--ink); min-height: 64px; font-size: 20px; }
+
+.certitude { display: grid; gap: 8px; }
+.segments { display: grid; grid-template-columns: repeat(4, 1fr); border: 1.5px solid var(--ink); }
+.segments button { min-height: 48px; background: none; border: 0; border-left: 1px solid var(--hair); font-family: var(--sans); font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.segments button:first-child { border-left: 0; }
+.segments button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
+
+.frise-slots { display: grid; gap: 0; border-top: 1px solid var(--hair); }
+.frise-slots div { display: grid; grid-template-columns: 32px 1fr; align-items: center; min-height: 56px; border-bottom: 1px solid var(--hair); font-size: 20px; }
+.frise-slots div span { font-family: var(--sans); font-weight: 600; font-size: 14px; color: var(--ink-2); padding-left: 4px; }
+.frise-slots div em { color: var(--ink-2); font-size: 16px; }
+.pioche { display: flex; flex-wrap: wrap; gap: 8px; }
+.pioche button { min-height: 48px; padding: 0 14px; background: none; border: 1.5px solid var(--ink); font-family: var(--serif); font-size: 18px; cursor: pointer; }
+.pioche button[aria-pressed="true"] { border-style: dashed; color: var(--ink-2); }
+
+.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; width: 100%; background: var(--ink); color: var(--on-ink); border: 0; font-family: var(--sans); font-weight: 600; font-size: 16px; cursor: pointer; text-decoration: none; }
+.cta.ligne { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+.erreur { margin: -12px 0 0; font-family: var(--sans); font-size: 14px; color: var(--dom); }
+
+.correction { display: grid; gap: 8px; border-top: 2px solid var(--dom); padding-top: 12px; }
+.correction p { margin: 0; }
+.source { font-style: italic; color: var(--ink-2); font-size: 15px; }
+.rival { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; }
+.rival svg { width: 22px; height: 38px; overflow: visible; }
+.rival .axe { transform-origin: 11px 36px; transition: transform 0.6s ease; }
+.rival p { margin: 0; font-style: italic; font-size: 19px; line-height: 1.35; }
+.points { font-family: var(--sans); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
+
+.score { display: grid; gap: 4px; }
+.score .grand { font-size: 72px; line-height: 1; font-weight: 400; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.actions { display: grid; gap: 10px; }
+.essai { font-family: var(--sans); font-size: 12px; color: var(--ink-2); border-top: 1px solid var(--hair); padding-top: 12px; margin: 0; }
+@media (prefers-reduced-motion: reduce) { .rival .axe { transition: none; } .temps i { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top">
+    <a href="index.html">← Quitter la partie</a>
+    <span class="points" id="total">0 point</span>
+  </div>
+  <div class="runhead">
+    <span class="dom"><b>HG</b>Histoire et géographie</span>
+    <span class="folio" id="folio">01 / 03</span>
+  </div>
+  <div class="temps" aria-hidden="true"><i id="temps"></i></div>
+  <main id="scene" aria-live="polite"></main>
+  <p class="essai">Maquette 2 sur 2 · trois questions d'essai, sources à revérifier avant la banque.</p>
+</div>
+
+<script>
+(function () {
+  var QUESTIONS = [
+    {
+      type: "qcm",
+      kicker: "Question à choix",
+      enonce: "En quelle année les États généraux s'ouvrent‑ils à Versailles ?",
+      reponses: ["1787", "1789", "1791", "1793"],
+      bonne: 1,
+      correction: "Les États généraux s'ouvrent le 5 mai 1789 à Versailles, à l'hôtel des Menus-Plaisirs.",
+      source: "Source : Wikipédia, « États généraux de 1789 »",
+      rivalJuste: "Juste. Louis XVI a mis plus longtemps que toi à saisir l'enjeu.",
+      rivalFaux: "Raté. La Révolution n'a pas attendu que tu arrives."
+    },
+    {
+      type: "bluff",
+      kicker: "Le Rival bluffe ?",
+      affirmation: "Le Danube traverse quatre capitales : Vienne, Bratislava, Budapest et Belgrade.",
+      vrai: true,
+      correction: "C'est exact : le Danube arrose Vienne, Bratislava, Budapest et Belgrade.",
+      source: "Source : Wikipédia, « Danube »",
+      rivalJuste: "Bien vu. La prochaine fois, je mentirai mieux.",
+      rivalFaux: "Je ne bluffe pas toujours. C'est ce qui me rend dangereux."
+    },
+    {
+      type: "frise",
+      kicker: "Frise",
+      enonce: "Remets ces événements dans l'ordre, du plus ancien au plus récent.",
+      elements: ["Sacre de Napoléon", "Prise de la Bastille", "Fête de la Fédération"],
+      ordre: ["Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
+      dates: { "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
+      source: "Source : Wikipédia, articles de chaque événement",
+      rivalJuste: "Dans l'ordre. Même Napoléon aurait signé.",
+      rivalFaux: "Tu as couronné l'Empereur avant la prise de la Bastille. Audacieux."
+    }
+  ];
+  var CERTITUDES = [50, 70, 90, 100];
+  var DUREE = 25;
+
+  var scene = document.getElementById("scene");
+  var folio = document.getElementById("folio");
+  var totalEl = document.getElementById("total");
+  var barre = document.getElementById("temps");
+  var calme = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var index = 0, justes = 0, total = 0, chrono = null, fini = false;
+
+  function el(tag, attrs, enfants) {
+    var n = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) {
+      if (k === "text") n.textContent = attrs[k];
+      else if (k === "html") n.innerHTML = attrs[k];
+      else n.setAttribute(k, attrs[k]);
+    });
+    (enfants || []).forEach(function (c) { if (c) n.appendChild(c); });
+    return n;
+  }
+  function deux(n) { return (n < 10 ? "0" : "") + n; }
+  function majTotal() { totalEl.textContent = pts(total); }
+  function rivalBloc(texte, angle) {
+    var svg = '<svg viewBox="0 0 22 38" aria-hidden="true"><g class="axe" style="transform: rotate(' + angle + 'deg)"><line x1="11" y1="36" x2="11" y2="7" stroke="currentColor" stroke-width="2"/><circle cx="11" cy="5" r="3.5" fill="currentColor"/></g></svg>';
+    return el("div", { "class": "rival", html: svg + "<p></p>" }, null);
+  }
+  function rival(texte, juste) {
+    var b = rivalBloc(texte, juste ? 8 : -10);
+    b.querySelector("p").textContent = texte;
+    return b;
+  }
+  function lancerChrono(surFin) {
+    clearInterval(chrono);
+    var reste = DUREE;
+    barre.style.transition = "none";
+    barre.style.transform = "scaleX(1)";
+    barre.getBoundingClientRect();
+    barre.style.transition = calme ? "none" : "transform 1s linear";
+    barre.style.transform = "scaleX(" + (reste - 1) / DUREE + ")";
+    chrono = setInterval(function () {
+      reste -= 1;
+      barre.style.transform = "scaleX(" + Math.max(reste - 1, 0) / DUREE + ")";
+      if (reste <= 0) { clearInterval(chrono); surFin(); }
+    }, 1000);
+  }
+  function signe(n) { return n < 0 ? "−" + Math.abs(n) : (n > 0 ? "+" + n : "0"); }
+  function pts(n) { return (n < 0 ? "−" + Math.abs(n) : String(n)) + (Math.abs(n) > 1 ? " points" : " point"); }
+  function arreterChrono() {
+    clearInterval(chrono);
+    var s = getComputedStyle(barre).transform;
+    barre.style.transition = "none";
+    barre.style.transform = s === "none" ? "scaleX(1)" : s;
+  }
+  function suivant(zone) {
+    var dernier = index === QUESTIONS.length - 1;
+    var b = el("button", { "class": "cta", type: "button", text: dernier ? "Voir le résultat" : "Question suivante" });
+    b.addEventListener("click", function () { index += 1; afficher(); });
+    zone.appendChild(b);
+    b.focus({ preventScroll: true });
+  }
+  function bilan(q, juste, gagne, texte) {
+    var zone = el("div", { style: "display:grid;gap:24px" });
+    var corr = el("section", { "class": "correction" }, [
+      el("div", { "class": "kicker" }, [el("span", { "class": "label", text: juste ? "Juste" : "Faux" }), el("span", { "class": "points", text: (gagne > 0 ? "+" : "") + pts(gagne) })]),
+      el("p", { text: texte }),
+      el("p", { "class": "source", text: q.source })
+    ]);
+    zone.appendChild(corr);
+    zone.appendChild(rival(juste ? q.rivalJuste : q.rivalFaux, juste));
+    if (juste) justes += 1;
+    total += gagne;
+    majTotal();
+    suivant(zone);
+    return zone;
+  }
+
+  function qcm(q) {
+    var choisi = null, certitude = 70;
+    var lettres = ["A", "B", "C", "D"];
+    var liste = el("div", { "class": "choix", role: "group", "aria-label": "Réponses" });
+    var boutons = q.reponses.map(function (r, i) {
+      var b = el("button", { type: "button", "aria-pressed": "false" }, [el("span", { "class": "lettre", text: lettres[i] }), el("span", { text: r }), el("span", { "class": "etat" })]);
+      b.addEventListener("click", function () {
+        choisi = i;
+        boutons.forEach(function (x, j) { x.setAttribute("aria-pressed", j === i ? "true" : "false"); });
+        erreur.hidden = true;
+      });
+      liste.appendChild(b);
+      return b;
+    });
+    var regle = el("span", { "class": "meta" });
+    function majRegle() { regle.textContent = "Juste " + signe(gain(certitude)) + " · faux " + signe(perte(certitude)); }
+    var seg = el("div", { "class": "segments", role: "group", "aria-label": "Ta certitude" });
+    CERTITUDES.forEach(function (c) {
+      var b = el("button", { type: "button", "aria-pressed": c === certitude ? "true" : "false", text: c + " %" });
+      b.addEventListener("click", function () {
+        certitude = c;
+        seg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
+        majRegle();
+      });
+      seg.appendChild(b);
+    });
+    majRegle();
+    var cert = el("div", { "class": "certitude" }, [
+      el("div", { "class": "kicker" }, [el("span", { "class": "label", text: "Pari de confiance" }), regle]),
+      seg
+    ]);
+    var erreur = el("p", { "class": "erreur", text: "Choisis d'abord une réponse.", hidden: "" });
+    var valider = el("button", { "class": "cta", type: "button", text: "Valider" });
+    var bloc = el("div", { style: "display:grid;gap:24px" }, [
+      el("div", { "class": "kicker" }, [el("span", { "class": "label", text: q.kicker }), el("span", { "class": "meta", text: DUREE + " s" })]),
+      el("h1", { text: q.enonce }), liste, cert, valider, erreur
+    ]);
+    function conclure(tempsEcoule) {
+      if (fini) return;
+      arreterChrono();
+      boutons.forEach(function (b) { b.disabled = true; });
+      seg.querySelectorAll("button").forEach(function (b) { b.disabled = true; });
+      var juste = choisi === q.bonne;
+      boutons[q.bonne].classList.add("juste");
+      boutons[q.bonne].querySelector(".etat").textContent = "Bonne réponse";
+      if (choisi !== null && !juste) boutons[choisi].classList.add("faux");
+      var gagne = juste ? gain(certitude) : (choisi === null ? 0 : perte(certitude));
+      valider.remove(); erreur.remove(); cert.remove();
+      var texte = (tempsEcoule ? "Temps écoulé. " : "") + q.correction;
+      bloc.appendChild(bilan(q, juste, gagne, texte));
+    }
+    valider.addEventListener("click", function () {
+      if (choisi === null) { erreur.hidden = false; return; }
+      conclure(false);
+    });
+    lancerChrono(function () { conclure(true); });
+    return bloc;
+  }
+  function gain(c) { return Math.round(c / 10); }
+  function perte(c) { return -Math.round((c - 40) / 5); }
+
+  function bluff(q) {
+    var liste = el("div", { "class": "choix deux", role: "group", "aria-label": "Ton verdict" });
+    var vraiB = el("button", { type: "button" }, [el("span", { text: "Il dit vrai" }), el("span", { "class": "etat" })]);
+    var bluffB = el("button", { type: "button" }, [el("span", { text: "Il bluffe" }), el("span", { "class": "etat" })]);
+    liste.appendChild(vraiB); liste.appendChild(bluffB);
+    var bloc = el("div", { style: "display:grid;gap:24px" }, [
+      el("div", { "class": "kicker" }, [el("span", { "class": "label", text: q.kicker }), el("span", { "class": "meta", text: DUREE + " s" })]),
+      rivalBloc("", 0),
+      liste
+    ]);
+    var r = bloc.querySelector(".rival p");
+    r.className = "affirmation";
+    r.textContent = q.affirmation;
+    function conclure(dit) {
+      arreterChrono();
+      vraiB.disabled = true; bluffB.disabled = true;
+      var juste = dit === q.vrai;
+      var bon = q.vrai ? vraiB : bluffB;
+      bon.classList.add("juste");
+      bon.querySelector(".etat").textContent = "Exact";
+      if (dit !== null && !juste) (dit ? vraiB : bluffB).classList.add("faux");
+      bloc.appendChild(bilan(q, juste, juste ? 8 : (dit === null ? 0 : -4), (dit === null ? "Temps écoulé. " : "") + q.correction));
+    }
+    vraiB.addEventListener("click", function () { conclure(true); });
+    bluffB.addEventListener("click", function () { conclure(false); });
+    lancerChrono(function () { conclure(null); });
+    return bloc;
+  }
+
+  function frise(q) {
+    var placees = [];
+    var slots = el("div", { "class": "frise-slots", "aria-label": "Ton ordre" });
+    var pioche = el("div", { "class": "pioche" });
+    var erreur = el("p", { "class": "erreur", text: "Place les trois événements avant de valider.", hidden: "" });
+    function dessiner() {
+      slots.innerHTML = "";
+      for (var i = 0; i < 3; i++) {
+        var nom = placees[i];
+        slots.appendChild(el("div", {}, [el("span", { text: String(i + 1) }), nom ? el("span", { text: nom, style: "font-family:var(--serif);font-weight:400;font-size:20px;color:var(--ink)" }) : el("em", { text: "Touche un événement ci-dessous" })]));
+      }
+      pioche.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", placees.indexOf(b.dataset.nom) >= 0 ? "true" : "false"); });
+    }
+    q.elements.forEach(function (nom) {
+      var b = el("button", { type: "button", "data-nom": nom, text: nom, "aria-pressed": "false" });
+      b.addEventListener("click", function () {
+        var k = placees.indexOf(nom);
+        if (k >= 0) placees.splice(k, 1); else if (placees.length < 3) placees.push(nom);
+        erreur.hidden = true;
+        dessiner();
+      });
+      pioche.appendChild(b);
+    });
+    var valider = el("button", { "class": "cta", type: "button", text: "Valider l'ordre" });
+    var bloc = el("div", { style: "display:grid;gap:24px" }, [
+      el("div", { "class": "kicker" }, [el("span", { "class": "label", text: q.kicker }), el("span", { "class": "meta", text: DUREE + " s" })]),
+      el("h1", { text: q.enonce }), slots, pioche, valider, erreur
+    ]);
+    function conclure(tempsEcoule) {
+      arreterChrono();
+      var juste = placees.length === 3 && placees.every(function (n, i) { return n === q.ordre[i]; });
+      pioche.remove(); valider.remove(); erreur.remove();
+      slots.innerHTML = "";
+      q.ordre.forEach(function (nom, i) {
+        var ok = placees[i] === nom;
+        slots.appendChild(el("div", { style: ok ? "" : "color:var(--ink-2)" }, [el("span", { text: String(i + 1) }), el("span", { style: "font-family:var(--serif);font-size:20px;font-weight:400;color:inherit", text: nom + ", " + q.dates[nom] })]));
+      });
+      bloc.appendChild(bilan(q, juste, juste ? 10 : 0, (tempsEcoule ? "Temps écoulé. " : "") + (juste ? "Bon ordre." : "Le bon ordre est ci-dessus.")));
+    }
+    valider.addEventListener("click", function () {
+      if (placees.length < 3) { erreur.hidden = false; return; }
+      conclure(false);
+    });
+    dessiner();
+    lancerChrono(function () { conclure(true); });
+    return bloc;
+  }
+
+  function resultat() {
+    fini = true;
+    arreterChrono();
+    folio.textContent = "Bilan";
+    var verdict = justes === 3 ? "Trois sur trois. Je vais devoir relire mes fiches."
+      : justes === 2 ? "Deux sur trois. Honorable, sans plus. Demain, je durcis le ton."
+      : justes === 1 ? "Une sur trois. On reprend la frise à zéro, toi et moi ?"
+      : "Zéro. J'ai rarement gagné aussi facilement.";
+    var copie = el("p", { "class": "meta", text: "" });
+    var defier = el("button", { "class": "cta ligne", type: "button", text: "Défier un ami sur cette série" });
+    defier.addEventListener("click", function () {
+      var lien = "koios.app/duel/7K2Q";
+      var fait = function () { copie.textContent = "Lien d'essai copié : " + lien + ". Colle-le dans WhatsApp."; };
+      try {
+        navigator.clipboard.writeText(lien).then(fait, function () { copie.textContent = "Copie impossible ici. Le lien d'essai : " + lien; });
+      } catch (e) { copie.textContent = "Copie impossible ici. Le lien d'essai : " + lien; }
+    });
+    var rejouer = el("button", { "class": "cta", type: "button", text: "Rejouer la série" });
+    rejouer.addEventListener("click", function () { index = 0; justes = 0; total = 0; fini = false; majTotal(); afficher(); });
+    return el("div", { style: "display:grid;gap:28px" }, [
+      el("div", { "class": "score" }, [
+        el("span", { "class": "label", text: "Ta série" }),
+        el("span", { "class": "grand", text: justes + " / 3" }),
+        el("span", { "class": "meta", text: pts(total) + " · Histoire et géographie · Compagnon, 65 questions" })
+      ]),
+      rival(verdict, justes >= 2),
+      el("div", { "class": "actions" }, [defier, copie, rejouer, el("a", { "class": "cta ligne", href: "index.html", text: "Retour à l'accueil" })])
+    ]);
+  }
+
+  function afficher() {
+    scene.innerHTML = "";
+    if (index >= QUESTIONS.length) { scene.appendChild(resultat()); window.scrollTo(0, 0); return; }
+    folio.textContent = deux(index + 1) + " / " + deux(QUESTIONS.length);
+    var q = QUESTIONS[index];
+    scene.appendChild(q.type === "qcm" ? qcm(q) : q.type === "bluff" ? bluff(q) : frise(q));
+    window.scrollTo(0, 0);
+  }
+  afficher();
+})();
+</script>
+</body>
+</html>
