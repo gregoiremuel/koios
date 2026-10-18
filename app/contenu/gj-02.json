@@ -1,0 +1,212 @@
+{
+ "id": "gj-02",
+ "domaine": "gj",
+ "numero": 2,
+ "titre": "Réfraction, biréfringence, pléochroïsme",
+ "figure": null,
+ "essentiel": [
+  "Une gemme du système cubique, comme le diamant, le spinelle ou le grenat, est monoréfringente : elle n’a qu’un seul indice de réfraction.",
+  "Presque tous les autres cristaux transparents divisent un rayon de lumière en deux : c’est la double réfraction, et la biréfringence est l’écart entre les deux indices.",
+  "Dans ces gemmes biréfringentes, la couleur peut changer selon la direction d’observation : c’est le pléochroïsme, qui n’existe jamais dans une pierre monoréfringente.",
+  "Le diamant, d’indice voisin de 2,42, reste monoréfringent ; la moissanite, qui l’imite parfois, démarre vers 2,65 et présente une forte biréfringence, d’environ 0,04."
+ ],
+ "reperes": [
+  [
+   "Monoréfringent",
+   "Un seul indice de réfraction : diamant, spinelle et grenat, du système cubique."
+  ],
+  [
+   "Biréfringence",
+   "Écart entre les deux indices d’un cristal : de 0,008 à 0,010 pour le corindon."
+  ],
+  [
+   "Pléochroïsme",
+   "Couleur variable selon la direction d’observation, réservée aux gemmes biréfringentes."
+  ],
+  [
+   "Diamant : 2,42",
+   "Indice inférieur à celui de la moissanite, qui démarre vers 2,65."
+  ]
+ ],
+ "sources": [
+  [
+   "GIA · Introduction to pleochroism in faceted gems (en anglais)",
+   "https://www.gia.edu/gems-gemology/fall-2014-introduction-pleochroism-faceted-gems"
+  ],
+  [
+   "International Gem Society · What is gemstone pleochroism ? (en anglais)",
+   "https://www.gemsociety.org/article/what-is-gemstone-pleochroism/"
+  ],
+  [
+   "Encyclopædia Britannica · Double refraction (en anglais)",
+   "https://britannica.com/print/article/170003"
+  ],
+  [
+   "Futura Sciences · Biréfringence",
+   "https://www.futura-sciences.com/sciences/definitions/physique-birefringence-1416/"
+  ],
+  [
+   "GIA · Spinel (en anglais)",
+   "https://www.gia.edu/spinel/gem-overview"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Spinel (en anglais)",
+   "https://cameo.mfa.org/wiki/Spinel"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+   "https://cameo.mfa.org/wiki/Diamond"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+   "https://cameo.mfa.org/wiki/Moissanite"
+  ],
+  [
+   "Handbook of Mineralogy · Moissanite (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+  ],
+  [
+   "GIA · Laboratory‑grown diamond (en anglais)",
+   "https://4cs.gia.edu/en-us/laboratory-grown-diamond/"
+  ],
+  [
+   "International Gem Society · Refractive indices and double refraction of selected gems (en anglais)",
+   "https://www.gemsociety.org/article/table-refractive-index-double-refraction-gems/"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+   "https://cameo.mfa.org/wiki/Corundum"
+  ],
+  [
+   "GIA · Ruby (en anglais)",
+   "https://www.gia.edu/ruby/gem-overview"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Sphene (en anglais)",
+   "https://cameo.mfa.org/wiki/Sphene"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Gemmes monoréfringentes",
+   "repere": 0,
+   "enonce": "Laquelle de ces gemmes est monoréfringente, donc jamais pléochroïque ?",
+   "reponses": [
+    "Le spinelle",
+    "Le rubis",
+    "La tourmaline",
+    "Le quartz"
+   ],
+   "bonne": 0,
+   "correction": "Le spinelle cristallise dans le système cubique : il n’a qu’un indice (environ 1,72) et ne montre aucun pléochroïsme. Rubis, tourmaline et quartz sont biréfringents.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · Introduction to pleochroism in faceted gems (en anglais)",
+     "https://www.gia.edu/gems-gemology/fall-2014-introduction-pleochroism-faceted-gems"
+    ],
+    [
+     "GIA · Spinel (en anglais)",
+     "https://www.gia.edu/spinel/gem-overview"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Spinel (en anglais)",
+     "https://cameo.mfa.org/wiki/Spinel"
+    ],
+    [
+     "International Gem Society · What is gemstone pleochroism ? (en anglais)",
+     "https://www.gemsociety.org/article/what-is-gemstone-pleochroism/"
+    ]
+   ],
+   "rivalJuste": "Un seul indice, un seul bon réflexe.",
+   "rivalFaux": "Cubique, donc un seul indice. Les trois autres dédoublent la lumière."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe‑t‑il ?",
+   "theme": "Diamant contre moissanite",
+   "repere": 3,
+   "affirmation": "Le diamant a un indice de réfraction plus élevé que celui de la moissanite.",
+   "vrai": false,
+   "correction": "C’était un bluff. Le diamant plafonne vers 2,42, alors que la moissanite démarre autour de 2,65. Elle est de plus biréfringente, alors que le diamant est monoréfringent.",
+   "figure": null,
+   "sources": [
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+     "https://cameo.mfa.org/wiki/Moissanite"
+    ],
+    [
+     "Handbook of Mineralogy · Moissanite (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+     "https://cameo.mfa.org/wiki/Diamond"
+    ]
+   ],
+   "rivalJuste": "Repéré. Sur ce critère, l’imitation dépasse l’original.",
+   "rivalFaux": "Sur l’indice seul, l’imitation dépasse l’original. Retiens‑le."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Classer par biréfringence",
+   "repere": 1,
+   "enonce": "Range ces quatre gemmes de la plus faible à la plus forte biréfringence.",
+   "elements": [
+    "Moissanite",
+    "Sphène",
+    "Spinelle",
+    "Corindon"
+   ],
+   "ordre": [
+    "Spinelle",
+    "Corindon",
+    "Moissanite",
+    "Sphène"
+   ],
+   "correction": "Le spinelle, cubique, n’a aucune biréfringence. Le corindon en a une faible (0,008 à 0,010), la moissanite une forte (environ 0,04) et le sphène une très forte, à partir de 0,10.",
+   "figure": null,
+   "sources": [
+    [
+     "International Gem Society · Refractive indices and double refraction of selected gems (en anglais)",
+     "https://www.gemsociety.org/article/table-refractive-index-double-refraction-gems/"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Spinel (en anglais)",
+     "https://cameo.mfa.org/wiki/Spinel"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+     "https://cameo.mfa.org/wiki/Corundum"
+    ],
+    [
+     "GIA · Ruby (en anglais)",
+     "https://www.gia.edu/ruby/gem-overview"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+     "https://cameo.mfa.org/wiki/Moissanite"
+    ],
+    [
+     "Handbook of Mineralogy · Moissanite (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Sphene (en anglais)",
+     "https://cameo.mfa.org/wiki/Sphene"
+    ]
+   ],
+   "rivalJuste": "Du néant au dédoublement. Classement impeccable.",
+   "rivalFaux": "Le sphène dédouble l’image de ses facettes arrière : place-le en dernier.",
+   "valeurs": {
+    "Spinelle": "aucune",
+    "Corindon": "0,008–0,010",
+    "Moissanite": "environ 0,04",
+    "Sphène": "0,10 et plus"
+   }
+  }
+ ]
+}

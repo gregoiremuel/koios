@@ -84,6 +84,8 @@ def controler(chemin: pathlib.Path):
             if el == ordre:
                 pb.append(f"exercice {k} : éléments déjà dans l'ordre")
     tout = " ".join(textes(c))
+    for m in re.finditer(r"\w[ ][;:?!»]|«[ ]", tout):
+        pb.append(f"espace simple au lieu d'une insécable : « {m.group(0)} » (lancer scripts/typo.py)")
     for mot in MOTS:
         if re.search(r"(?<!\w)" + re.escape(mot) + r"(?!\w)", tout, re.I):
             pb.append(f"mot interdit « {mot} »")
@@ -104,6 +106,9 @@ def main() -> int:
         cat[c["domaine"]].append({"id": c["id"], "numero": c["numero"], "titre": c["titre"]})
     for d in cat:
         cat[d].sort(key=lambda x: x["numero"])
+    vrais = [json.loads((CONTENU / (x["id"] + ".json")).read_text(encoding="utf-8"))["exercices"][1]["vrai"] for v in cat.values() for x in v]
+    if vrais and not 0.3 <= sum(vrais) / len(vrais) <= 0.7:
+        print(f"Avertissement : {sum(vrais)} bluffs vrais sur {len(vrais)} ; viser entre 30 et 70 %.")
     (CONTENU / "catalogue.json").write_text(json.dumps({"domaines": cat}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print("Catalogue : " + ", ".join(f"{d} {len(v)}" for d, v in cat.items()))
     return 1 if echecs else 0

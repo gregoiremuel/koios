@@ -76,7 +76,7 @@
     return fig;
   }
   function sources(liste) {
-    if (!liste || !liste.length) return el("p", { "class": "sans-source" }, [icone("faux"), "Brouillon non vérifié : aucune source contrôlée."]);
+    if (!liste || !liste.length) return el("p", { "class": "sans-source" }, [icone("faux"), "Brouillon non vérifié : aucune source contrôlée."]);
     var ul = el("ul");
     liste.forEach(function (s) {
       ul.appendChild(el("li", {}, [s[1] ? el("a", { href: s[1], target: "_blank", rel: "noopener", text: s[0] }) : el("span", { style: "display:block;padding:11px 0", text: s[0] })]));
@@ -90,8 +90,8 @@
       navigator.share({ title: titre, text: texte, url: url }).catch(function () {});
       return;
     }
-    var echec = function () { repli("Copie impossible ici. Lien : " + url); };
-    try { navigator.clipboard.writeText(url).then(function () { repli("Lien copié : colle-le dans WhatsApp ou un message."); }, echec); } catch (e) { echec(); }
+    var echec = function () { repli("Copie impossible ici. Lien : " + url); };
+    try { navigator.clipboard.writeText(url).then(function () { repli("Lien copié : colle-le dans WhatsApp ou un message."); }, echec); } catch (e) { echec(); }
   }
 
   /* ---------- Réseau ---------- */
@@ -201,7 +201,8 @@
     return p;
   }
   function lobes() { return DOMAINES.map(function (d) { return valides(d.code) > 0 ? d.verre : null; }); }
-  function etiquetteRosace() { return "Rosace des savoirs : " + totalValides() + " vitraux allumés sur " + totalChapitres(); }
+  function vitraux(n) { return n + (n > 1 ? " vitraux" : " vitrail"); }
+  function etiquetteRosace() { var v = totalValides(); return "Rosace des savoirs : " + vitraux(v) + " allumé" + (v > 1 ? "s" : "") + " sur " + totalChapitres(); }
 
   /* ---------- Mise en page ---------- */
   function montrer(page, onglet, titre) {
@@ -241,7 +242,7 @@
     var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", autocomplete: "nickname", placeholder: "Ton prénom ou un pseudo" });
     var alerte = el("p", { "class": "alerte", hidden: "" });
     var choix = el("div", { "class": "choix", role: "group", "aria-label": "Le ton du Rival" });
-    [["taquin", "Taquin", "Pince-sans-rire, il te provoque un peu."], ["sobre", "Sobre", "Il corrige, sans commentaire."]].forEach(function (c) {
+    [["taquin", "Taquin", "Pince‑sans‑rire, il te provoque un peu."], ["sobre", "Sobre", "Il corrige, sans commentaire."]].forEach(function (c) {
       var b = el("button", { type: "button", "aria-pressed": c[0] === ton ? "true" : "false" }, [el("b", { text: c[1] }), el("span", { text: c[2] })]);
       b.addEventListener("click", function () { ton = c[0]; choix.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); });
       choix.appendChild(b);
@@ -259,7 +260,10 @@
     });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
     var vitrail = el("div", { "class": "vitrail" });
-    chargerCatalogue().then(function () { vitrail.innerHTML = Gothique.ogive(petales(null), lobes(), etiquetteRosace()); }, function () { vitrail.remove(); });
+    var syncSpan = el("span", { text: "Ta progression est enregistrée sur cet appareil." });
+    var syncTexte = el("p", { "class": "astuce" }, [icone("verifie"), syncSpan]);
+    pretServeur.then(function () { if (serveur.base) syncSpan.textContent = "Ta progression est enregistrée en ligne. Ta clé de lecteur, dans le profil, permet de la retrouver sur un autre appareil."; });
+    chargerCatalogue().then(function () { vitrail.innerHTML = Gothique.baie(petales(null), lobes(), etiquetteRosace()); }, function () { vitrail.remove(); });
     montrer(el("div", { "class": "page sans-nav" }, [
       el("header", { "class": "haut" }, [el("span", { "class": "marque", html: (window.Gothique ? Gothique.marque(DOMAINES.map(function (d) { return d.verre; })) : "") + "Koîos" })]),
       el("div", { "class": "arcature", "aria-hidden": "true" }),
@@ -271,7 +275,7 @@
         el("label", { "for": "pseudo", style: "font-family:var(--livre);font-weight:600;font-size:21px", text: "Ton nom de lecteur" }), champ,
         el("span", { "class": "lib", text: "Le ton du Rival" }), choix,
         go, alerte,
-        el("p", { "class": "astuce" }, [icone("verifie"), el("span", { text: "Ta progression est enregistrée en ligne. Ta clé de lecteur, dans le profil, permet de la retrouver sur un autre appareil." })])
+        syncTexte
       ])
     ]), null, "Accueil");
   }
@@ -285,7 +289,8 @@
       var liste = chapitres(d.code), v = valides(d.code);
       var bandes = el("span", { "class": "bandes" });
       liste.slice(0, 6).forEach(function (c) { bandes.appendChild(el("i", { "class": (etat.chapitres[c.id] || {}).valide ? "ok" : null })); });
-      livres.appendChild(el("a", { "class": "livre", href: "#/livre/" + d.code, style: "background-color:" + d.cuir + ";width:" + d.w + "px;min-height:" + d.h + "px", "aria-label": d.nom + ", " + v + " chapitre" + (v > 1 ? "s" : "") + " validé" + (v > 1 ? "s" : "") + " sur " + liste.length }, [
+      var vide = liste.length === 0;
+      livres.appendChild(el(vide ? "span" : "a", { "class": "livre" + (vide ? " vide" : ""), href: vide ? null : "#/livre/" + d.code, style: "background-color:" + d.cuir + ";width:" + d.w + "px;min-height:" + d.h + "px", "aria-label": vide ? d.nom + ", en préparation" : d.nom + ", " + v + " chapitre" + (v > 1 ? "s" : "") + " validé" + (v > 1 ? "s" : "") + " sur " + liste.length, role: vide ? "img" : null }, [
         el("span", { "class": "nerfs" }, [el("i"), el("i")]), el("span", { "class": "piece" }, [el("span", { "class": "nom", text: d.court })]), bandes
       ]));
     });
@@ -296,7 +301,8 @@
   function legende() {
     var l = el("div", { "class": "legende" });
     DOMAINES.forEach(function (d) {
-      l.appendChild(el("a", { href: "#/livre/" + d.code }, [el("span", { "class": "pastille", style: "background:" + d.verre, "aria-hidden": "true" }), el("b", { text: d.court }), el("span", { text: valides(d.code) + " / " + chapitres(d.code).length })]));
+      var nb = chapitres(d.code).length;
+      l.appendChild(el(nb ? "a" : "span", { href: nb ? "#/livre/" + d.code : null }, [el("span", { "class": "pastille", style: "background:" + d.verre, "aria-hidden": "true" }), el("b", { text: d.court }), el("span", { text: nb ? valides(d.code) + " / " + nb : "En préparation" })]));
     });
     return l;
   }
@@ -305,8 +311,8 @@
     if (taquin()) {
       if (v === t && t > 0) return marge("vexe", "Toute la rosace est allumée. Je prépare d’autres chapitres, plus retors.");
       if (enCours) return marge("malin", "Un chapitre commencé, jamais fini. Je note.");
-      if (v === 0) return marge("malin", t + " vitraux éteints. Allume le premier, je regarde.");
-      return marge("malin", v + " vitraux sur " + t + ". Je commence à me méfier.");
+      if (v === 0) return marge("malin", vitraux(t) + " éteint" + (t > 1 ? "s" : "") + ". Allume le premier, je regarde.");
+      return marge("malin", vitraux(v) + " sur " + t + ". Je commence à me méfier.");
     }
     if (v === t && t > 0) return marge("explique", "Tout est validé. D’autres chapitres arrivent.");
     if (enCours) return marge("explique", "Un chapitre t’attend là où tu l’as laissé.");
@@ -340,7 +346,7 @@
   function carteLibre() {
     var champ = el("input", { "class": "champ", id: "sujet", type: "text", maxlength: "80", autocomplete: "off", placeholder: "Le cubisme, les volcans d’Islande…" });
     var bouton = el("button", { "class": "btn trait", type: "button", text: "Demander un brouillon au Rival" });
-    var astuce = el("p", { "class": "astuce" }, [icone("ampoule"), el("span", { text: "Hors catalogue, le Rival rédige un chapitre en direct. Ce brouillon n’est pas vérifié : il peut contenir des erreurs." })]);
+    var astuce = el("p", { "class": "astuce" }, [icone("ampoule"), el("span", { text: "Hors catalogue, le Rival rédige un chapitre en direct. Ce brouillon n’est pas vérifié : il peut contenir des erreurs." })]);
     var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
     bouton.addEventListener("click", function () {
       var sujet = champ.value.trim();
@@ -359,7 +365,7 @@
       }, function (e) {
         bouton.disabled = false;
         bouton.textContent = "Demander un brouillon au Rival";
-        alerte.textContent = e.statut === 429 ? "Limite du jour atteinte : 5 brouillons par jour et par lecteur." : e.statut === 503 ? "La rédaction en direct n’est pas encore branchée." : "Le Rival n’a pas réussi ce brouillon. Réessaie dans un moment ou change de sujet.";
+        alerte.textContent = e.statut === 429 ? "Limite du jour atteinte : 5 brouillons par jour et par lecteur." : e.statut === 503 ? "La rédaction en direct n’est pas encore branchée." : "Le Rival n’a pas réussi ce brouillon. Réessaie dans un moment ou change de sujet.";
         alerte.hidden = false;
       });
     });
@@ -455,18 +461,18 @@
     }
     function repartie(q, juste) {
       if (taquin()) return juste ? q.rivalJuste : q.rivalFaux;
-      return juste ? "Bonne réponse, c’est noté." : "Relis la correction : elle fait foi.";
+      return juste ? "Bonne réponse, c’est noté." : "Relis la correction : elle fait foi.";
     }
     function signaler(q) {
       var zone = el("div", { "class": "signaler" });
       var ouvrir = el("button", { "class": "lien discret", type: "button" }, [icone("plume"), "Signaler une erreur"]);
       ouvrir.addEventListener("click", function () {
-        var texte = el("textarea", { "class": "champ", maxlength: "1000", placeholder: "Qu’est-ce qui te semble faux ? Une source, si tu en as une." , "aria-label": "Ton signalement" });
+        var texte = el("textarea", { "class": "champ", maxlength: "1000", placeholder: "Qu’est‑ce qui te semble faux ? Une source, si tu en as une." , "aria-label": "Ton signalement" });
         var envoyer = el("button", { "class": "btn trait", type: "button", text: "Envoyer le signalement" });
         envoyer.addEventListener("click", function () {
           var m = texte.value.trim();
           if (!m) { texte.focus(); return; }
-          if (!serveur.base || !profil.id) { toast("Envoi impossible pour l’instant : la base en ligne n’est pas branchée."); return; }
+          if (!serveur.base || !profil.id) { toast("Envoi impossible pour l’instant : la base en ligne n’est pas branchée."); return; }
           envoyer.disabled = true;
           api("POST", "signalement", { chapitre: brouillon ? "libre:" + (ch.sujet || ch.titre) : ch.id, exercice: q._i, message: m }).then(function () {
             zone.innerHTML = "";
@@ -521,12 +527,12 @@
       var go = el("button", { "class": "btn", type: "button", id: "commencer", text: revision ? "Rejouer " + (n > 1 ? "les " + n + " exercices manqués" : "l’exercice manqué") : "Passer aux " + pluriel(n, "exercice", "exercices") });
       go.addEventListener("click", function () { etape = 1; afficher(); });
       var lib = brouillon ? "Brouillon non vérifié" : revision ? "Révision · chapitre " + romain(ch.numero) : dom.nom + " · chapitre " + romain(ch.numero);
-      var mot = brouillon ? (taquin() ? "Écrit à l’instant, sans vérification. Méfie-toi de moi plus que d’habitude." : "Brouillon non vérifié : garde un œil critique.")
+      var mot = brouillon ? (taquin() ? "Écrit à l’instant, sans vérification. Méfie‑toi de moi plus que d’habitude." : "Brouillon non vérifié : garde un œil critique.")
         : revision ? (taquin() ? "J’ai surligné ce qui t’a échappé. Relis, puis on reprend." : "Les repères à revoir sont surlignés.")
         : (taquin() ? pluriel((ch.reperes || []).length, "repère", "repères") + ", et je te les demanderai. Prends ton temps." : "Lis la fiche, puis passe aux exercices.");
       var blocs = [];
       if (brouillon) blocs.push(el("div", { "class": "bandeau-brouillon", role: "note" }, [icone("faux"), el("span", {}, [el("b", { text: "Brouillon non vérifié" }), "Rédigé en direct par une IA sur " + guill(ch.sujet || ch.titre) + ". Il peut contenir des erreurs et ne compte pas dans ta rosace."])]));
-      if (opt.defi) blocs.push(el("div", { "class": "bandeau-defi", role: "note" }, [icone("epee"), el("span", { text: opt.defi.pseudo + " te défie sur ce chapitre : " + opt.defi.justes + "/" + opt.defi.n + ", " + pts(opt.defi.points) + ". À toi." })]));
+      if (opt.defi) blocs.push(el("div", { "class": "bandeau-defi", role: "note" }, [icone("epee"), el("span", { text: opt.defi.pseudo + " te défie sur ce chapitre : " + opt.defi.justes + "/" + opt.defi.n + ", " + pts(opt.defi.points) + ". À toi." })]));
       blocs.push(el("article", { "class": "feuille" }, [
         el("div", { "class": "arcature", "aria-hidden": "true" }),
         el("span", { "class": "lib", text: lib }),
@@ -585,8 +591,10 @@
       function conclure(dit) {
         vraiB.disabled = true; bluffB.disabled = true;
         var juste = dit === q.vrai;
-        (q.vrai ? vraiB : bluffB).classList.add("juste");
-        if (!juste) (dit ? vraiB : bluffB).classList.add("faux");
+        var bon = q.vrai ? vraiB : bluffB;
+        bon.classList.add("juste");
+        bon.appendChild(icone("juste", "i marque-rep", "Bonne réponse"));
+        if (!juste) { var mauvais = dit ? vraiB : bluffB; mauvais.classList.add("faux"); mauvais.appendChild(icone("faux", "i marque-rep", "Ta réponse, inexacte")); }
         poser(zone, verdict(q, juste, juste ? 8 : -4));
       }
       vraiB.addEventListener("click", function () { conclure(true); });
@@ -625,7 +633,7 @@
         q.ordre.forEach(function (nom, k) {
           var ok = placees[k] === nom;
           var txt = el("span", {}, [nom + (valeurs[nom] ? ", " + valeurs[nom] : "")]);
-          if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici : " + placees[k] }));
+          if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici : " + placees[k] }));
           rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(k + 1) }), txt]));
         });
         poser(zone, verdict(q, juste, juste ? 10 : 0));
@@ -664,9 +672,9 @@
       else revoirListe.appendChild(el("li", {}, [icone("juste"), "Rien à revoir sur ce chapitre."]));
       var titre = opt.revoir ? (reussi ? "Erreurs corrigées" : "Encore un effort") : brouillon ? (reussi ? "Brouillon réussi" : "Brouillon à reprendre") : (reussi ? "Chapitre validé" : "Chapitre à reprendre");
       var nextC = !brouillon && res.valide ? suivant(ch.id) : null;
-      var precision = brouillon ? "Brouillon : ce résultat ne compte pas dans ta rosace."
+      var precision = brouillon ? "Brouillon : ce résultat ne compte pas dans ta rosace."
         : opt.revoir ? (res.valide ? "Le chapitre reste validé." : "Refais le chapitre entier pour le valider.")
-        : reussi ? (nextC ? "Suite : chapitre " + romain(nextC.numero) + " · " + nextC.titre + "." : "Dernier chapitre disponible de cette formation.")
+        : reussi ? (nextC ? "Suite : chapitre " + romain(nextC.numero) + " · " + nextC.titre + "." : "Dernier chapitre disponible de cette formation.")
         : "Il faut " + pluriel(seuil, "bonne réponse", "bonnes réponses") + " sur " + n + " pour valider.";
       var feuille = el("section", { "class": "feuille", "aria-labelledby": "bilan-titre" }, [
         el("span", { "class": "lib", text: (opt.revoir ? "Révision" : brouillon ? "Brouillon" : "Chapitre " + romain(ch.numero)) + " · bilan" }),
@@ -679,7 +687,7 @@
       if (opt.defi && !opt.revoir) {
         var d = opt.defi;
         var issue = justes > d.justes || (justes === d.justes && total > d.points) ? "Défi remporté." : (justes === d.justes && total === d.points ? "Égalité parfaite." : "Défi perdu, cette fois.");
-        blocs.push(el("div", { "class": "bandeau-defi" }, [icone("epee"), el("span", { text: issue + " " + d.pseudo + " : " + d.justes + "/" + d.n + ", " + pts(d.points) + ". Toi : " + justes + "/" + n + ", " + pts(total) + "." })]));
+        blocs.push(el("div", { "class": "bandeau-defi" }, [icone("epee"), el("span", { text: issue + " " + d.pseudo + " : " + d.justes + "/" + d.n + ", " + pts(d.points) + ". Toi : " + justes + "/" + n + ", " + pts(total) + "." })]));
       }
       if (res.nouveau) {
         var m = el("div", { "class": "allume" });
@@ -687,34 +695,35 @@
         m.appendChild(el("p", { text: "Un vitrail de plus. Ta rosace en compte " + totalValides() + " allumé" + (totalValides() > 1 ? "s" : "") + " sur " + totalChapitres() + "." }));
         blocs.push(el("section", { "class": "carte" }, [m]));
       }
-      var mot = taquin() ? (rates.length === 0 ? "Rien à redire. Le prochain sera moins indulgent." : reussi ? "Validé, mais pas sans fautes. Revois-les avant d’avancer." : "Pas encore. Relis ce que j’ai surligné, puis reviens.")
+      var mot = taquin() ? (rates.length === 0 ? "Rien à redire. Le prochain sera moins indulgent." : reussi ? "Validé, mais pas sans fautes. Revois‑les avant d’avancer." : "Pas encore. Relis ce que j’ai surligné, puis reviens.")
         : (rates.length === 0 ? "Aucune erreur." : reussi ? "Validé. Quelques points à revoir." : "Relis la fiche, puis réessaie.");
       blocs.push(marge(reussi ? "vexe" : "ravi", mot));
-      var actions = el("div", { "class": "pile" });
+      var actions = el("div", { "class": "pile" }), liste = [];
       if (rates.length && !brouillon) {
-        var revoir = el("button", { "class": "btn", type: "button", text: "Revoir mes erreurs" });
+        var revoir = el("button", { type: "button", text: "Revoir mes erreurs" });
         revoir.addEventListener("click", function () {
           var cible = "#/chapitre/" + ch.id + "/revoir";
           if (location.hash === cible) route(); else location.hash = cible;
         });
-        actions.appendChild(revoir);
+        liste.push(revoir);
       } else if (rates.length && brouillon) {
-        var refaire = el("button", { "class": "btn", type: "button", text: "Refaire ce brouillon" });
+        var refaire = el("button", { type: "button", text: "Refaire ce brouillon" });
         refaire.addEventListener("click", route);
-        actions.appendChild(refaire);
+        liste.push(refaire);
       }
-      if (nextC) actions.appendChild(lien("#/chapitre/" + nextC.id, "Chapitre suivant", rates.length ? "btn trait" : "btn"));
+      if (nextC) liste.push(el("a", { href: "#/chapitre/" + nextC.id, text: "Chapitre suivant" }));
+      var info2 = el("p", { "class": "meta", role: "status" });
       if (!brouillon && !opt.revoir) {
-        var info2 = el("p", { "class": "meta", role: "status" });
-        var defier = el("button", { "class": "btn trait", type: "button" }, [icone("epee"), "Défier un ami sur ce chapitre"]);
+        var defier = el("button", { type: "button" }, [icone("epee"), "Défier un ami sur ce chapitre"]);
         defier.addEventListener("click", function () {
           var url = location.origin + location.pathname + "#/defi/" + ch.id + "/" + encodeURIComponent(profil.pseudo) + "/" + justes + "/" + n + "/" + total;
-          partager("Koîos", profil.pseudo + " te défie sur " + guill(ch.titre) + " : " + justes + "/" + n + ". À toi.", url, function (t) { info2.textContent = t; });
+          partager("Koîos", profil.pseudo + " te défie sur " + guill(ch.titre) + " : " + justes + "/" + n + ". À toi.", url, function (t) { info2.textContent = t; });
         });
-        actions.appendChild(defier);
-        actions.appendChild(info2);
+        liste.push(defier);
       }
-      actions.appendChild(lien(brouillon ? "#/" : "#/livre/" + ch.domaine, brouillon ? "Retour à la bibliothèque" : "Retour à la formation", "btn trait"));
+      liste.push(el("a", { href: brouillon ? "#/" : "#/livre/" + ch.domaine, text: brouillon ? "Retour à la bibliothèque" : "Retour à la formation" }));
+      liste.forEach(function (x, k) { x.className = k === 0 ? "btn" : k === 1 ? "btn trait" : "lien"; actions.appendChild(x); });
+      actions.appendChild(info2);
       blocs.push(actions);
       return el("div", { "class": "pile large" }, blocs);
     }
@@ -800,7 +809,7 @@
       profil.pseudo = p; S.ecrire("koios.profil", profil); pousser(); toast("Nom de lecteur enregistré.");
     });
     var choix = el("div", { "class": "choix", role: "group", "aria-label": "Le ton du Rival" });
-    [["taquin", "Taquin", "Pince-sans-rire, il te provoque un peu."], ["sobre", "Sobre", "Il corrige, sans commentaire."]].forEach(function (c) {
+    [["taquin", "Taquin", "Pince‑sans‑rire, il te provoque un peu."], ["sobre", "Sobre", "Il corrige, sans commentaire."]].forEach(function (c) {
       var b = el("button", { type: "button", "aria-pressed": (profil.ton || "taquin") === c[0] ? "true" : "false" }, [el("b", { text: c[1] }), el("span", { text: c[2] })]);
       b.addEventListener("click", function () { profil.ton = c[0]; S.ecrire("koios.profil", profil); pousser(); choix.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); });
       choix.appendChild(b);
@@ -820,7 +829,7 @@
           var cle = profil.id + "." + profil.cle;
           var boite = el("p", { "class": "cle-lecteur", text: cle });
           var copier = el("button", { "class": "lien", type: "button", text: "Copier la clé" });
-          copier.addEventListener("click", function () { try { navigator.clipboard.writeText(cle).then(function () { toast("Clé copiée. Garde-la pour toi."); }, function () { toast("Sélectionne la clé pour la copier."); }); } catch (e) { toast("Sélectionne la clé pour la copier."); } });
+          copier.addEventListener("click", function () { try { navigator.clipboard.writeText(cle).then(function () { toast("Clé copiée. Garde‑la pour toi."); }, function () { toast("Sélectionne la clé pour la copier."); }); } catch (e) { toast("Sélectionne la clé pour la copier."); } });
           montre.replaceWith(el("div", { "class": "pile" }, [boite, copier, el("p", { "class": "meta", text: "Cette clé ouvre ta progression. Ne la partage pas." })]));
         });
         cleZone.appendChild(montre);
@@ -847,7 +856,7 @@
       if (serveur.base) cleZone.appendChild(el("details", { "class": "sources" }, [el("summary", {}, [icone("signet"), "J’ai déjà une clé de lecteur"]), el("div", { "class": "pile", style: "padding-top:8px" }, [saisie, retrouver, alerte])]));
       if (window.poserIcones) window.poserIcones(cleZone);
     }
-    var vitrail = el("div", { "class": "vitrail", html: Gothique.ogive(petales(null), lobes(), etiquetteRosace()) });
+    var vitrail = el("div", { "class": "vitrail", html: Gothique.baie(petales(null), lobes(), etiquetteRosace()) });
     montrer(el("div", { "class": "page" }, [entete(),
       el("div", { style: "display:grid;gap:2px" }, [el("span", { "class": "lib", text: "Lecteur" }), el("h1", { text: profil.pseudo })]),
       vitrail,

@@ -1,233 +1,233 @@
 {
-  "id": "sn-03",
-  "domaine": "sn",
-  "numero": 3,
-  "titre": "Plaques tectoniques et volcans",
-  "figure": null,
-  "essentiel": [
-    "En 1912, le météorologue allemand Alfred Wegener présente l’hypothèse de la dérive des continents ; la tectonique des plaques, formulée dans les années 1960, en prolonge l’idée.",
-    "La couche externe de la Terre est découpée en une douzaine de grandes plaques, dont la vitesse se compte en centimètres par an : environ 2,5 cm par an pour l’écartement de la dorsale médio-atlantique.",
-    "Sous elles, le manteau est fait de roche solide, qui flue très lentement par convection sans être fondue.",
-    "Le Vésuve ensevelit Pompéi en l’an 79 et la montagne Pelée détruit Saint-Pierre, en Martinique, le 8 mai 1902.",
-    "Le 10 avril 1815, le Tambora produit la plus grande éruption connue, suivie de « l’année sans été » 1816 ; le 15 juin 1991, le Pinatubo livre la deuxième plus grande du XXe siècle."
+ "id": "sn-03",
+ "domaine": "sn",
+ "numero": 3,
+ "titre": "Plaques tectoniques et volcans",
+ "figure": null,
+ "essentiel": [
+  "En 1912, le météorologue allemand Alfred Wegener présente l’hypothèse de la dérive des continents ; la tectonique des plaques, formulée dans les années 1960, en prolonge l’idée.",
+  "La couche externe de la Terre est découpée en une douzaine de grandes plaques, dont la vitesse se compte en centimètres par an : environ 2,5 cm par an pour l’écartement de la dorsale médio-atlantique.",
+  "Sous elles, le manteau est fait de roche solide, qui flue très lentement par convection sans être fondue.",
+  "Le Vésuve ensevelit Pompéi en l’an 79 et la montagne Pelée détruit Saint‑Pierre, en Martinique, le 8 mai 1902.",
+  "Le 10 avril 1815, le Tambora produit la plus grande éruption connue, suivie de « l’année sans été » 1816 ; le 15 juin 1991, le Pinatubo livre la deuxième plus grande du XXe siècle."
+ ],
+ "reperes": [
+  [
+   "1912",
+   "Alfred Wegener présente l’hypothèse de la dérive des continents."
   ],
-  "reperes": [
-    [
-      "1912",
-      "Alfred Wegener présente l’hypothèse de la dérive des continents."
-    ],
-    [
-      "≈ 2,5 cm par an",
-      "Vitesse moyenne d’écartement de la dorsale médio-atlantique."
-    ],
-    [
-      "Manteau solide",
-      "Roche solide qui flue très lentement par convection, sans fondre."
-    ],
-    [
-      "10 avril 1815",
-      "Apogée de l’éruption du Tambora, la plus grande éruption connue ; elle précède « l’année sans été » de 1816."
-    ],
-    [
-      "15 juin 1991",
-      "Éruption du Pinatubo, deuxième plus grande du XXe siècle."
-    ]
+  [
+   "≈ 2,5 cm par an",
+   "Vitesse moyenne d’écartement de la dorsale médio-atlantique."
   ],
-  "sources": [
-    [
-      "Larousse · Alfred Wegener",
-      "https://www.larousse.fr/encyclopedie/personnage/wd/138971"
-    ],
-    [
-      "Encyclopædia Universalis · Alfred Wegener",
-      "https://www.universalis.fr/encyclopedie/alfred-wegener/"
-    ],
-    [
-      "USGS · This Dynamic Earth, historical perspective (en anglais)",
-      "https://pubs.usgs.gov/gip/dynamic/historical.html"
-    ],
-    [
-      "USGS · This Dynamic Earth, understanding plate motions (en anglais)",
-      "https://pubs.usgs.gov/gip/dynamic/understanding.html"
-    ],
-    [
-      "USGS · This Dynamic Earth: The Story of Plate Tectonics, notice (en anglais)",
-      "https://www.usgs.gov/publications/dynamic-earth-story-plate-tectonics"
-    ],
-    [
-      "Larousse · Tectonique",
-      "https://www.larousse.fr/encyclopedie/divers/tectonique/96183"
-    ],
-    [
-      "Woods Hole Oceanographic Institution · The Engine that Drives Earth (en anglais)",
-      "https://www.whoi.edu/oceanus/feature/the-engine-that-drives-earth/"
-    ],
-    [
-      "American Museum of Natural History · Circulating Heat (en anglais)",
-      "https://amnh.org/exhibitions/permanent/planet-earth/why-are-there-ocean-basins-continents-and-mountains/plate-tectonics/circulating-heat"
-    ],
-    [
-      "Earth Observatory of Singapore · Is the Earth’s mantle made of liquid magma? (en anglais)",
-      "https://www.earthobservatory.sg/faq-on-earth-sciences/earth%E2%80%99s-mantle-made-liquid-magma"
-    ],
-    [
-      "Encyclopædia Britannica · Vesuvius (en anglais)",
-      "https://www.britannica.com/place/Vesuvius"
-    ],
-    [
-      "Smithsonian, Global Volcanism Program · Vesuvius (en anglais)",
-      "https://volcano.si.edu/volcano.cfm?vn=211020"
-    ],
-    [
-      "Encyclopædia Britannica · Mount Pelée (en anglais)",
-      "https://www.britannica.com/place/Mount-Pelee"
-    ],
-    [
-      "USGS · Volcano Watch, chronology of a volcanic disaster (en anglais)",
-      "https://www.usgs.gov/news/volcano-watch-chronology-a-volcanic-disaster"
-    ],
-    [
-      "NASA Earth Observatory · Mount Tambora Volcano, Sumbawa Island, Indonesia (en anglais)",
-      "https://science.nasa.gov/earth/earth-observatory/mount-tambora-volcano-sumbawa-island-indonesia-39412/"
-    ],
-    [
-      "NOAA NESDIS · This Day in History, Mount Tambora explosively erupts in 1815 (en anglais)",
-      "https://www.nesdis.noaa.gov/news/day-history-mount-tambora-explosively-erupts-1815"
-    ],
-    [
-      "USGS · Pinatubo 1991, impacts and mitigation (en anglais)",
-      "https://volcanoes.usgs.gov/volcanic_ash/pinatubo_1991.html"
-    ],
-    [
-      "Encyclopædia Britannica · Volcano, Mount Pinatubo, Philippines, 1991 (en anglais)",
-      "https://www.britannica.com/science/volcano/Mount-Pinatubo-Philippines-1991"
-    ]
+  [
+   "Manteau solide",
+   "Roche solide qui flue très lentement par convection, sans fondre."
   ],
-  "exercices": [
-    {
-      "type": "qcm",
-      "lib": "Exercice 1 · question à choix",
-      "theme": "L’auteur de la dérive des continents",
-      "repere": 0,
-      "enonce": "Qui présente en 1912 l’hypothèse de la dérive des continents ?",
-      "reponses": [
-        "Charles Lyell",
-        "Harry Hess",
-        "Alfred Wegener",
-        "James Hutton"
-      ],
-      "bonne": 2,
-      "correction": "Le météorologue allemand Alfred Wegener présente l’hypothèse de la dérive des continents dès 1912. Harry Hess, lui, est associé à la convection du manteau, dans les années 1960.",
-      "figure": null,
-      "sources": [
-        [
-          "Larousse · Alfred Wegener",
-          "https://www.larousse.fr/encyclopedie/personnage/wd/138971"
-        ],
-        [
-          "Encyclopædia Universalis · Alfred Wegener",
-          "https://www.universalis.fr/encyclopedie/alfred-wegener/"
-        ],
-        [
-          "USGS · This Dynamic Earth, historical perspective (en anglais)",
-          "https://pubs.usgs.gov/gip/dynamic/historical.html"
-        ],
-        [
-          "Larousse · Tectonique",
-          "https://www.larousse.fr/encyclopedie/divers/tectonique/96183"
-        ]
-      ],
-      "rivalJuste": "Juste. Toi, au moins, tu ne dérives pas.",
-      "rivalFaux": "Raté. Tu as dérivé, mais de quelques centimètres seulement."
-    },
-    {
-      "type": "bluff",
-      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
-      "theme": "La nature du manteau terrestre",
-      "repere": 2,
-      "affirmation": "Les plaques tectoniques flottent sur un océan de roche en fusion : le manteau terrestre est liquide.",
-      "vrai": false,
-      "correction": "C’était un bluff. Le manteau est fait de roche essentiellement solide ; sous l’effet de la chaleur, elle flue très lentement, de quelques centimètres par an, sans fondre.",
-      "figure": null,
-      "sources": [
-        [
-          "Woods Hole Oceanographic Institution · The Engine that Drives Earth (en anglais)",
-          "https://www.whoi.edu/oceanus/feature/the-engine-that-drives-earth/"
-        ],
-        [
-          "American Museum of Natural History · Circulating Heat (en anglais)",
-          "https://amnh.org/exhibitions/permanent/planet-earth/why-are-there-ocean-basins-continents-and-mountains/plate-tectonics/circulating-heat"
-        ],
-        [
-          "Earth Observatory of Singapore · Is the Earth’s mantle made of liquid magma? (en anglais)",
-          "https://www.earthobservatory.sg/faq-on-earth-sciences/earth%E2%80%99s-mantle-made-liquid-magma"
-        ]
-      ],
-      "rivalJuste": "Repéré. Le manteau est solide, et toi, tu ne fonds pas.",
-      "rivalFaux": "Un océan de roche en fusion, c’est spectaculaire, et c’est faux. Le manteau est solide, il flue juste très lentement."
-    },
-    {
-      "type": "frise",
-      "lib": "Exercice 3 · frise",
-      "theme": "Quatre grandes éruptions",
-      "repere": 3,
-      "enonce": "Range ces quatre éruptions de la plus ancienne à la plus récente.",
-      "elements": [
-        "Pinatubo",
-        "Vésuve",
-        "Montagne Pelée",
-        "Tambora"
-      ],
-      "ordre": [
-        "Vésuve",
-        "Tambora",
-        "Montagne Pelée",
-        "Pinatubo"
-      ],
-      "correction": "Le Vésuve ensevelit Pompéi en l’an 79. Le Tambora éclate en avril 1815, la montagne Pelée détruit Saint-Pierre le 8 mai 1902, et le Pinatubo entre en éruption le 15 juin 1991.",
-      "figure": null,
-      "sources": [
-        [
-          "Encyclopædia Britannica · Vesuvius (en anglais)",
-          "https://www.britannica.com/place/Vesuvius"
-        ],
-        [
-          "Smithsonian, Global Volcanism Program · Vesuvius (en anglais)",
-          "https://volcano.si.edu/volcano.cfm?vn=211020"
-        ],
-        [
-          "NASA Earth Observatory · Mount Tambora Volcano, Sumbawa Island, Indonesia (en anglais)",
-          "https://science.nasa.gov/earth/earth-observatory/mount-tambora-volcano-sumbawa-island-indonesia-39412/"
-        ],
-        [
-          "NOAA NESDIS · This Day in History, Mount Tambora explosively erupts in 1815 (en anglais)",
-          "https://www.nesdis.noaa.gov/news/day-history-mount-tambora-explosively-erupts-1815"
-        ],
-        [
-          "Encyclopædia Britannica · Mount Pelée (en anglais)",
-          "https://www.britannica.com/place/Mount-Pelee"
-        ],
-        [
-          "USGS · Volcano Watch, chronology of a volcanic disaster (en anglais)",
-          "https://www.usgs.gov/news/volcano-watch-chronology-a-volcanic-disaster"
-        ],
-        [
-          "USGS · Pinatubo 1991, impacts and mitigation (en anglais)",
-          "https://volcanoes.usgs.gov/volcanic_ash/pinatubo_1991.html"
-        ],
-        [
-          "Encyclopædia Britannica · Volcano, Mount Pinatubo, Philippines, 1991 (en anglais)",
-          "https://www.britannica.com/science/volcano/Mount-Pinatubo-Philippines-1991"
-        ]
-      ],
-      "rivalJuste": "Dans l’ordre. Du Vésuve au Pinatubo, tu n’as pas perdu le fil.",
-      "rivalFaux": "Les volcans n’ont pas attendu ton classement pour éclater. Reprends la chronologie.",
-      "valeurs": {
-        "Vésuve": "an 79",
-        "Tambora": "10 avril 1815",
-        "Montagne Pelée": "8 mai 1902",
-        "Pinatubo": "15 juin 1991"
-      }
-    }
+  [
+   "10 avril 1815",
+   "Apogée de l’éruption du Tambora, la plus grande éruption connue ; elle précède « l’année sans été » de 1816."
+  ],
+  [
+   "15 juin 1991",
+   "Éruption du Pinatubo, deuxième plus grande du XXe siècle."
   ]
+ ],
+ "sources": [
+  [
+   "Larousse · Alfred Wegener",
+   "https://www.larousse.fr/encyclopedie/personnage/wd/138971"
+  ],
+  [
+   "Encyclopædia Universalis · Alfred Wegener",
+   "https://www.universalis.fr/encyclopedie/alfred-wegener/"
+  ],
+  [
+   "USGS · This Dynamic Earth, historical perspective (en anglais)",
+   "https://pubs.usgs.gov/gip/dynamic/historical.html"
+  ],
+  [
+   "USGS · This Dynamic Earth, understanding plate motions (en anglais)",
+   "https://pubs.usgs.gov/gip/dynamic/understanding.html"
+  ],
+  [
+   "USGS · This Dynamic Earth: The Story of Plate Tectonics, notice (en anglais)",
+   "https://www.usgs.gov/publications/dynamic-earth-story-plate-tectonics"
+  ],
+  [
+   "Larousse · Tectonique",
+   "https://www.larousse.fr/encyclopedie/divers/tectonique/96183"
+  ],
+  [
+   "Woods Hole Oceanographic Institution · The Engine that Drives Earth (en anglais)",
+   "https://www.whoi.edu/oceanus/feature/the-engine-that-drives-earth/"
+  ],
+  [
+   "American Museum of Natural History · Circulating Heat (en anglais)",
+   "https://amnh.org/exhibitions/permanent/planet-earth/why-are-there-ocean-basins-continents-and-mountains/plate-tectonics/circulating-heat"
+  ],
+  [
+   "Earth Observatory of Singapore · Is the Earth’s mantle made of liquid magma? (en anglais)",
+   "https://www.earthobservatory.sg/faq-on-earth-sciences/earth%E2%80%99s-mantle-made-liquid-magma"
+  ],
+  [
+   "Encyclopædia Britannica · Vesuvius (en anglais)",
+   "https://www.britannica.com/place/Vesuvius"
+  ],
+  [
+   "Smithsonian, Global Volcanism Program · Vesuvius (en anglais)",
+   "https://volcano.si.edu/volcano.cfm?vn=211020"
+  ],
+  [
+   "Encyclopædia Britannica · Mount Pelée (en anglais)",
+   "https://www.britannica.com/place/Mount-Pelee"
+  ],
+  [
+   "USGS · Volcano Watch, chronology of a volcanic disaster (en anglais)",
+   "https://www.usgs.gov/news/volcano-watch-chronology-a-volcanic-disaster"
+  ],
+  [
+   "NASA Earth Observatory · Mount Tambora Volcano, Sumbawa Island, Indonesia (en anglais)",
+   "https://science.nasa.gov/earth/earth-observatory/mount-tambora-volcano-sumbawa-island-indonesia-39412/"
+  ],
+  [
+   "NOAA NESDIS · This Day in History, Mount Tambora explosively erupts in 1815 (en anglais)",
+   "https://www.nesdis.noaa.gov/news/day-history-mount-tambora-explosively-erupts-1815"
+  ],
+  [
+   "USGS · Pinatubo 1991, impacts and mitigation (en anglais)",
+   "https://volcanoes.usgs.gov/volcanic_ash/pinatubo_1991.html"
+  ],
+  [
+   "Encyclopædia Britannica · Volcano, Mount Pinatubo, Philippines, 1991 (en anglais)",
+   "https://www.britannica.com/science/volcano/Mount-Pinatubo-Philippines-1991"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "L’auteur de la dérive des continents",
+   "repere": 0,
+   "enonce": "Qui présente en 1912 l’hypothèse de la dérive des continents ?",
+   "reponses": [
+    "Charles Lyell",
+    "Harry Hess",
+    "Alfred Wegener",
+    "James Hutton"
+   ],
+   "bonne": 2,
+   "correction": "Le météorologue allemand Alfred Wegener présente l’hypothèse de la dérive des continents dès 1912. Harry Hess, lui, est associé à la convection du manteau, dans les années 1960.",
+   "figure": null,
+   "sources": [
+    [
+     "Larousse · Alfred Wegener",
+     "https://www.larousse.fr/encyclopedie/personnage/wd/138971"
+    ],
+    [
+     "Encyclopædia Universalis · Alfred Wegener",
+     "https://www.universalis.fr/encyclopedie/alfred-wegener/"
+    ],
+    [
+     "USGS · This Dynamic Earth, historical perspective (en anglais)",
+     "https://pubs.usgs.gov/gip/dynamic/historical.html"
+    ],
+    [
+     "Larousse · Tectonique",
+     "https://www.larousse.fr/encyclopedie/divers/tectonique/96183"
+    ]
+   ],
+   "rivalJuste": "Juste. Toi, au moins, tu ne dérives pas.",
+   "rivalFaux": "Raté. Tu as dérivé, mais de quelques centimètres seulement."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "La nature du manteau terrestre",
+   "repere": 2,
+   "affirmation": "Le manteau terrestre est fait de roche essentiellement solide, qui flue très lentement.",
+   "vrai": true,
+   "correction": "Il disait vrai. Le manteau est fait de roche essentiellement solide ; sous l’effet de la chaleur, elle flue très lentement, de quelques centimètres par an, sans fondre.",
+   "figure": null,
+   "sources": [
+    [
+     "Woods Hole Oceanographic Institution · The Engine that Drives Earth (en anglais)",
+     "https://www.whoi.edu/oceanus/feature/the-engine-that-drives-earth/"
+    ],
+    [
+     "American Museum of Natural History · Circulating Heat (en anglais)",
+     "https://amnh.org/exhibitions/permanent/planet-earth/why-are-there-ocean-basins-continents-and-mountains/plate-tectonics/circulating-heat"
+    ],
+    [
+     "Earth Observatory of Singapore · Is the Earth’s mantle made of liquid magma? (en anglais)",
+     "https://www.earthobservatory.sg/faq-on-earth-sciences/earth%E2%80%99s-mantle-made-liquid-magma"
+    ]
+   ],
+   "rivalJuste": "Bien vu. On imagine un océan de lave, c’est de la roche solide.",
+   "rivalFaux": "Je disais vrai. Pas d’océan de lave sous tes pieds : de la roche solide qui flue lentement."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Quatre grandes éruptions",
+   "repere": 3,
+   "enonce": "Range ces quatre éruptions de la plus ancienne à la plus récente.",
+   "elements": [
+    "Pinatubo",
+    "Vésuve",
+    "Montagne Pelée",
+    "Tambora"
+   ],
+   "ordre": [
+    "Vésuve",
+    "Tambora",
+    "Montagne Pelée",
+    "Pinatubo"
+   ],
+   "correction": "Le Vésuve ensevelit Pompéi en l’an 79. Le Tambora éclate en avril 1815, la montagne Pelée détruit Saint‑Pierre le 8 mai 1902, et le Pinatubo entre en éruption le 15 juin 1991.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Vesuvius (en anglais)",
+     "https://www.britannica.com/place/Vesuvius"
+    ],
+    [
+     "Smithsonian, Global Volcanism Program · Vesuvius (en anglais)",
+     "https://volcano.si.edu/volcano.cfm?vn=211020"
+    ],
+    [
+     "NASA Earth Observatory · Mount Tambora Volcano, Sumbawa Island, Indonesia (en anglais)",
+     "https://science.nasa.gov/earth/earth-observatory/mount-tambora-volcano-sumbawa-island-indonesia-39412/"
+    ],
+    [
+     "NOAA NESDIS · This Day in History, Mount Tambora explosively erupts in 1815 (en anglais)",
+     "https://www.nesdis.noaa.gov/news/day-history-mount-tambora-explosively-erupts-1815"
+    ],
+    [
+     "Encyclopædia Britannica · Mount Pelée (en anglais)",
+     "https://www.britannica.com/place/Mount-Pelee"
+    ],
+    [
+     "USGS · Volcano Watch, chronology of a volcanic disaster (en anglais)",
+     "https://www.usgs.gov/news/volcano-watch-chronology-a-volcanic-disaster"
+    ],
+    [
+     "USGS · Pinatubo 1991, impacts and mitigation (en anglais)",
+     "https://volcanoes.usgs.gov/volcanic_ash/pinatubo_1991.html"
+    ],
+    [
+     "Encyclopædia Britannica · Volcano, Mount Pinatubo, Philippines, 1991 (en anglais)",
+     "https://www.britannica.com/science/volcano/Mount-Pinatubo-Philippines-1991"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Du Vésuve au Pinatubo, tu n’as pas perdu le fil.",
+   "rivalFaux": "Les volcans n’ont pas attendu ton classement pour éclater. Reprends la chronologie.",
+   "valeurs": {
+    "Vésuve": "an 79",
+    "Tambora": "10 avril 1815",
+    "Montagne Pelée": "8 mai 1902",
+    "Pinatubo": "15 juin 1991"
+   }
+  }
+ ]
 }

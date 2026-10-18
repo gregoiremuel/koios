@@ -1,13 +1,18 @@
 name = "koios"
-pages_build_output_dir = "app"
+main = "worker.js"
 compatibility_date = "2026-10-01"
+
+# Fichiers de l'app servis tels quels ; /api/... est confié à worker.js.
+[assets]
+directory = "./app"
+binding = "ASSETS"
 
 # Workers AI : le Rival écrit les sujets libres.
 [ai]
 binding = "AI"
 
-# Base D1. Sans cette liaison, l'API répond 503 {"erreur":"base absente"}
-# sur les routes qui ont besoin de la base.
+# Base D1 (progression, classement, brouillons, signalements).
+# Sans cette liaison, l'API répond 503 {"erreur":"base absente"} sur les routes qui en ont besoin.
 [[d1_databases]]
 binding = "DB"
 database_name = "koios"

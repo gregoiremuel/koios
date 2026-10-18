@@ -1,0 +1,213 @@
+{
+ "id": "gj-03",
+ "domaine": "gj",
+ "numero": 3,
+ "titre": "Corindons : rubis et saphir",
+ "figure": null,
+ "essentiel": [
+  "Le rubis et le saphir sont deux variétés d’un même minéral, le corindon, un oxyde d’aluminium (Al₂O₃).",
+  "À l’état pur, le corindon est incolore : le chrome colore le rubis en rouge, et le fer associé au titane donne les saphirs, du bleu au mauve.",
+  "Il occupe le degré 9 de l’échelle de Mohs, avec une densité d’environ 4,00, supérieure à celle du diamant.",
+  "Biréfringent (de 0,008 à 0,010), il peut être pléochroïque : le rubis l’est fortement.",
+  "En 1902, le chimiste français Auguste Verneuil annonce la fusion à la flamme, qui permet de fabriquer des rubis et des saphirs synthétiques."
+ ],
+ "reperes": [
+  [
+   "Corindon",
+   "Oxyde d’aluminium (Al₂O₃) dont le rubis et le saphir sont des variétés."
+  ],
+  [
+   "Le chrome fait le rubis",
+   "Le chrome remplace de l’aluminium et colore le corindon en rouge ; fer et titane donnent les saphirs bleus."
+  ],
+  [
+   "Densité d’environ 4,00",
+   "Supérieure à celle du diamant (3,52), de la moissanite (3,22) et du quartz (2,65)."
+  ],
+  [
+   "1902",
+   "Auguste Verneuil annonce la fusion à la flamme pour fabriquer des rubis synthétiques."
+  ]
+ ],
+ "sources": [
+  [
+   "GIA · Ruby (en anglais)",
+   "https://www.gia.edu/ruby/gem-overview"
+  ],
+  [
+   "GIA · Sapphire (en anglais)",
+   "https://www.gia.edu/sapphire/gem-overview"
+  ],
+  [
+   "Encyclopædia Universalis · Rubis",
+   "https://www.universalis.fr/encyclopedie/rubis/"
+  ],
+  [
+   "Encyclopædia Universalis · Couleur des minéraux, quelques exemples",
+   "https://www.universalis.fr/encyclopedie/couleur-des-mineraux/4-quelques-exemples/"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Ruby (en anglais)",
+   "https://cameo.mfa.org/wiki/Ruby"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+   "https://cameo.mfa.org/wiki/Corundum"
+  ],
+  [
+   "Handbook of Mineralogy · Corundum (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/corundum.pdf"
+  ],
+  [
+   "Encyclopædia Britannica · Verneuil process (en anglais)",
+   "https://www.britannica.com/topic/Verneuil-process"
+  ],
+  [
+   "Rivista Italiana di Gemmologia · Verneuil, August Victor Louis (en anglais)",
+   "https://www.rivistaitalianadigemmologia.com/en/glossary/verneuil-august-victor-louis/"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+   "https://cameo.mfa.org/wiki/Diamond"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Quartz (en anglais)",
+   "https://cameo.mfa.org/wiki/Quartz"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+   "https://cameo.mfa.org/wiki/Moissanite"
+  ],
+  [
+   "Handbook of Mineralogy · Diamond (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+  ],
+  [
+   "Handbook of Mineralogy · Quartz (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/quartz.pdf"
+  ],
+  [
+   "Handbook of Mineralogy · Moissanite (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Verneuil et la fusion à la flamme",
+   "repere": 3,
+   "enonce": "En 1902, Auguste Verneuil annonce un procédé pour fabriquer des rubis synthétiques. Lequel ?",
+   "reponses": [
+    "La croissance hydrothermale",
+    "La synthèse par flux",
+    "Le tirage Czochralski",
+    "La fusion à la flamme"
+   ],
+   "bonne": 3,
+   "correction": "Verneuil annonce en 1902 la fusion à la flamme, aussi appelée procédé Verneuil. Elle produit des rubis et des saphirs synthétiques.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Verneuil process (en anglais)",
+     "https://www.britannica.com/topic/Verneuil-process"
+    ],
+    [
+     "Rivista Italiana di Gemmologia · Verneuil, August Victor Louis (en anglais)",
+     "https://www.rivistaitalianadigemmologia.com/en/glossary/verneuil-august-victor-louis/"
+    ]
+   ],
+   "rivalJuste": "Fusion à la flamme. Verneuil approuve.",
+   "rivalFaux": "C’était la fusion à la flamme. Un détail que Verneuil ne t’aurait pas pardonné."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe‑t‑il ?",
+   "theme": "Rubis et saphir, même minéral",
+   "repere": 0,
+   "affirmation": "Le rubis et le saphir sont deux variétés du même minéral.",
+   "vrai": true,
+   "correction": "C’était vrai. Rubis et saphir sont tous deux du corindon (Al₂O₃). Le chrome, en traces, colore le rubis en rouge ; fer et titane produisent les saphirs bleus.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · Ruby (en anglais)",
+     "https://www.gia.edu/ruby/gem-overview"
+    ],
+    [
+     "Encyclopædia Universalis · Rubis",
+     "https://www.universalis.fr/encyclopedie/rubis/"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Ruby (en anglais)",
+     "https://cameo.mfa.org/wiki/Ruby"
+    ]
+   ],
+   "rivalJuste": "Tu ne t’es pas laissé bluffer : même minéral, deux réputations.",
+   "rivalFaux": "Je disais vrai, et tu as flairé un piège. Le métier rend méfiant."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Classer par densité",
+   "repere": 2,
+   "enonce": "Range ces quatre minéraux du moins dense au plus dense.",
+   "elements": [
+    "Diamant",
+    "Corindon",
+    "Quartz",
+    "Moissanite"
+   ],
+   "ordre": [
+    "Quartz",
+    "Moissanite",
+    "Diamant",
+    "Corindon"
+   ],
+   "correction": "Le quartz (2,65) est le plus léger, puis viennent la moissanite (3,22) et le diamant (3,52). Le corindon, vers 4,00, est le plus dense des quatre.",
+   "figure": null,
+   "sources": [
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Quartz (en anglais)",
+     "https://cameo.mfa.org/wiki/Quartz"
+    ],
+    [
+     "Handbook of Mineralogy · Quartz (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/quartz.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+     "https://cameo.mfa.org/wiki/Moissanite"
+    ],
+    [
+     "Handbook of Mineralogy · Moissanite (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/Moissanite.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+     "https://cameo.mfa.org/wiki/Diamond"
+    ],
+    [
+     "Handbook of Mineralogy · Diamond (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+    ],
+    [
+     "GIA · Ruby (en anglais)",
+     "https://www.gia.edu/ruby/gem-overview"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+     "https://cameo.mfa.org/wiki/Corundum"
+    ]
+   ],
+   "rivalJuste": "Du plus léger au plus lourd. Rien à redire, pas même au poids.",
+   "rivalFaux": "Le plus dense des quatre est le corindon, pas le diamant. Désolé pour lui.",
+   "valeurs": {
+    "Quartz": "2,65",
+    "Moissanite": "3,22",
+    "Diamant": "3,52",
+    "Corindon": "4,00"
+   }
+  }
+ ]
+}

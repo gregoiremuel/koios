@@ -1,13 +1,15 @@
-/* Ornements gothiques de Koîos, dessinés en SVG : rosace des savoirs, niche en arc brisé, lancette, quadrilobe.
+/* Ornements gothiques de Koîos, dessinés en SVG : rosace des savoirs, baie en arc brisé, lancette, quadrilobe.
+   Comme vu de l'intérieur d'une église : verre clair en losanges, remplage en silhouette sombre et fine.
    Chaque chapitre validé allume un vitrail de la rosace, dans la couleur de son domaine. Dessins originaux. */
 (function (g) {
-  var PIERRE = "#e2d3b3", PLOMB = "#1d130a", ETEINT = "#4f4134", AMBRE = "#8a7650", OR = "#cfa645", BOIS = "#3b2716";
+  var VERRE = "#f1e9d6", ETEINT = "#e3d8bf", LOSANGE = "#cdbb94", TRAIT = "#3b2716", AMBRE = "#ead9a6", OR = "#cfa645", NEUF = "#a8802f";
   function r2(n) { return Math.round(n * 100) / 100; }
+  var motif = '<defs><pattern id="losanges" width="14" height="20" patternUnits="userSpaceOnUse"><rect width="14" height="20" fill="' + VERRE + '"/><path d="M0 10L7 0L14 10L7 20Z" fill="none" stroke="' + LOSANGE + '" stroke-width="0.7"/></pattern></defs>';
 
   /* petales : [{ verre: "#couleur" ou null (éteint), neuf: bool }] ; o : { cx, cy, R, lobes: [4 couleurs ou null] } */
   function rosace(petales, o) {
     var cx = o.cx, cy = o.cy, R = o.R;
-    var n = Math.max(petales.length, 8);
+    var n = Math.max(petales.length, 4);
     var s = Math.sin(Math.PI / n);
     var rs = 0.88 * R / (1 + Math.sqrt(3) * 0.78 * s);
     var hs = rs * s * 0.78, r1 = 0.38 * R, h1 = r1 * s * 0.78;
@@ -16,25 +18,25 @@
       "A" + r2(2 * hs) + " " + r2(2 * hs) + " 0 0 1 0 " + r2(-apex) +
       "A" + r2(2 * hs) + " " + r2(2 * hs) + " 0 0 1 " + r2(hs) + " " + r2(-rs) +
       "L" + r2(h1) + " " + r2(-r1) + "A" + r2(r1) + " " + r2(r1) + " 0 0 0 " + r2(-h1) + " " + r2(-r1) + "Z";
-    var trait = r2(R * 0.034);
+    var trait = r2(Math.max(R * 0.026, 1));
     var out = '<g class="rosace">';
-    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + PLOMB + '"/>';
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="' + VERRE + '"/>';
     for (var i = 0; i < n; i++) {
       var p = petales[i] || { verre: null };
       var a = r2((i + 0.5) * 360 / n);
-      out += '<path class="petale' + (p.neuf ? ' neuf' : '') + '" d="' + d + '" transform="translate(' + cx + ' ' + cy + ') rotate(' + a + ')" fill="' + (p.verre || ETEINT) + '" stroke="' + (p.neuf ? "#f3d98c" : PIERRE) + '" stroke-width="' + (p.neuf ? trait * 1.8 : trait) + '"/>';
+      out += '<path class="petale' + (p.neuf ? ' neuf' : '') + '" d="' + d + '" transform="translate(' + cx + ' ' + cy + ') rotate(' + a + ')" fill="' + (p.verre || ETEINT) + '" stroke="' + (p.neuf ? NEUF : TRAIT) + '" stroke-width="' + r2(p.neuf ? trait * 2 : trait) + '"/>';
       var b = i * 2 * Math.PI / n, ro = 0.8 * R * s * 0.4;
-      out += '<circle cx="' + r2(cx + Math.sin(b) * 0.8 * R) + '" cy="' + r2(cy - Math.cos(b) * 0.8 * R) + '" r="' + r2(ro) + '" fill="' + AMBRE + '" stroke="' + PIERRE + '" stroke-width="' + r2(trait * 0.8) + '"/>';
+      out += '<circle cx="' + r2(cx + Math.sin(b) * 0.8 * R) + '" cy="' + r2(cy - Math.cos(b) * 0.8 * R) + '" r="' + r2(ro) + '" fill="' + AMBRE + '" stroke="' + TRAIT + '" stroke-width="' + r2(trait * 0.8) + '"/>';
     }
-    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(r1 - R * 0.02) + '" fill="' + PLOMB + '" stroke="' + PIERRE + '" stroke-width="' + trait + '"/>';
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(r1 - R * 0.02) + '" fill="' + VERRE + '" stroke="' + TRAIT + '" stroke-width="' + trait + '"/>';
     var lobes = o.lobes || [];
     for (var k = 0; k < 4; k++) {
       var c = (45 + k * 90) * Math.PI / 180;
-      out += '<circle cx="' + r2(cx + Math.sin(c) * 0.15 * R) + '" cy="' + r2(cy - Math.cos(c) * 0.15 * R) + '" r="' + r2(0.13 * R) + '" fill="' + (lobes[k] || ETEINT) + '" stroke="' + PIERRE + '" stroke-width="' + r2(trait * 0.8) + '"/>';
+      out += '<circle cx="' + r2(cx + Math.sin(c) * 0.15 * R) + '" cy="' + r2(cy - Math.cos(c) * 0.15 * R) + '" r="' + r2(0.13 * R) + '" fill="' + (lobes[k] || ETEINT) + '" stroke="' + TRAIT + '" stroke-width="' + r2(trait * 0.8) + '"/>';
     }
-    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(0.075 * R) + '" fill="' + OR + '" stroke="' + PIERRE + '" stroke-width="' + r2(trait * 0.8) + '"/>';
-    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(R * 0.965) + '" fill="none" stroke="' + PIERRE + '" stroke-width="' + r2(R * 0.05) + '"/>';
-    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(R * 0.9) + '" fill="none" stroke="' + PIERRE + '" stroke-width="' + r2(R * 0.012) + '"/>';
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(0.075 * R) + '" fill="' + OR + '" stroke="' + TRAIT + '" stroke-width="' + r2(trait * 0.8) + '"/>';
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(R * 0.975) + '" fill="none" stroke="' + TRAIT + '" stroke-width="' + r2(R * 0.04) + '"/>';
+    out += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r2(R * 0.9) + '" fill="none" stroke="' + TRAIT + '" stroke-width="' + r2(Math.max(R * 0.01, 0.6)) + '"/>';
     return out + '</g>';
   }
 
@@ -43,22 +45,41 @@
     var r = r2(3 * k);
     return '<path d="M' + p(-0.43, -0.43) + 'A' + r + ' ' + r + ' 0 1 1 ' + p(0.43, -0.43) + 'A' + r + ' ' + r + ' 0 1 1 ' + p(0.43, 0.43) + 'A' + r + ' ' + r + ' 0 1 1 ' + p(-0.43, 0.43) + 'A' + r + ' ' + r + ' 0 1 1 ' + p(-0.43, -0.43) + 'Z" ' + attrs + '/>';
   }
+  function sculpte(x, y, k) { return quadrilobe(x, y, k, 'fill="none" stroke="#3b2716" stroke-width="1.5"'); }
 
-  /* Haut de l'armoire : niche en arc brisé équilatéral (portée 300), rosace dans la tête de l'arc. */
+  /* Tête vitrée de l'armoire : arc brisé en lancette (rayon 1,2 fois la portée), rosace à 60 % de la largeur, arcature basse. */
   function ogive(petales, lobes, etiquette) {
-    var arc = "M0 268A300 300 0 0 1 150 8A300 300 0 0 1 300 268Z";
-    var s = '<svg class="ogive" viewBox="0 0 300 268" role="img" aria-label="' + etiquette + '">';
-    s += '<path d="M-7 268A307 307 0 0 1 150 1A307 307 0 0 1 307 268" fill="none" stroke="' + BOIS + '" stroke-width="2"/>';
-    s += '<path d="' + arc + '" fill="#2b1c0f"/>';
-    s += '<path d="M6 268A294 294 0 0 1 150 15.1A294 294 0 0 1 294 268" fill="none" stroke="#c9a043" stroke-opacity="0.6" stroke-width="1"/>';
-    s += quadrilobe(36, 40, 3.4, 'fill="none" stroke="' + BOIS + '" stroke-width="1.6"');
-    s += quadrilobe(264, 40, 3.4, 'fill="none" stroke="' + BOIS + '" stroke-width="1.6"');
-    s += quadrilobe(150, 33, 2.6, 'fill="' + OR + '" stroke="' + PIERRE + '" stroke-width="1.4"');
-    s += rosace(petales, { cx: 150, cy: 154, R: 100, lobes: lobes });
+    var s = '<svg class="ogive" viewBox="0 0 300 300" role="img" aria-label="' + etiquette + '">' + motif;
+    s += '<path d="M-7 300A367 367 0 0 1 150 -1A367 367 0 0 1 307 300" fill="none" stroke="#3b2716" stroke-width="1.6"/>';
+    s += '<path d="M0 300A360 360 0 0 1 150 8A360 360 0 0 1 300 300Z" fill="url(#losanges)" stroke="' + TRAIT + '" stroke-width="3"/>';
+    s += '<path d="M6 300A354 354 0 0 1 150 15A354 354 0 0 1 294 300" fill="none" stroke="#a8802f" stroke-width="1"/>';
+    s += sculpte(34, 60, 3.4) + sculpte(266, 60, 3.4);
+    s += quadrilobe(150, 50, 2.6, 'fill="' + OR + '" stroke="' + TRAIT + '" stroke-width="1.6"');
+    s += rosace(petales, { cx: 150, cy: 170, R: 90, lobes: lobes });
+    [100, 150, 200].forEach(function (x) {
+      s += '<path d="M' + (x - 25) + ' 293V286A35.6 35.6 0 0 1 ' + x + ' 264A35.6 35.6 0 0 1 ' + (x + 25) + ' 286V293" fill="none" stroke="' + TRAIT + '" stroke-width="1.6"/>';
+    });
+    s += '<rect x="0" y="292" width="300" height="8" fill="#4a3220"/><path d="M0 292H300" stroke="#a8802f" stroke-width="1"/>';
     return s + '</svg>';
   }
 
-  /* Rosace seule, dans un cadre rond (bilan, profil). */
+  /* Baie seule, haute et étroite : rosace dans la tête de l'arc, deux lancettes dessous (accueil, profil). */
+  function baie(petales, lobes, etiquette) {
+    var s = '<svg class="baie" viewBox="0 0 200 330" role="img" aria-label="' + etiquette + '">' + motif;
+    s += sculpte(22, 40, 2.4) + sculpte(178, 40, 2.4);
+    s += '<path d="M0 330V211A260 260 0 0 1 100 6A260 260 0 0 1 200 211V330Z" fill="url(#losanges)" stroke="' + TRAIT + '" stroke-width="3"/>';
+    s += '<path d="M6 330V211A254 254 0 0 1 100 13A254 254 0 0 1 194 211V330" fill="none" stroke="#a8802f" stroke-width="1"/>';
+    s += quadrilobe(100, 40, 2, 'fill="' + OR + '" stroke="' + TRAIT + '" stroke-width="1.4"');
+    s += rosace(petales, { cx: 100, cy: 128, R: 62, lobes: lobes });
+    [[14, 96], [104, 186]].forEach(function (l) {
+      var m = (l[0] + l[1]) / 2;
+      s += '<path d="M' + l[0] + ' 322V272A51 51 0 0 1 ' + m + ' 222A51 51 0 0 1 ' + l[1] + ' 272V322Z" fill="none" stroke="' + TRAIT + '" stroke-width="2.4"/>';
+      s += quadrilobe(m, 250, 2.2, 'fill="' + AMBRE + '" stroke="' + TRAIT + '" stroke-width="1.2"');
+    });
+    return s + '</svg>';
+  }
+
+  /* Rosace seule, dans un cadre rond (bilan). */
   function medaillon(petales, lobes, etiquette) {
     return '<svg class="medaillon" viewBox="0 0 132 132" role="img" aria-label="' + etiquette + '"><circle cx="66" cy="66" r="65" fill="#6b4a2f"/>' + rosace(petales, { cx: 66, cy: 66, R: 58, lobes: lobes }) + '</svg>';
   }
@@ -80,5 +101,5 @@
     return '<svg viewBox="0 0 64 64" aria-hidden="true">' + rosace(p, { cx: 32, cy: 32, R: 31, lobes: verres }) + '</svg>';
   }
 
-  g.Gothique = { rosace: rosace, ogive: ogive, medaillon: medaillon, lancette: lancette, fleuron: fleuron, marque: marque };
+  g.Gothique = { rosace: rosace, ogive: ogive, baie: baie, medaillon: medaillon, lancette: lancette, fleuron: fleuron, marque: marque };
 })(window);

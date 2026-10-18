@@ -9,11 +9,11 @@
 
 ## Architecture
 
-- `app/` : l'application (une seule page, JavaScript sans étape de construction), servie par Cloudflare Pages.
+- `app/` : l'application (une seule page, JavaScript sans étape de construction), servie comme fichiers statiques par le Worker Cloudflare « koios » (déploiement automatique `npx wrangler deploy` à chaque envoi sur `main`).
 - `app/contenu/` : chapitres vérifiés en JSON (fiche « L'essentiel » + repères + 3 exercices + sources, 2 sources institutionnelles au moins par notion).
-- `functions/api/` : fonctions Cloudflare (joueur, progression, sujet libre, défis par lien, signalements).
+- `worker.js` : point d'entrée ; il confie `/api/...` aux fonctions de `functions/api/` (joueur, progression, cercle, sujet libre, signalements) et laisse Cloudflare servir le reste de `app/`.
 - `schema.sql` : tables D1, créées automatiquement au premier appel.
-- `wrangler.toml` : `pages_build_output_dir = "app"`, liaison D1 `DB`, liaison IA `AI`.
+- `wrangler.toml` : `main = "worker.js"`, `[assets] directory = "./app"`, liaison D1 `DB` (base « koios »), liaison IA `AI`. Le projet Cloudflare est un Worker, pas un projet Pages (vérifié le 18 octobre 2026).
 
 ## Étapes
 
@@ -23,7 +23,11 @@
 4. Fonctions et base : joueur et progression en ligne, sujet libre (brouillon), défis par lien.
 5. Tests, relecture à froid, publication.
 
-## À vérifier au démarrage
+## Vérifié
 
-- Syntaxe exacte de `wrangler.toml` pour Pages avec liaisons D1 et Workers AI (documentation Cloudflare « Pages Functions, Wrangler configuration »).
-- Identifiants de modèles Workers AI disponibles pour le français.
+- Configuration Worker validée par `wrangler deploy --dry-run` (liaisons DB, AI, ASSETS).
+
+## À vérifier en conditions réelles
+
+- Création des tables D1 au premier appel, quotas, classement.
+- Qualité en français des brouillons Workers AI (Llama 3.3 70B, repli Mistral Small 3.1).

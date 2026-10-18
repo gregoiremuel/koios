@@ -1,0 +1,217 @@
+{
+ "id": "gj-04",
+ "domaine": "gj",
+ "numero": 4,
+ "titre": "Béryls : émeraude et aigue‑marine",
+ "figure": null,
+ "essentiel": [
+  "Le béryl est un silicate de béryllium et d’aluminium ; ses variétés gemmes sont l’émeraude (verte), l’aigue‑marine (bleue), l’héliodore (jaune) et la morganite (rose).",
+  "Le chrome et le vanadium colorent l’émeraude ; les laboratoires réservent ce nom aux pierres assez foncées et saturées, les autres étant du béryl vert.",
+  "Sa dureté de 7,5 à 8 est honorable, mais ses fissures la rendent fragile.",
+  "Pour atténuer ces fissures, on les remplit d’huile de cèdre, de baume du Canada ou de résine : cette imprégnation est une pratique courante du commerce.",
+  "Avec une densité de 2,72, une émeraude d’un carat paraît plus grosse qu’un diamant d’un carat."
+ ],
+ "reperes": [
+  [
+   "Be₃Al₂Si₆O₁₈",
+   "Formule du béryl, dont l’émeraude, l’aigue‑marine, l’héliodore et la morganite sont des variétés."
+  ],
+  [
+   "Chrome et vanadium",
+   "Les deux éléments qui donnent sa couleur verte à l’émeraude."
+  ],
+  [
+   "Imprégnation",
+   "Huile de cèdre, baume du Canada ou résine comblent les fissures de la plupart des émeraudes."
+  ],
+  [
+   "Indice : 1,58",
+   "Indice de réfraction de l’émeraude, de 1,577 à 1,583, entre le quartz et le corindon."
+  ],
+  [
+   "Densité : 2,72",
+   "Une émeraude d’un carat paraît plus grosse qu’un diamant d’un carat."
+  ]
+ ],
+ "sources": [
+  [
+   "GIA · Emerald (en anglais)",
+   "https://www.gia.edu/emerald/gem-overview"
+  ],
+  [
+   "GIA · Emerald description (en anglais)",
+   "https://www.gia.edu/articles/emerald-description"
+  ],
+  [
+   "Encyclopædia Universalis · Émeraude",
+   "https://www.universalis.fr/encyclopedie/emeraude/"
+  ],
+  [
+   "Encyclopædia Universalis · Couleur des minéraux, quelques exemples",
+   "https://www.universalis.fr/encyclopedie/couleur-des-mineraux/4-quelques-exemples/"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Emerald (en anglais)",
+   "https://cameo.mfa.org/wiki/Emerald"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Beryl (en anglais)",
+   "https://cameo.mfa.org/wiki/Beryl"
+  ],
+  [
+   "Encyclopædia Britannica · Beryl (en anglais)",
+   "https://www.britannica.com/science/beryl"
+  ],
+  [
+   "International Gem Society · Emerald jewelry and gemstone information (en anglais)",
+   "https://gemsociety.org/article/emerald-jewelry-and-gemstone-information"
+  ],
+  [
+   "GIA, Gems & Gemology · Opticon and traditional oils (en anglais)",
+   "https://www.gia.edu/doc/SU91A1.pdf"
+  ],
+  [
+   "GIA, Gems & Gemology · The oil treatment of emeralds in Bogotá, Colombia (en anglais)",
+   "https://cms.gia.edu/dam/jcr:cba706fb-5ab2-4085-9f9b-2d57dc766681/The-Oil-Treatment-of-Emeralds-in-Bogota-Colombia.pdf"
+  ],
+  [
+   "Larousse · Diamant",
+   "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+  ],
+  [
+   "GIA · Ruby (en anglais)",
+   "https://www.gia.edu/ruby/gem-overview"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Quartz (en anglais)",
+   "https://cameo.mfa.org/wiki/Quartz"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+   "https://cameo.mfa.org/wiki/Diamond"
+  ],
+  [
+   "International Gem Society · Refractive indices and double refraction of selected gems (en anglais)",
+   "https://www.gemsociety.org/article/table-refractive-index-double-refraction-gems/"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Ce qui colore l’émeraude",
+   "repere": 1,
+   "enonce": "Quels éléments chimiques colorent l’émeraude en vert ?",
+   "reponses": [
+    "Le fer et le titane",
+    "Le chrome et le vanadium",
+    "Le cuivre et le nickel",
+    "Le manganèse et le lithium"
+   ],
+   "bonne": 1,
+   "correction": "Le chrome et le vanadium remplacent en partie l’aluminium du béryl et le colorent en vert. Le fer associé au titane relève plutôt du saphir bleu.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Universalis · Émeraude",
+     "https://www.universalis.fr/encyclopedie/emeraude/"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Emerald (en anglais)",
+     "https://cameo.mfa.org/wiki/Emerald"
+    ],
+    [
+     "International Gem Society · Emerald jewelry and gemstone information (en anglais)",
+     "https://gemsociety.org/article/emerald-jewelry-and-gemstone-information"
+    ],
+    [
+     "Encyclopædia Universalis · Couleur des minéraux, quelques exemples",
+     "https://www.universalis.fr/encyclopedie/couleur-des-mineraux/4-quelques-exemples/"
+    ]
+   ],
+   "rivalJuste": "Chrome et vanadium. Le rubis te salue : il s’y connaît en chrome.",
+   "rivalFaux": "Chrome et vanadium. Le chrome, tu le recroiseras chez le rubis."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe‑t‑il ?",
+   "theme": "Imprégnation des émeraudes",
+   "repere": 2,
+   "affirmation": "La plupart des émeraudes du commerce sont imprégnées d’huile ou de résine.",
+   "vrai": true,
+   "correction": "C’était vrai. Les fissures de l’émeraude sont couramment remplies d’huile de cèdre, de baume du Canada ou de résine : dès 1983, la GIA notait que la plupart des émeraudes du marché étaient huilées.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA, Gems & Gemology · Opticon and traditional oils (en anglais)",
+     "https://www.gia.edu/doc/SU91A1.pdf"
+    ],
+    [
+     "GIA, Gems & Gemology · The oil treatment of emeralds in Bogotá, Colombia (en anglais)",
+     "https://cms.gia.edu/dam/jcr:cba706fb-5ab2-4085-9f9b-2d57dc766681/The-Oil-Treatment-of-Emeralds-in-Bogota-Colombia.pdf"
+    ],
+    [
+     "International Gem Society · Emerald jewelry and gemstone information (en anglais)",
+     "https://gemsociety.org/article/emerald-jewelry-and-gemstone-information"
+    ]
+   ],
+   "rivalJuste": "Vrai, et tu l’avais compris. Une émeraude intacte est l’exception.",
+   "rivalFaux": "Je disais vrai. Tant de méfiance fait honneur à ton métier."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Classer par indice de réfraction",
+   "repere": 3,
+   "enonce": "Range ces quatre gemmes de l’indice de réfraction le plus faible au plus fort.",
+   "elements": [
+    "Corindon",
+    "Diamant",
+    "Quartz",
+    "Émeraude"
+   ],
+   "ordre": [
+    "Quartz",
+    "Émeraude",
+    "Corindon",
+    "Diamant"
+   ],
+   "correction": "Le quartz est le plus faible (1,54 à 1,55), l’émeraude suit (environ 1,58), puis le corindon (1,76 à 1,77). Le diamant, vers 2,42, est loin devant.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · Emerald (en anglais)",
+     "https://www.gia.edu/emerald/gem-overview"
+    ],
+    [
+     "GIA · Ruby (en anglais)",
+     "https://www.gia.edu/ruby/gem-overview"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Quartz (en anglais)",
+     "https://cameo.mfa.org/wiki/Quartz"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+     "https://cameo.mfa.org/wiki/Diamond"
+    ],
+    [
+     "Larousse · Diamant",
+     "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+    ],
+    [
+     "International Gem Society · Refractive indices and double refraction of selected gems (en anglais)",
+     "https://www.gemsociety.org/article/table-refractive-index-double-refraction-gems/"
+    ]
+   ],
+   "rivalJuste": "Du quartz au diamant, sans trébucher.",
+   "rivalFaux": "L’émeraude se loge entre le quartz et le corindon. Le diamant, lui, regarde de haut.",
+   "valeurs": {
+    "Quartz": "1,544–1,553",
+    "Émeraude": "1,577–1,583",
+    "Corindon": "1,762–1,770",
+    "Diamant": "environ 2,42"
+   }
+  }
+ ]
+}

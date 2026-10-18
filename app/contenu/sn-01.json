@@ -1,201 +1,201 @@
 {
-  "id": "sn-01",
-  "domaine": "sn",
-  "numero": 1,
-  "titre": "Le système solaire en chiffres",
-  "figure": null,
-  "essentiel": [
-    "Le Soleil concentre à lui seul plus de 99 % de la masse du système solaire (99,8 % selon la NASA).",
-    "La Terre orbite à environ 150 millions de km du Soleil, une distance appelée unité astronomique, et la lumière solaire met environ 8 minutes à nous parvenir.",
-    "Mercure est la plus petite planète, avec 4 880 km de diamètre ; Vénus, presque jumelle de la Terre, mesure 12 104 km, contre 12 756 km pour notre planète.",
-    "Vénus est aussi la planète la plus chaude : environ 465 °C en surface, contre 167 °C en moyenne sur Mercure, pourtant plus proche du Soleil.",
-    "Mercure boucle son orbite en 88 jours, Mars en 687 jours."
+ "id": "sn-01",
+ "domaine": "sn",
+ "numero": 1,
+ "titre": "Le système solaire en chiffres",
+ "figure": null,
+ "essentiel": [
+  "Le Soleil concentre à lui seul plus de 99 % de la masse du système solaire (99,8 % selon la NASA).",
+  "La Terre orbite à environ 150 millions de km du Soleil, une distance appelée unité astronomique, et la lumière solaire met environ 8 minutes à nous parvenir.",
+  "Mercure est la plus petite planète, avec 4 880 km de diamètre ; Vénus, presque jumelle de la Terre, mesure 12 104 km, contre 12 756 km pour notre planète.",
+  "Vénus est aussi la planète la plus chaude : environ 465 °C en surface, contre 167 °C en moyenne sur Mercure, pourtant plus proche du Soleil.",
+  "Mercure boucle son orbite en 88 jours, Mars en 687 jours."
+ ],
+ "reperes": [
+  [
+   "99,8 %",
+   "Part de la masse du système solaire contenue dans le Soleil."
   ],
-  "reperes": [
-    [
-      "99,8 %",
-      "Part de la masse du système solaire contenue dans le Soleil."
-    ],
-    [
-      "149 597 870 km",
-      "Une unité astronomique : la distance moyenne entre la Terre et le Soleil, soit environ 150 millions de km."
-    ],
-    [
-      "8 minutes",
-      "Temps que met la lumière du Soleil pour atteindre la Terre."
-    ],
-    [
-      "465 °C",
-      "Température de surface de Vénus, la plus chaude des planètes ; Mercure n’atteint que 167 °C en moyenne."
-    ],
-    [
-      "4 880 km",
-      "Diamètre de Mercure, la plus petite planète ; la Terre mesure 12 756 km."
-    ]
+  [
+   "149 597 870 km",
+   "Une unité astronomique : la distance moyenne entre la Terre et le Soleil, soit environ 150 millions de km."
   ],
-  "sources": [
-    [
-      "NASA Science · Sun: Facts (en anglais)",
-      "https://science.nasa.gov/sun/facts/"
-    ],
-    [
-      "Encyclopædia Britannica · Solar system, résumé (en anglais)",
-      "https://www.britannica.com/summary/solar-system"
-    ],
-    [
-      "Observatoire de Paris · Distance et temps, le temps de lumière",
-      "https://media4.obspm.fr/public/ressources_lu/pages_temps/impression.html"
-    ],
-    [
-      "Encyclopædia Universalis · Lumière, la vitesse de la lumière",
-      "https://www.universalis.fr/encyclopedie/lumiere/3-vitesse-de-la-lumiere/"
-    ],
-    [
-      "NASA Science · Planet Sizes and Locations in Our Solar System (en anglais)",
-      "https://science.nasa.gov/solar-system/planets/planet-sizes-and-locations-in-our-solar-system/"
-    ],
-    [
-      "NASA · Planetary Fact Sheet (en anglais)",
-      "https://nssdc.gsfc.nasa.gov/planetary/factsheet/index.html"
-    ],
-    [
-      "NASA · Venus Fact Sheet (en anglais)",
-      "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html"
-    ],
-    [
-      "NASA · Mercury Fact Sheet (en anglais)",
-      "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html"
-    ],
-    [
-      "ESA Kids · Venus (en anglais)",
-      "https://www.esa.int/kids/en/learn/Our_Universe/Planets_and_moons/Venus"
-    ],
-    [
-      "Larousse · Mercure",
-      "https://www.larousse.fr/encyclopedie/divers/Mercure/132799"
-    ],
-    [
-      "Larousse · Système solaire",
-      "https://www.larousse.fr/encyclopedie/divers/Syst%C3%A8me_solaire/185915"
-    ],
-    [
-      "ESA · Facts about Mars (en anglais)",
-      "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express/Facts_about_Mars"
-    ]
+  [
+   "8 minutes",
+   "Temps que met la lumière du Soleil pour atteindre la Terre."
   ],
-  "exercices": [
-    {
-      "type": "qcm",
-      "lib": "Exercice 1 · question à choix",
-      "theme": "Le temps de lumière du Soleil",
-      "repere": 2,
-      "enonce": "Combien de temps la lumière du Soleil met-elle à atteindre la Terre ?",
-      "reponses": [
-        "Environ 1 seconde",
-        "Environ 8 minutes",
-        "Environ 1 heure",
-        "Environ 1 jour"
-      ],
-      "bonne": 1,
-      "correction": "La Terre est à environ 150 millions de km du Soleil : sa lumière met environ 8 minutes à nous parvenir.",
-      "figure": null,
-      "sources": [
-        [
-          "Observatoire de Paris · Distance et temps, le temps de lumière",
-          "https://media4.obspm.fr/public/ressources_lu/pages_temps/impression.html"
-        ],
-        [
-          "Encyclopædia Universalis · Lumière, la vitesse de la lumière",
-          "https://www.universalis.fr/encyclopedie/lumiere/3-vitesse-de-la-lumiere/"
-        ],
-        [
-          "NASA Science · Sun: Facts (en anglais)",
-          "https://science.nasa.gov/sun/facts/"
-        ]
-      ],
-      "rivalJuste": "Juste. Tu as répondu en moins de temps que la lumière n’en met pour venir.",
-      "rivalFaux": "Raté. Huit minutes de trajet, et tu t’es égaré en une seconde."
-    },
-    {
-      "type": "bluff",
-      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
-      "theme": "La planète la plus chaude",
-      "repere": 3,
-      "affirmation": "Mercure, la planète la plus proche du Soleil, est aussi la plus chaude du système solaire.",
-      "vrai": false,
-      "correction": "C’était un bluff. Vénus affiche environ 465 °C en surface, Mercure 167 °C en moyenne : l’effet de serre emballé de Vénus l’emporte sur la proximité de Mercure.",
-      "figure": null,
-      "sources": [
-        [
-          "NASA · Venus Fact Sheet (en anglais)",
-          "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html"
-        ],
-        [
-          "NASA · Mercury Fact Sheet (en anglais)",
-          "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html"
-        ],
-        [
-          "ESA Kids · Venus (en anglais)",
-          "https://www.esa.int/kids/en/learn/Our_Universe/Planets_and_moons/Venus"
-        ],
-        [
-          "Encyclopædia Universalis · Système solaire, les planètes telluriques",
-          "https://www.universalis.fr/encyclopedie/systeme-solaire/2-les-planetes-telluriques/"
-        ]
-      ],
-      "rivalJuste": "Repéré. Tu ne te laisses pas aveugler par la proximité.",
-      "rivalFaux": "Plus près, donc plus chaude ? C’est logique, et c’est faux. Je t’avais tendu la perche."
-    },
-    {
-      "type": "frise",
-      "lib": "Exercice 3 · classement",
-      "theme": "Diamètre des planètes rocheuses",
-      "repere": 4,
-      "enonce": "Range ces quatre planètes de la plus petite à la plus grande, selon leur diamètre.",
-      "elements": [
-        "Terre",
-        "Mercure",
-        "Vénus",
-        "Mars"
-      ],
-      "ordre": [
-        "Mercure",
-        "Mars",
-        "Vénus",
-        "Terre"
-      ],
-      "correction": "Mercure est la plus petite, Mars fait un peu plus de la moitié de la Terre. Vénus, presque jumelle de notre planète, reste un peu en dessous d’elle.",
-      "figure": null,
-      "sources": [
-        [
-          "NASA Science · Planet Sizes and Locations in Our Solar System (en anglais)",
-          "https://science.nasa.gov/solar-system/planets/planet-sizes-and-locations-in-our-solar-system/"
-        ],
-        [
-          "Larousse · Mercure",
-          "https://www.larousse.fr/encyclopedie/divers/Mercure/132799"
-        ],
-        [
-          "Larousse · Système solaire",
-          "https://www.larousse.fr/encyclopedie/divers/Syst%C3%A8me_solaire/185915"
-        ],
-        [
-          "Encyclopædia Britannica · How Big Is Mars? (en anglais)",
-          "https://www.britannica.com/science/How-Big-Is-Mars"
-        ],
-        [
-          "ESA · Facts about Mars (en anglais)",
-          "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express/Facts_about_Mars"
-        ]
-      ],
-      "rivalJuste": "Dans l’ordre. Même Vénus n’a pas osé te contredire.",
-      "rivalFaux": "Vénus et la Terre se ressemblent, mais pas à ce point. Regarde les chiffres de plus près.",
-      "valeurs": {
-        "Mercure": "4 880 km",
-        "Mars": "6 792 km",
-        "Vénus": "12 104 km",
-        "Terre": "12 756 km"
-      }
-    }
+  [
+   "465 °C",
+   "Température de surface de Vénus, la plus chaude des planètes ; Mercure n’atteint que 167 °C en moyenne."
+  ],
+  [
+   "4 880 km",
+   "Diamètre de Mercure, la plus petite planète ; la Terre mesure 12 756 km."
   ]
+ ],
+ "sources": [
+  [
+   "NASA Science · Sun: Facts (en anglais)",
+   "https://science.nasa.gov/sun/facts/"
+  ],
+  [
+   "Encyclopædia Britannica · Solar system, résumé (en anglais)",
+   "https://www.britannica.com/summary/solar-system"
+  ],
+  [
+   "Observatoire de Paris · Distance et temps, le temps de lumière",
+   "https://media4.obspm.fr/public/ressources_lu/pages_temps/impression.html"
+  ],
+  [
+   "Encyclopædia Universalis · Lumière, la vitesse de la lumière",
+   "https://www.universalis.fr/encyclopedie/lumiere/3-vitesse-de-la-lumiere/"
+  ],
+  [
+   "NASA Science · Planet Sizes and Locations in Our Solar System (en anglais)",
+   "https://science.nasa.gov/solar-system/planets/planet-sizes-and-locations-in-our-solar-system/"
+  ],
+  [
+   "NASA · Planetary Fact Sheet (en anglais)",
+   "https://nssdc.gsfc.nasa.gov/planetary/factsheet/index.html"
+  ],
+  [
+   "NASA · Venus Fact Sheet (en anglais)",
+   "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html"
+  ],
+  [
+   "NASA · Mercury Fact Sheet (en anglais)",
+   "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html"
+  ],
+  [
+   "ESA Kids · Venus (en anglais)",
+   "https://www.esa.int/kids/en/learn/Our_Universe/Planets_and_moons/Venus"
+  ],
+  [
+   "Larousse · Mercure",
+   "https://www.larousse.fr/encyclopedie/divers/Mercure/132799"
+  ],
+  [
+   "Larousse · Système solaire",
+   "https://www.larousse.fr/encyclopedie/divers/Syst%C3%A8me_solaire/185915"
+  ],
+  [
+   "ESA · Facts about Mars (en anglais)",
+   "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express/Facts_about_Mars"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le temps de lumière du Soleil",
+   "repere": 2,
+   "enonce": "Combien de temps la lumière du Soleil met-elle à atteindre la Terre ?",
+   "reponses": [
+    "Environ 1 seconde",
+    "Environ 8 minutes",
+    "Environ 1 heure",
+    "Environ 1 jour"
+   ],
+   "bonne": 1,
+   "correction": "La Terre est à environ 150 millions de km du Soleil : sa lumière met environ 8 minutes à nous parvenir.",
+   "figure": null,
+   "sources": [
+    [
+     "Observatoire de Paris · Distance et temps, le temps de lumière",
+     "https://media4.obspm.fr/public/ressources_lu/pages_temps/impression.html"
+    ],
+    [
+     "Encyclopædia Universalis · Lumière, la vitesse de la lumière",
+     "https://www.universalis.fr/encyclopedie/lumiere/3-vitesse-de-la-lumiere/"
+    ],
+    [
+     "NASA Science · Sun: Facts (en anglais)",
+     "https://science.nasa.gov/sun/facts/"
+    ]
+   ],
+   "rivalJuste": "Juste. Tu as répondu en moins de temps que la lumière n’en met pour venir.",
+   "rivalFaux": "Raté. Huit minutes de trajet, et tu t’es égaré en une seconde."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "La planète la plus chaude",
+   "repere": 3,
+   "affirmation": "Mercure, la planète la plus proche du Soleil, est aussi la plus chaude du système solaire.",
+   "vrai": false,
+   "correction": "C’était un bluff. Vénus affiche environ 465 °C en surface, Mercure 167 °C en moyenne : l’effet de serre emballé de Vénus l’emporte sur la proximité de Mercure.",
+   "figure": null,
+   "sources": [
+    [
+     "NASA · Venus Fact Sheet (en anglais)",
+     "https://nssdc.gsfc.nasa.gov/planetary/factsheet/venusfact.html"
+    ],
+    [
+     "NASA · Mercury Fact Sheet (en anglais)",
+     "https://nssdc.gsfc.nasa.gov/planetary/factsheet/mercuryfact.html"
+    ],
+    [
+     "ESA Kids · Venus (en anglais)",
+     "https://www.esa.int/kids/en/learn/Our_Universe/Planets_and_moons/Venus"
+    ],
+    [
+     "Encyclopædia Universalis · Système solaire, les planètes telluriques",
+     "https://www.universalis.fr/encyclopedie/systeme-solaire/2-les-planetes-telluriques/"
+    ]
+   ],
+   "rivalJuste": "Repéré. Tu ne te laisses pas aveugler par la proximité.",
+   "rivalFaux": "Plus près, donc plus chaude ? C’est logique, et c’est faux. Je t’avais tendu la perche."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Diamètre des planètes rocheuses",
+   "repere": 4,
+   "enonce": "Range ces quatre planètes de la plus petite à la plus grande, selon leur diamètre.",
+   "elements": [
+    "Terre",
+    "Mercure",
+    "Vénus",
+    "Mars"
+   ],
+   "ordre": [
+    "Mercure",
+    "Mars",
+    "Vénus",
+    "Terre"
+   ],
+   "correction": "Mercure est la plus petite, Mars fait un peu plus de la moitié de la Terre. Vénus, presque jumelle de notre planète, reste un peu en dessous d’elle.",
+   "figure": null,
+   "sources": [
+    [
+     "NASA Science · Planet Sizes and Locations in Our Solar System (en anglais)",
+     "https://science.nasa.gov/solar-system/planets/planet-sizes-and-locations-in-our-solar-system/"
+    ],
+    [
+     "Larousse · Mercure",
+     "https://www.larousse.fr/encyclopedie/divers/Mercure/132799"
+    ],
+    [
+     "Larousse · Système solaire",
+     "https://www.larousse.fr/encyclopedie/divers/Syst%C3%A8me_solaire/185915"
+    ],
+    [
+     "Encyclopædia Britannica · How Big Is Mars? (en anglais)",
+     "https://www.britannica.com/science/How-Big-Is-Mars"
+    ],
+    [
+     "ESA · Facts about Mars (en anglais)",
+     "https://www.esa.int/Science_Exploration/Space_Science/Mars_Express/Facts_about_Mars"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Même Vénus n’a pas osé te contredire.",
+   "rivalFaux": "Vénus et la Terre se ressemblent, mais pas à ce point. Regarde les chiffres de plus près.",
+   "valeurs": {
+    "Mercure": "4 880 km",
+    "Mars": "6 792 km",
+    "Vénus": "12 104 km",
+    "Terre": "12 756 km"
+   }
+  }
+ ]
 }

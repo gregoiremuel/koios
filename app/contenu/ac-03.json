@@ -1,189 +1,189 @@
 {
-  "id": "ac-03",
-  "domaine": "ac",
-  "numero": 3,
-  "titre": "Le Boléro de Ravel",
-  "figure": null,
-  "essentiel": [
-    "En 1928, Maurice Ravel compose le Boléro pour la danseuse russe Ida Rubinstein, à qui la partition est dédiée.",
-    "Ida Rubinstein lui avait d’abord demandé d’orchestrer Iberia, d’Isaac Albéniz ; Ravel écrit finalement une œuvre originale.",
-    "Le ballet est créé le 22 novembre 1928 à l’Opéra de Paris (Palais Garnier), dans une chorégraphie de Bronislava Nijinska.",
-    "La partition répète un même thème, du début très doux à la fin très fort : seule l’orchestration change, sur le rythme obstiné de la caisse claire.",
-    "Entre sa naissance à Ciboure en 1875 et sa mort à Paris en 1937, Ravel a aussi vu créer, en 1912, Daphnis et Chloé, ballet commandé par Diaghilev pour les Ballets russes."
+ "id": "ac-03",
+ "domaine": "ac",
+ "numero": 3,
+ "titre": "Le Boléro de Ravel",
+ "figure": null,
+ "essentiel": [
+  "En 1928, Maurice Ravel compose le Boléro pour la danseuse russe Ida Rubinstein, à qui la partition est dédiée.",
+  "Ida Rubinstein lui avait d’abord demandé d’orchestrer Iberia, d’Isaac Albéniz ; Ravel écrit finalement une œuvre originale.",
+  "Le ballet est créé le 22 novembre 1928 à l’Opéra de Paris (Palais Garnier), dans une chorégraphie de Bronislava Nijinska.",
+  "La partition répète un même thème, du début très doux à la fin très fort : seule l’orchestration change, sur le rythme obstiné de la caisse claire.",
+  "Entre sa naissance à Ciboure en 1875 et sa mort à Paris en 1937, Ravel a aussi vu créer, en 1912, Daphnis et Chloé, ballet commandé par Diaghilev pour les Ballets russes."
+ ],
+ "reperes": [
+  [
+   "1928",
+   "Ravel compose le Boléro pour Ida Rubinstein, qui l’a commandé pour sa compagnie de ballet."
   ],
-  "reperes": [
-    [
-      "1928",
-      "Ravel compose le Boléro pour Ida Rubinstein, qui l’a commandé pour sa compagnie de ballet."
-    ],
-    [
-      "Iberia, d’Albéniz",
-      "Ce que Ida Rubinstein demande d’abord à Ravel ; il écrit finalement une œuvre originale."
-    ],
-    [
-      "22 novembre 1928",
-      "Création du ballet à l’Opéra de Paris (Palais Garnier), chorégraphie de Bronislava Nijinska."
-    ],
-    [
-      "Un thème, un crescendo",
-      "La mélodie ne change pas ; seule l’orchestration varie, d’un début très doux à une fin jouée aussi fort que possible."
-    ],
-    [
-      "1875 – 1937",
-      "Ravel naît à Ciboure le 7 mars 1875 et meurt à Paris le 28 décembre 1937."
-    ]
+  [
+   "Iberia, d’Albéniz",
+   "Ce que Ida Rubinstein demande d’abord à Ravel ; il écrit finalement une œuvre originale."
   ],
-  "sources": [
-    [
-      "The Morgan Library & Museum · Boléro, manuscrit autographe de Ravel (en anglais)",
-      "https://www.themorgan.org/music-manuscripts-and-printed-music/115508"
-    ],
-    [
-      "IRCAM · Boléro (1928)",
-      "https://resources.ircam.fr/work/bolero"
-    ],
-    [
-      "IRCAM · Daphnis et Chloé (1909)",
-      "https://brahms.ircam.fr/work/daphnis-et-chloe-1"
-    ],
-    [
-      "Encyclopædia Britannica · Boléro, œuvre de Ravel (en anglais)",
-      "https://www.britannica.com/topic/Bolero-by-Ravel"
-    ],
-    [
-      "Encyclopædia Britannica · Boléro, article imprimable (en anglais)",
-      "https://www.britannica.com/print/article/906209"
-    ],
-    [
-      "Encyclopædia Britannica · Maurice Ravel (en anglais)",
-      "https://www.britannica.com/biography/Maurice-Ravel"
-    ],
-    [
-      "Académie de Normandie (Éducation nationale) · Ravel, Boléro",
-      "https://prim27.ac-normandie.fr/IMG/pdf/ravel_bolero.pdf"
-    ],
-    [
-      "UCLouvain, CERMUS · Xavier Falques, invité d’un jour dans l’histoire (création du Boléro)",
-      "https://www.uclouvain.be/fr/instituts-recherche/incal/cermus/news/xavier-falques-invite-dun-jour-dans-lhistoire"
-    ],
-    [
-      "RTBF · Le Boléro de Ravel tombe dans le domaine public",
-      "https://www.rtbf.be/article/le-tres-celebre-bolero-de-ravel-tombe-dans-le-domaine-public-9286711"
-    ],
-    [
-      "Larousse · Maurice Ravel",
-      "https://www.larousse.fr/encyclopedie/personnage/Maurice_Ravel/140408"
-    ],
-    [
-      "Encyclopædia Universalis Junior · Maurice Ravel, grandes dates",
-      "https://junior.universalis.fr/document/maurice-ravel-grandes-dates"
-    ]
+  [
+   "22 novembre 1928",
+   "Création du ballet à l’Opéra de Paris (Palais Garnier), chorégraphie de Bronislava Nijinska."
   ],
-  "exercices": [
-    {
-      "type": "qcm",
-      "lib": "Exercice 1 · question à choix",
-      "theme": "La commande d’Ida Rubinstein",
-      "repere": 1,
-      "enonce": "Que la danseuse Ida Rubinstein avait-elle d’abord demandé à Ravel ?",
-      "reponses": [
-        "Orchestrer Iberia, d’Isaac Albéniz",
-        "Orchestrer les Goyescas, d’Enrique Granados",
-        "Écrire une rhapsodie sur des airs basques",
-        "Arranger la Carmen de Bizet"
-      ],
-      "bonne": 0,
-      "correction": "Ida Rubinstein souhaitait d’abord une orchestration d’Iberia, d’Isaac Albéniz. Ravel a finalement écrit une œuvre originale, le Boléro.",
-      "figure": null,
-      "sources": [
-        [
-          "The Morgan Library & Museum · Boléro, manuscrit autographe de Ravel (en anglais)",
-          "https://www.themorgan.org/music-manuscripts-and-printed-music/115508"
-        ],
-        [
-          "Encyclopædia Britannica · Boléro, article imprimable (en anglais)",
-          "https://www.britannica.com/print/article/906209"
-        ]
-      ],
-      "rivalJuste": "Juste. Ravel a fini par composer lui-même ce qu’on voulait lui faire orchestrer.",
-      "rivalFaux": "Raté. Console-toi : le Boléro, lui, sait se répéter."
-    },
-    {
-      "type": "bluff",
-      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
-      "theme": "Un seul thème, un crescendo",
-      "repere": 3,
-      "affirmation": "Dans le Boléro, Ravel présente une mélodie différente à chaque reprise.",
-      "vrai": false,
-      "correction": "C’était un bluff. Le Boléro répète le même thème, en crescendo, du début à la fin : seule l’orchestration change d’une reprise à l’autre.",
-      "figure": null,
-      "sources": [
-        [
-          "Encyclopædia Britannica · Boléro, œuvre de Ravel (en anglais)",
-          "https://www.britannica.com/topic/Bolero-by-Ravel"
-        ],
-        [
-          "Académie de Normandie (Éducation nationale) · Ravel, Boléro",
-          "https://prim27.ac-normandie.fr/IMG/pdf/ravel_bolero.pdf"
-        ],
-        [
-          "RTBF · Le Boléro de Ravel tombe dans le domaine public",
-          "https://www.rtbf.be/article/le-tres-celebre-bolero-de-ravel-tombe-dans-le-domaine-public-9286711"
-        ]
-      ],
-      "rivalJuste": "Repéré. Même mélodie pendant tout le ballet, et personne ne bâille.",
-      "rivalFaux": "Piégé. Un seul thème, répété avec art. C’est tout le tour de Ravel."
-    },
-    {
-      "type": "frise",
-      "lib": "Exercice 3 · frise",
-      "theme": "Quatre dates de la vie de Ravel",
-      "repere": 4,
-      "enonce": "Range ces quatre événements du plus ancien au plus récent.",
-      "elements": [
-        "Création du Boléro",
-        "Naissance de Ravel à Ciboure",
-        "Mort de Ravel à Paris",
-        "Création de Daphnis et Chloé"
-      ],
-      "ordre": [
-        "Naissance de Ravel à Ciboure",
-        "Création de Daphnis et Chloé",
-        "Création du Boléro",
-        "Mort de Ravel à Paris"
-      ],
-      "correction": "Ravel naît à Ciboure en 1875. Daphnis et Chloé est créé en 1912, le Boléro en 1928, et le compositeur meurt à Paris en décembre 1937.",
-      "figure": null,
-      "sources": [
-        [
-          "Encyclopædia Universalis Junior · Maurice Ravel, grandes dates",
-          "https://junior.universalis.fr/document/maurice-ravel-grandes-dates"
-        ],
-        [
-          "Encyclopædia Britannica · Maurice Ravel (en anglais)",
-          "https://www.britannica.com/biography/Maurice-Ravel"
-        ],
-        [
-          "Larousse · Maurice Ravel",
-          "https://www.larousse.fr/encyclopedie/personnage/Maurice_Ravel/140408"
-        ],
-        [
-          "IRCAM · Daphnis et Chloé (1909)",
-          "https://brahms.ircam.fr/work/daphnis-et-chloe-1"
-        ],
-        [
-          "IRCAM · Boléro (1928)",
-          "https://resources.ircam.fr/work/bolero"
-        ]
-      ],
-      "rivalJuste": "Dans l’ordre. Le crescendo de ta réussite se confirme.",
-      "rivalFaux": "Hors tempo. On reprend, en mesure.",
-      "valeurs": {
-        "Naissance de Ravel à Ciboure": "7 mars 1875",
-        "Création de Daphnis et Chloé": "8 juin 1912",
-        "Création du Boléro": "22 novembre 1928",
-        "Mort de Ravel à Paris": "28 décembre 1937"
-      }
-    }
+  [
+   "Un thème, un crescendo",
+   "La mélodie ne change pas ; seule l’orchestration varie, d’un début très doux à une fin jouée aussi fort que possible."
+  ],
+  [
+   "1875 – 1937",
+   "Ravel naît à Ciboure le 7 mars 1875 et meurt à Paris le 28 décembre 1937."
   ]
+ ],
+ "sources": [
+  [
+   "The Morgan Library & Museum · Boléro, manuscrit autographe de Ravel (en anglais)",
+   "https://www.themorgan.org/music-manuscripts-and-printed-music/115508"
+  ],
+  [
+   "IRCAM · Boléro (1928)",
+   "https://resources.ircam.fr/work/bolero"
+  ],
+  [
+   "IRCAM · Daphnis et Chloé (1909)",
+   "https://brahms.ircam.fr/work/daphnis-et-chloe-1"
+  ],
+  [
+   "Encyclopædia Britannica · Boléro, œuvre de Ravel (en anglais)",
+   "https://www.britannica.com/topic/Bolero-by-Ravel"
+  ],
+  [
+   "Encyclopædia Britannica · Boléro, article imprimable (en anglais)",
+   "https://www.britannica.com/print/article/906209"
+  ],
+  [
+   "Encyclopædia Britannica · Maurice Ravel (en anglais)",
+   "https://www.britannica.com/biography/Maurice-Ravel"
+  ],
+  [
+   "Académie de Normandie (Éducation nationale) · Ravel, Boléro",
+   "https://prim27.ac-normandie.fr/IMG/pdf/ravel_bolero.pdf"
+  ],
+  [
+   "UCLouvain, CERMUS · Xavier Falques, invité d’un jour dans l’histoire (création du Boléro)",
+   "https://www.uclouvain.be/fr/instituts-recherche/incal/cermus/news/xavier-falques-invite-dun-jour-dans-lhistoire"
+  ],
+  [
+   "RTBF · Le Boléro de Ravel tombe dans le domaine public",
+   "https://www.rtbf.be/article/le-tres-celebre-bolero-de-ravel-tombe-dans-le-domaine-public-9286711"
+  ],
+  [
+   "Larousse · Maurice Ravel",
+   "https://www.larousse.fr/encyclopedie/personnage/Maurice_Ravel/140408"
+  ],
+  [
+   "Encyclopædia Universalis Junior · Maurice Ravel, grandes dates",
+   "https://junior.universalis.fr/document/maurice-ravel-grandes-dates"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "La commande d’Ida Rubinstein",
+   "repere": 1,
+   "enonce": "Que la danseuse Ida Rubinstein avait-elle d’abord demandé à Ravel ?",
+   "reponses": [
+    "Orchestrer Iberia, d’Isaac Albéniz",
+    "Orchestrer les Goyescas, d’Enrique Granados",
+    "Écrire une rhapsodie sur des airs basques",
+    "Arranger la Carmen de Bizet"
+   ],
+   "bonne": 0,
+   "correction": "Ida Rubinstein souhaitait d’abord une orchestration d’Iberia, d’Isaac Albéniz. Ravel a finalement écrit une œuvre originale, le Boléro.",
+   "figure": null,
+   "sources": [
+    [
+     "The Morgan Library & Museum · Boléro, manuscrit autographe de Ravel (en anglais)",
+     "https://www.themorgan.org/music-manuscripts-and-printed-music/115508"
+    ],
+    [
+     "Encyclopædia Britannica · Boléro, article imprimable (en anglais)",
+     "https://www.britannica.com/print/article/906209"
+    ]
+   ],
+   "rivalJuste": "Juste. Ravel a fini par composer lui-même ce qu’on voulait lui faire orchestrer.",
+   "rivalFaux": "Raté. Console‑toi : le Boléro, lui, sait se répéter."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Un seul thème, un crescendo",
+   "repere": 3,
+   "affirmation": "Dans le Boléro, Ravel présente une mélodie différente à chaque reprise.",
+   "vrai": false,
+   "correction": "C’était un bluff. Le Boléro répète le même thème, en crescendo, du début à la fin : seule l’orchestration change d’une reprise à l’autre.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Boléro, œuvre de Ravel (en anglais)",
+     "https://www.britannica.com/topic/Bolero-by-Ravel"
+    ],
+    [
+     "Académie de Normandie (Éducation nationale) · Ravel, Boléro",
+     "https://prim27.ac-normandie.fr/IMG/pdf/ravel_bolero.pdf"
+    ],
+    [
+     "RTBF · Le Boléro de Ravel tombe dans le domaine public",
+     "https://www.rtbf.be/article/le-tres-celebre-bolero-de-ravel-tombe-dans-le-domaine-public-9286711"
+    ]
+   ],
+   "rivalJuste": "Repéré. Même mélodie pendant tout le ballet, et personne ne bâille.",
+   "rivalFaux": "Piégé. Un seul thème, répété avec art. C’est tout le tour de Ravel."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Quatre dates de la vie de Ravel",
+   "repere": 4,
+   "enonce": "Range ces quatre événements du plus ancien au plus récent.",
+   "elements": [
+    "Création du Boléro",
+    "Naissance de Ravel à Ciboure",
+    "Mort de Ravel à Paris",
+    "Création de Daphnis et Chloé"
+   ],
+   "ordre": [
+    "Naissance de Ravel à Ciboure",
+    "Création de Daphnis et Chloé",
+    "Création du Boléro",
+    "Mort de Ravel à Paris"
+   ],
+   "correction": "Ravel naît à Ciboure en 1875. Daphnis et Chloé est créé en 1912, le Boléro en 1928, et le compositeur meurt à Paris en décembre 1937.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Universalis Junior · Maurice Ravel, grandes dates",
+     "https://junior.universalis.fr/document/maurice-ravel-grandes-dates"
+    ],
+    [
+     "Encyclopædia Britannica · Maurice Ravel (en anglais)",
+     "https://www.britannica.com/biography/Maurice-Ravel"
+    ],
+    [
+     "Larousse · Maurice Ravel",
+     "https://www.larousse.fr/encyclopedie/personnage/Maurice_Ravel/140408"
+    ],
+    [
+     "IRCAM · Daphnis et Chloé (1909)",
+     "https://brahms.ircam.fr/work/daphnis-et-chloe-1"
+    ],
+    [
+     "IRCAM · Boléro (1928)",
+     "https://resources.ircam.fr/work/bolero"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Le crescendo de ta réussite se confirme.",
+   "rivalFaux": "Hors tempo. On reprend, en mesure.",
+   "valeurs": {
+    "Naissance de Ravel à Ciboure": "7 mars 1875",
+    "Création de Daphnis et Chloé": "8 juin 1912",
+    "Création du Boléro": "22 novembre 1928",
+    "Mort de Ravel à Paris": "28 décembre 1937"
+   }
+  }
+ ]
 }

@@ -1,172 +1,172 @@
 {
-  "id": "hg-01",
-  "domaine": "hg",
-  "numero": 1,
-  "titre": "De la Révolution à l’Empire",
-  "figure": {
-    "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Couder_Stati_generali.jpg?width=800",
-    "alt": "Tableau de l’ouverture des États généraux à Versailles",
-    "credit": "Auguste Couder, Ouverture des États généraux, 1839 · domaine public · Wikimedia Commons"
-  },
-  "essentiel": [
-    "Le 5 mai 1789, les États généraux s’ouvrent à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
-    "Le 14 juillet 1789, les Parisiens prennent la Bastille. La forteresse ne détient alors que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
-    "Un an plus tard, le 14 juillet 1790, la fête de la Fédération se tient au Champ‑de‑Mars, à Paris.",
-    "Le 2 décembre 1804, Napoléon est sacré empereur à Notre-Dame de Paris. Jacques-Louis David en a tiré le tableau du Sacre, conservé au Louvre."
+ "id": "hg-01",
+ "domaine": "hg",
+ "numero": 1,
+ "titre": "De la Révolution à l’Empire",
+ "figure": {
+  "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Couder_Stati_generali.jpg?width=800",
+  "alt": "Tableau de l’ouverture des États généraux à Versailles",
+  "credit": "Auguste Couder, Ouverture des États généraux, 1839 · domaine public · Wikimedia Commons"
+ },
+ "essentiel": [
+  "Le 5 mai 1789, les États généraux s’ouvrent à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
+  "Le 14 juillet 1789, les Parisiens prennent la Bastille. La forteresse ne détient alors que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
+  "Un an plus tard, le 14 juillet 1790, la fête de la Fédération se tient au Champ‑de‑Mars, à Paris.",
+  "Le 2 décembre 1804, Napoléon est sacré empereur à Notre‑Dame de Paris. Jacques‑Louis David en a tiré le tableau du Sacre, conservé au Louvre."
+ ],
+ "reperes": [
+  [
+   "5 mai 1789",
+   "Ouverture des États généraux à Versailles, à l’hôtel des Menus‑Plaisirs."
   ],
-  "reperes": [
-    [
-      "5 mai 1789",
-      "Ouverture des États généraux à Versailles, à l’hôtel des Menus‑Plaisirs."
-    ],
-    [
-      "14 juillet 1789",
-      "Prise de la Bastille ; la forteresse ne détient alors que sept prisonniers."
-    ],
-    [
-      "14 juillet 1790",
-      "Fête de la Fédération au Champ‑de‑Mars, un an après."
-    ],
-    [
-      "2 décembre 1804",
-      "Sacre de Napoléon à Notre-Dame de Paris."
-    ]
+  [
+   "14 juillet 1789",
+   "Prise de la Bastille ; la forteresse ne détient alors que sept prisonniers."
   ],
-  "sources": [
-    [
-      "Assemblée nationale · La réunion des états généraux, mai 1789",
-      "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
-    ],
-    [
-      "Château de Versailles · Versailles at the heart of the French Revolution (en anglais)",
-      "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"
-    ],
-    [
-      "Larousse · La Bastille",
-      "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"
-    ],
-    [
-      "BnF Essentiels · La fête de la Fédération",
-      "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"
-    ],
-    [
-      "Fondation Napoléon · Le sacre du 2 décembre 1804",
-      "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"
-    ]
+  [
+   "14 juillet 1790",
+   "Fête de la Fédération au Champ‑de‑Mars, un an après."
   ],
-  "exercices": [
-    {
-      "type": "qcm",
-      "lib": "Exercice 1 · question à choix",
-      "theme": "Le lieu des États généraux",
-      "repere": 0,
-      "enonce": "Le 5 mai 1789, où s’ouvrent les États généraux ?",
-      "reponses": [
-        "À l’hôtel des Menus‑Plaisirs, à Versailles",
-        "Dans la salle du Jeu de paume, à Versailles",
-        "Dans la galerie des Glaces du château",
-        "Au Manège des Tuileries, à Paris"
-      ],
-      "bonne": 0,
-      "correction": "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
-      "figure": null,
-      "sources": [
-        [
-          "Assemblée nationale · La réunion des états généraux, mai 1789",
-          "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
-        ],
-        [
-          "Château de Versailles · Versailles at the heart of the French Revolution (en anglais)",
-          "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"
-        ],
-        [
-          "Centre de musique baroque de Versailles · L’hôtel des Menus-Plaisirs",
-          "https://cmbv.fr/en/node/2691"
-        ]
-      ],
-      "rivalJuste": "Juste. Louis XVI a mis plus longtemps que toi à saisir l’enjeu.",
-      "rivalFaux": "La Révolution n’a pas attendu que tu arrives."
-    },
-    {
-      "type": "bluff",
-      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
-      "theme": "Les prisonniers de la Bastille",
-      "repere": 1,
-      "affirmation": "Le 14 juillet 1789, les émeutiers libèrent des centaines de prisonniers de la Bastille.",
-      "vrai": false,
-      "correction": "C’était un bluff. Ce jour-là, la Bastille ne détenait que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
-      "figure": null,
-      "sources": [
-        [
-          "Présidence de la République · La fête nationale du 14 juillet",
-          "https://www.elysee.fr/la-presidence/la-fete-nationale-du-14-juillet"
-        ],
-        [
-          "Larousse · La Bastille",
-          "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"
-        ],
-        [
-          "Encyclopædia Britannica · Storming of the Bastille",
-          "https://www.britannica.com/print/article/2214626"
-        ]
-      ],
-      "rivalJuste": "Repéré. La légende des cachots pleins a la vie dure, pas chez toi.",
-      "rivalFaux": "Sept prisonniers. Je savais que la légende te plairait plus que les archives."
-    },
-    {
-      "type": "frise",
-      "lib": "Exercice 3 · frise",
-      "theme": "L’ordre des grandes dates",
-      "repere": 2,
-      "enonce": "Range ces quatre événements du plus ancien au plus récent.",
-      "elements": [
-        "Fête de la Fédération",
-        "Prise de la Bastille",
-        "Sacre de Napoléon",
-        "Ouverture des États généraux"
-      ],
-      "ordre": [
-        "Ouverture des États généraux",
-        "Prise de la Bastille",
-        "Fête de la Fédération",
-        "Sacre de Napoléon"
-      ],
-      "correction": "Deux de ces événements tombent en 1789 : les États généraux en mai, la Bastille en juillet. La Fédération suit en 1790, le sacre en 1804.",
-      "figure": {
-        "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Le_Sacre_de_Napol%C3%A9on,_David,_1804.jpg?width=800",
-        "alt": "Le Sacre de Napoléon peint par Jacques-Louis David",
-        "credit": "Jacques-Louis David, Le Sacre de Napoléon, musée du Louvre · domaine public · Wikimedia Commons"
-      },
-      "sources": [
-        [
-          "Assemblée nationale · La réunion des états généraux, mai 1789",
-          "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
-        ],
-        [
-          "Encyclopædia Universalis · Quatorze juillet 1789",
-          "https://www.universalis.fr/encyclopedie/quatorze-juillet-1789/"
-        ],
-        [
-          "BnF Essentiels · La fête de la Fédération",
-          "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"
-        ],
-        [
-          "Fondation Napoléon · Le sacre du 2 décembre 1804",
-          "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"
-        ],
-        [
-          "Musée du Louvre · Le Sacre, de Jacques-Louis David",
-          "https://collections.louvre.fr/en/ark:/53355/cl010065720"
-        ]
-      ],
-      "rivalJuste": "Dans l’ordre. L’Empereur lui-même n’aurait rien à redire.",
-      "rivalFaux": "La chronologie ne pardonne pas. Moi non plus.",
-      "valeurs": {
-        "Ouverture des États généraux": "5 mai 1789",
-        "Prise de la Bastille": "14 juillet 1789",
-        "Fête de la Fédération": "14 juillet 1790",
-        "Sacre de Napoléon": "2 décembre 1804"
-      }
-    }
+  [
+   "2 décembre 1804",
+   "Sacre de Napoléon à Notre‑Dame de Paris."
   ]
+ ],
+ "sources": [
+  [
+   "Assemblée nationale · La réunion des états généraux, mai 1789",
+   "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
+  ],
+  [
+   "Château de Versailles · Versailles at the heart of the French Revolution (en anglais)",
+   "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"
+  ],
+  [
+   "Larousse · La Bastille",
+   "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"
+  ],
+  [
+   "BnF Essentiels · La fête de la Fédération",
+   "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"
+  ],
+  [
+   "Fondation Napoléon · Le sacre du 2 décembre 1804",
+   "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le lieu des États généraux",
+   "repere": 0,
+   "enonce": "Le 5 mai 1789, où s’ouvrent les États généraux ?",
+   "reponses": [
+    "À l’hôtel des Menus‑Plaisirs, à Versailles",
+    "Dans la salle du Jeu de paume, à Versailles",
+    "Dans la galerie des Glaces du château",
+    "Au Manège des Tuileries, à Paris"
+   ],
+   "bonne": 0,
+   "correction": "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
+   "figure": null,
+   "sources": [
+    [
+     "Assemblée nationale · La réunion des états généraux, mai 1789",
+     "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
+    ],
+    [
+     "Château de Versailles · Versailles at the heart of the French Revolution (en anglais)",
+     "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"
+    ],
+    [
+     "Centre de musique baroque de Versailles · L’hôtel des Menus‑Plaisirs",
+     "https://cmbv.fr/en/node/2691"
+    ]
+   ],
+   "rivalJuste": "Juste. Louis XVI a mis plus longtemps que toi à saisir l’enjeu.",
+   "rivalFaux": "La Révolution n’a pas attendu que tu arrives."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Les prisonniers de la Bastille",
+   "repere": 1,
+   "affirmation": "Le 14 juillet 1789, les émeutiers libèrent des centaines de prisonniers de la Bastille.",
+   "vrai": false,
+   "correction": "C’était un bluff. Ce jour-là, la Bastille ne détenait que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
+   "figure": null,
+   "sources": [
+    [
+     "Présidence de la République · La fête nationale du 14 juillet",
+     "https://www.elysee.fr/la-presidence/la-fete-nationale-du-14-juillet"
+    ],
+    [
+     "Larousse · La Bastille",
+     "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"
+    ],
+    [
+     "Encyclopædia Britannica · Storming of the Bastille",
+     "https://www.britannica.com/print/article/2214626"
+    ]
+   ],
+   "rivalJuste": "Repéré. La légende des cachots pleins a la vie dure, pas chez toi.",
+   "rivalFaux": "Sept prisonniers. Je savais que la légende te plairait plus que les archives."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "L’ordre des grandes dates",
+   "repere": 2,
+   "enonce": "Range ces quatre événements du plus ancien au plus récent.",
+   "elements": [
+    "Fête de la Fédération",
+    "Prise de la Bastille",
+    "Sacre de Napoléon",
+    "Ouverture des États généraux"
+   ],
+   "ordre": [
+    "Ouverture des États généraux",
+    "Prise de la Bastille",
+    "Fête de la Fédération",
+    "Sacre de Napoléon"
+   ],
+   "correction": "Deux de ces événements tombent en 1789 : les États généraux en mai, la Bastille en juillet. La Fédération suit en 1790, le sacre en 1804.",
+   "figure": {
+    "src": "https://commons.wikimedia.org/wiki/Special:FilePath/Le_Sacre_de_Napol%C3%A9on,_David,_1804.jpg?width=800",
+    "alt": "Le Sacre de Napoléon peint par Jacques‑Louis David",
+    "credit": "Jacques‑Louis David, Le Sacre de Napoléon, musée du Louvre · domaine public · Wikimedia Commons"
+   },
+   "sources": [
+    [
+     "Assemblée nationale · La réunion des états généraux, mai 1789",
+     "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"
+    ],
+    [
+     "Encyclopædia Universalis · Quatorze juillet 1789",
+     "https://www.universalis.fr/encyclopedie/quatorze-juillet-1789/"
+    ],
+    [
+     "BnF Essentiels · La fête de la Fédération",
+     "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"
+    ],
+    [
+     "Fondation Napoléon · Le sacre du 2 décembre 1804",
+     "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"
+    ],
+    [
+     "Musée du Louvre · Le Sacre, de Jacques‑Louis David",
+     "https://collections.louvre.fr/en/ark:/53355/cl010065720"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. L’Empereur lui-même n’aurait rien à redire.",
+   "rivalFaux": "La chronologie ne pardonne pas. Moi non plus.",
+   "valeurs": {
+    "Ouverture des États généraux": "5 mai 1789",
+    "Prise de la Bastille": "14 juillet 1789",
+    "Fête de la Fédération": "14 juillet 1790",
+    "Sacre de Napoléon": "2 décembre 1804"
+   }
+  }
+ ]
 }

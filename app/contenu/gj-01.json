@@ -1,0 +1,185 @@
+{
+ "id": "gj-01",
+ "domaine": "gj",
+ "numero": 1,
+ "titre": "Dureté de Mohs et clivage",
+ "figure": null,
+ "essentiel": [
+  "L’échelle de Mohs range dix minéraux de référence, numérotés de 1 à 10 : talc, gypse, calcite, fluorine, apatite, orthose, quartz, topaze, corindon et diamant.",
+  "Chaque minéral peut rayer celui qui le précède et se laisse rayer par celui qui le suit.",
+  "La dureté mesure la résistance à la rayure ; la façon dont une pierre se casse dépend de son clivage.",
+  "Le diamant, au degré 10, possède quatre directions de clivage parfait, parallèles aux faces de l’octaèdre.",
+  "Il reste donc cassant : un choc bien placé, surtout sur la ceinture ou sur une pointe, peut l’ébrécher."
+ ],
+ "reperes": [
+  [
+   "Échelle de Mohs",
+   "Dix minéraux de référence, du talc (1) au diamant (10), qui se rayent dans l’ordre."
+  ],
+  [
+   "Degrés 3, 4, 6 et 9",
+   "Calcite, fluorine, orthose et corindon ; le corindon, au degré 9, précède juste le diamant."
+  ],
+  [
+   "Dureté et clivage",
+   "La dureté dit comment une pierre se raye ; le clivage dit comment elle se casse."
+  ],
+  [
+   "Diamant : 4 clivages",
+   "Quatre directions de clivage parfait, parallèles aux faces de l’octaèdre."
+  ]
+ ],
+ "sources": [
+  [
+   "Encyclopædia Britannica · Mohs hardness (en anglais)",
+   "https://britannica.com/print/article/387714"
+  ],
+  [
+   "Office québécois de la langue française · Échelle de Mohs",
+   "https://vitrinelinguistique.oqlf.gouv.qc.ca/fiche-gdt/fiche/17084512/echelle-de-mohs"
+  ],
+  [
+   "GIA · How to protect a diamond from chipping (en anglais)",
+   "https://www.gia.edu/gia-news-research/how-protect-diamond-chipping"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+   "https://cameo.mfa.org/wiki/Diamond"
+  ],
+  [
+   "Mindat · Diamond (en anglais)",
+   "https://www.mindat.org/min-1282.html"
+  ],
+  [
+   "International Gem Society · Hardness and cleavage considerations (en anglais)",
+   "https://www.gemsociety.org/lesson/hardness-and-cleavage-considerations/"
+  ],
+  [
+   "Larousse · Diamant",
+   "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+  ],
+  [
+   "Handbook of Mineralogy · Diamond (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+  ],
+  [
+   "Handbook of Mineralogy · Calcite (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/calcite.pdf"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+   "https://cameo.mfa.org/wiki/Corundum"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Clivage du diamant",
+   "repere": 3,
+   "enonce": "Combien de directions de clivage parfait le diamant possède‑t‑il ?",
+   "reponses": [
+    "Une seule",
+    "Trois",
+    "Quatre",
+    "Aucune : sa dureté l’interdit"
+   ],
+   "bonne": 2,
+   "correction": "Le diamant se clive dans quatre directions, parallèles aux faces de l’octaèdre. Sa grande dureté n’y change rien.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · How to protect a diamond from chipping (en anglais)",
+     "https://www.gia.edu/gia-news-research/how-protect-diamond-chipping"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Diamond (en anglais)",
+     "https://cameo.mfa.org/wiki/Diamond"
+    ],
+    [
+     "Mindat · Diamond (en anglais)",
+     "https://www.mindat.org/min-1282.html"
+    ],
+    [
+     "Handbook of Mineralogy · Diamond (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+    ]
+   ],
+   "rivalJuste": "Quatre. Le lapidaire te doit un café.",
+   "rivalFaux": "Quatre. Même un diamant a ses points faibles, il n’y a pas de honte."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe‑t‑il ?",
+   "theme": "Dureté contre ténacité",
+   "repere": 2,
+   "affirmation": "Le diamant est le minéral le plus dur : aucun choc ne peut donc l’ébrécher.",
+   "vrai": false,
+   "correction": "C’était un bluff. Le diamant résiste à la rayure, pas aux chocs : ses plans de clivage le rendent cassant, et un coup sur la ceinture ou sur une pointe peut l’ébrécher.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · How to protect a diamond from chipping (en anglais)",
+     "https://www.gia.edu/gia-news-research/how-protect-diamond-chipping"
+    ],
+    [
+     "International Gem Society · Hardness and cleavage considerations (en anglais)",
+     "https://www.gemsociety.org/lesson/hardness-and-cleavage-considerations/"
+    ],
+    [
+     "Larousse · Diamant",
+     "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+    ]
+   ],
+   "rivalJuste": "Repéré. Dur ne veut pas dire incassable.",
+   "rivalFaux": "Un marteau d’acier ne raye pas un diamant, mais il peut le briser. Voilà."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Ranger sur l’échelle de Mohs",
+   "repere": 1,
+   "enonce": "Range ces quatre minéraux du plus tendre au plus dur sur l’échelle de Mohs.",
+   "elements": [
+    "Orthose",
+    "Calcite",
+    "Corindon",
+    "Fluorine"
+   ],
+   "ordre": [
+    "Calcite",
+    "Fluorine",
+    "Orthose",
+    "Corindon"
+   ],
+   "correction": "La calcite est au degré 3, la fluorine au 4, l’orthose au 6 et le corindon au 9, juste sous le diamant.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Mohs hardness (en anglais)",
+     "https://britannica.com/print/article/387714"
+    ],
+    [
+     "Office québécois de la langue française · Échelle de Mohs",
+     "https://vitrinelinguistique.oqlf.gouv.qc.ca/fiche-gdt/fiche/17084512/echelle-de-mohs"
+    ],
+    [
+     "Handbook of Mineralogy · Calcite (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/calcite.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Corundum (en anglais)",
+     "https://cameo.mfa.org/wiki/Corundum"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Chacun raye bien celui d’avant.",
+   "rivalFaux": "Le corindon est au degré 9, pas ailleurs. L’échelle, elle, ne bouge pas.",
+   "valeurs": {
+    "Calcite": "Mohs 3",
+    "Fluorine": "Mohs 4",
+    "Orthose": "Mohs 6",
+    "Corindon": "Mohs 9"
+   }
+  }
+ ]
+}

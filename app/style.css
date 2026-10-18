@@ -12,7 +12,7 @@
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
   --vieux: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.46 0 0 0 0 0.24 0 0 0 0.13 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
   --veines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.45' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
-  --arcs: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='16'%3E%3Cpath d='M3 16V8.5A13 13 0 0 1 12 1.5A13 13 0 0 1 21 8.5V16' fill='none' stroke='%23a8802f' stroke-width='1'/%3E%3Cpath d='M0 15.5H24' stroke='%23a8802f' stroke-width='1'/%3E%3C/svg%3E");
+  --arcs: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14'%3E%3Cpath d='M2.5 14V7A9 9 0 0 1 7 0.8A9 9 0 0 1 11.5 7V14' fill='none' stroke='%23a8802f' stroke-width='1'/%3E%3Cpath d='M0 13.5H14' stroke='%23a8802f' stroke-width='1'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 * { box-sizing: border-box; }
@@ -31,7 +31,7 @@ img { max-width: 100%; }
 .page.sans-nav { padding-bottom: 40px; gap: 18px; }
 .i { width: 20px; height: 20px; flex: none; display: block; }
 .ic { display: inline-flex; }
-h1 { margin: 0; font-family: var(--livre); font-weight: 500; font-size: 24px; line-height: 1.3; text-wrap: balance; }
+h1 { margin: 0; font-family: var(--livre); font-weight: 600; font-size: 24px; line-height: 1.3; text-wrap: balance; }
 h2 { margin: 0; font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 1.25; }
 p { margin: 0; }
 .lib { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--encre-2); }
@@ -44,13 +44,14 @@ p { margin: 0; }
 .haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .marque { font-family: var(--livre); font-weight: 600; font-size: 30px; letter-spacing: 0.01em; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; gap: 10px; }
 .marque svg { width: 30px; height: 30px; }
-.initiale { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; background: var(--or-pale); color: var(--or-fonce); border: 1px solid var(--ligne-forte); text-decoration: none; }
-.arcature { height: 16px; background: var(--arcs) repeat-x left bottom; opacity: 0.55; margin-top: -14px; }
+.initiale { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; background: var(--or-pale); color: var(--or-fonce); border: 1px solid var(--ligne-forte); text-decoration: none; }
+.arcature { height: 14px; background: var(--arcs) repeat-x left bottom; opacity: 0.6; margin-top: 6px; }
 
 /* Cartes, feuilles, boutons */
 .carte { background: var(--page); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
 .feuille { background-color: var(--feuille); background-image: var(--vieux); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 20px 18px; display: grid; gap: 12px; }
 .feuille > .arcature { margin: -8px -4px 2px; }
+[tabindex="-1"]:focus { outline: none; }
 .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--vert); color: #fff; border-bottom: 2px solid var(--vert-fonce); font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer; text-align: center; }
 .btn:active { transform: translateY(1px); }
 .btn.trait { background: transparent; color: var(--encre); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; }
@@ -81,13 +82,15 @@ textarea.champ { min-height: 96px; padding: 10px 14px; resize: vertical; }
 .essentiel::after { content: ""; display: block; clear: both; }
 
 /* Armoire-vitrail : une niche en arc brisé, la rosace des savoirs, l'étagère */
-.armoire { max-width: 22rem; width: 100%; margin: 0 auto; padding: 12px 12px 0; border-radius: 8px 8px 4px 4px; background: var(--bois) var(--veines); background-size: 400px 60px; }
+.armoire { max-width: 20rem; width: 100%; margin: 0 auto; padding: 12px 12px 0; border-radius: 8px 8px 4px 4px; background: var(--bois) var(--veines); background-size: 400px 60px; }
 .armoire svg.ogive { display: block; width: 100%; height: auto; overflow: visible; }
 .niche { position: relative; background: var(--niche) var(--veines); background-size: 400px 60px; padding: 18px 10px 0; }
 .niche::before { content: ""; position: absolute; top: 0; bottom: 0; left: 2%; right: 2%; border-left: 1px solid rgba(201, 160, 67, 0.5); border-right: 1px solid rgba(201, 160, 67, 0.5); pointer-events: none; }
 .livres { position: relative; display: flex; gap: 4px; align-items: flex-end; justify-content: center; }
 .livre { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; padding: 12px 5px 14px; border-radius: 3px 3px 1px 1px; border-left: 3px solid rgba(0, 0, 0, 0.22); background-image: var(--grain); text-decoration: none; cursor: pointer; transition: transform 0.15s; }
 .livre:hover, .livre:focus-visible { transform: translateY(-5px); }
+.livre.vide { cursor: default; opacity: 0.75; }
+.livre.vide:hover { transform: none; }
 .livre .nerfs { display: grid; gap: 6px; width: 100%; }
 .livre .nerfs i { height: 5px; background: rgba(0, 0, 0, 0.24); border-top: 1px solid rgba(255, 255, 255, 0.25); }
 .livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0, 0, 0, 0.26); border: 1px solid rgba(243, 213, 138, 0.5); border-radius: 2px; }
@@ -101,7 +104,7 @@ textarea.champ { min-height: 96px; padding: 10px 14px; resize: vertical; }
 .legende a { display: grid; justify-items: center; gap: 3px; text-decoration: none; min-height: 44px; }
 .legende .pastille { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--encre); }
 .legende b { color: var(--encre); font-size: 13px; font-weight: 600; }
-.vitrail { max-width: 22rem; width: 100%; margin: 0 auto; padding: 12px 12px 12px; border-radius: 8px; background: var(--bois) var(--veines); background-size: 400px 60px; }
+.vitrail { max-width: 14rem; width: 100%; margin: 0 auto; padding: 12px; border-radius: 8px; background: var(--bois) var(--veines); background-size: 400px 60px; }
 .vitrail svg { display: block; width: 100%; height: auto; overflow: visible; }
 .medaillon { width: 132px; height: 132px; margin: 0 auto; }
 
@@ -144,7 +147,7 @@ textarea.champ { min-height: 96px; padding: 10px 14px; resize: vertical; }
 .etapes { display: grid; gap: 4px; margin-top: -6px; }
 .etapes i { height: 4px; border-radius: 2px; background: var(--ligne); }
 .etapes i.fait { background: var(--vert); }
-.etapes i.cours { background: var(--encre); }
+.etapes i.cours { background: var(--vert-pale); outline: 1px solid var(--vert); outline-offset: -1px; }
 .bandeau-brouillon { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border: 1px solid var(--bordeaux); border-radius: 8px; background: var(--bordeaux-pale); color: var(--bordeaux-fonce); font-size: 14px; }
 .bandeau-brouillon b { display: block; font-size: 15px; }
 .bandeau-defi { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border: 1px solid var(--or); border-radius: 8px; background: var(--or-pale); font-size: 15px; }
@@ -172,7 +175,7 @@ figcaption { font-family: var(--livre); font-style: italic; font-size: 13px; col
 .tuile.faux { background: var(--bordeaux-pale); border-color: var(--bordeaux); color: var(--bordeaux-fonce); }
 .tuile.faux .lettre { border-color: var(--bordeaux); color: var(--bordeaux); }
 .tuile:disabled { cursor: default; }
-.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; min-height: 64px; padding: 12px; }
+.reponses.deux .tuile { display: flex; align-items: center; justify-content: center; gap: 8px; text-align: center; min-height: 64px; padding: 12px; }
 .pari { display: grid; gap: 8px; }
 .pari .ligne-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .jetons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }

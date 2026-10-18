@@ -1,193 +1,193 @@
 {
-  "id": "ac-02",
-  "domaine": "ac",
-  "numero": 2,
-  "titre": "L’impressionnisme",
-  "figure": null,
-  "essentiel": [
-    "Du 15 avril au 15 mai 1874, un groupe d’artistes expose hors du Salon officiel, au 35 boulevard des Capucines, à Paris, dans les anciens ateliers du photographe Nadar.",
-    "Le 25 avril 1874, le critique Louis Leroy se moque d’eux dans Le Charivari en détournant le titre d’un tableau de Monet, Impression, soleil levant (1872) : le mot « impressionnistes » naît comme une injure, que les peintres adopteront ensuite.",
-    "Ces peintres travaillent volontiers en plein air, devant le motif, pour saisir les effets fugitifs de la lumière.",
-    "Entre 1874 et 1886, le groupe organise huit expositions à Paris, sans jury et sans récompense honorifique ; la dernière s’ouvre le 15 mai 1886, rue Laffitte.",
-    "Édouard Manet, pourtant considéré comme l’inspirateur du mouvement, n’a jamais exposé avec le groupe."
+ "id": "ac-02",
+ "domaine": "ac",
+ "numero": 2,
+ "titre": "L’impressionnisme",
+ "figure": null,
+ "essentiel": [
+  "Du 15 avril au 15 mai 1874, un groupe d’artistes expose hors du Salon officiel, au 35 boulevard des Capucines, à Paris, dans les anciens ateliers du photographe Nadar.",
+  "Le 25 avril 1874, le critique Louis Leroy se moque d’eux dans Le Charivari en détournant le titre d’un tableau de Monet, Impression, soleil levant (1872) : le mot « impressionnistes » naît comme une injure, que les peintres adopteront ensuite.",
+  "Ces peintres travaillent volontiers en plein air, devant le motif, pour saisir les effets fugitifs de la lumière.",
+  "Entre 1874 et 1886, le groupe organise huit expositions à Paris, sans jury et sans récompense honorifique ; la dernière s’ouvre le 15 mai 1886, rue Laffitte.",
+  "Édouard Manet, pourtant considéré comme l’inspirateur du mouvement, n’a jamais exposé avec le groupe."
+ ],
+ "reperes": [
+  [
+   "15 avril 1874",
+   "Ouverture de la première exposition du groupe, au 35 boulevard des Capucines, dans les anciens ateliers de Nadar."
   ],
-  "reperes": [
-    [
-      "15 avril 1874",
-      "Ouverture de la première exposition du groupe, au 35 boulevard des Capucines, dans les anciens ateliers de Nadar."
-    ],
-    [
-      "25 avril 1874",
-      "Louis Leroy lance le mot « impressionnistes » dans Le Charivari, par dérision."
-    ],
-    [
-      "1872",
-      "Date de la toile de Monet Impression, soleil levant, exposée en 1874."
-    ],
-    [
-      "1886",
-      "Huitième et dernière exposition du groupe, rue Laffitte, à Paris."
-    ],
-    [
-      "Plein air",
-      "Peindre devant le motif, vite, pour rendre les effets changeants de la lumière."
-    ]
+  [
+   "25 avril 1874",
+   "Louis Leroy lance le mot « impressionnistes » dans Le Charivari, par dérision."
   ],
-  "sources": [
-    [
-      "Ministère de la Culture · 1874, première exposition impressionniste",
-      "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
-    ],
-    [
-      "Ministère de la Culture · Expositions impressionnistes",
-      "https://www.culture.gouv.fr/Thematiques/Musees/Les-musees-en-France/Les-collections-des-musees-de-France/Decouvrir-les-collections/Expositions-impressionnistes"
-    ],
-    [
-      "Ministère de la Culture · 1886, huitième exposition",
-      "https://www.culture.gouv.fr/fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1886-huitieme-exposition"
-    ],
-    [
-      "Larousse · Impressionnisme",
-      "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
-    ],
-    [
-      "Musée Marmottan Monet · Impression, soleil levant (en anglais)",
-      "https://www.marmottan.fr/en/notice/4014/"
-    ],
-    [
-      "Encyclopædia Britannica · Impressionism (en anglais)",
-      "https://www.britannica.com/art/Impressionism-art"
-    ],
-    [
-      "Musée d’Orsay · Au temps des expositions impressionnistes (1874-1886) (en anglais)",
-      "https://www.musee-orsay.fr/en/node/86"
-    ],
-    [
-      "Musée d’Orsay · Paris 1874. Inventer l’impressionnisme (en anglais)",
-      "https://www.musee-orsay.fr/en/node/278990"
-    ],
-    [
-      "The Metropolitan Museum of Art · Édouard Manet (1832–1883) (en anglais)",
-      "https://www.metmuseum.org/essays/edouard-manet-1832-1883"
-    ],
-    [
-      "Larousse · Salon des refusés",
-      "https://www.larousse.fr/encyclopedie/peinture/Salon_des_refus%C3%A9s/154049"
-    ],
-    [
-      "Encyclopædia Britannica · Salon des Refusés (en anglais)",
-      "https://www.britannica.com/art/Salon-des-Refuses"
-    ]
+  [
+   "1872",
+   "Date de la toile de Monet Impression, soleil levant, exposée en 1874."
   ],
-  "exercices": [
-    {
-      "type": "qcm",
-      "lib": "Exercice 1 · question à choix",
-      "theme": "L’origine du mot impressionnisme",
-      "repere": 1,
-      "enonce": "Qui lance par dérision le mot « impressionnistes » en avril 1874 ?",
-      "reponses": [
-        "Louis Leroy, critique au Charivari",
-        "Jules Castagnary, critique d’art",
-        "Nadar, photographe",
-        "Édouard Manet, peintre"
-      ],
-      "bonne": 0,
-      "correction": "Le 25 avril 1874, dans Le Charivari, Louis Leroy détourne par dérision le titre du tableau de Monet Impression, soleil levant. Les peintres adopteront ensuite le mot.",
-      "figure": null,
-      "sources": [
-        [
-          "Ministère de la Culture · 1874, première exposition impressionniste",
-          "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
-        ],
-        [
-          "Larousse · Impressionnisme",
-          "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
-        ],
-        [
-          "Encyclopædia Britannica · Impressionism (en anglais)",
-          "https://www.britannica.com/art/Impressionism-art"
-        ]
-      ],
-      "rivalJuste": "Juste. Il voulait une injure, il a offert un nom de baptême.",
-      "rivalFaux": "Raté. Le premier critique du mouvement n’était pas le plus aimable."
-    },
-    {
-      "type": "bluff",
-      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
-      "theme": "Manet et les impressionnistes",
-      "repere": 0,
-      "affirmation": "Édouard Manet a exposé avec les impressionnistes dès leur première exposition, en 1874.",
-      "vrai": false,
-      "correction": "C’était un bluff. Manet, pourtant considéré comme l’inspirateur du mouvement, a décliné l’invitation de 1874 comme celles des sept expositions suivantes, et il a continué d’envoyer ses toiles au Salon.",
-      "figure": null,
-      "sources": [
-        [
-          "Musée d’Orsay · Au temps des expositions impressionnistes (1874-1886) (en anglais)",
-          "https://www.musee-orsay.fr/en/node/86"
-        ],
-        [
-          "The Metropolitan Museum of Art · Édouard Manet (1832–1883) (en anglais)",
-          "https://www.metmuseum.org/essays/edouard-manet-1832-1883"
-        ]
-      ],
-      "rivalJuste": "Repéré. On le croit au premier rang, il préférait le Salon.",
-      "rivalFaux": "Piégé. Manet avait poliment décliné l’invitation, à chaque fois."
-    },
-    {
-      "type": "frise",
-      "lib": "Exercice 3 · frise",
-      "theme": "De Manet à la dernière exposition",
-      "repere": 3,
-      "enonce": "Range ces quatre étapes du plus ancien au plus récent.",
-      "elements": [
-        "Première exposition impressionniste",
-        "Salon des refusés",
-        "Dernière exposition impressionniste",
-        "Monet peint Impression, soleil levant"
-      ],
-      "ordre": [
-        "Salon des refusés",
-        "Monet peint Impression, soleil levant",
-        "Première exposition impressionniste",
-        "Dernière exposition impressionniste"
-      ],
-      "correction": "Le Salon des refusés, où Manet fait scandale, date de 1863. Monet peint Impression, soleil levant en 1872 ; la première exposition du groupe s’ouvre en 1874, la huitième et dernière en 1886.",
-      "figure": null,
-      "sources": [
-        [
-          "Larousse · Salon des refusés",
-          "https://www.larousse.fr/encyclopedie/peinture/Salon_des_refus%C3%A9s/154049"
-        ],
-        [
-          "Encyclopædia Britannica · Salon des Refusés (en anglais)",
-          "https://www.britannica.com/art/Salon-des-Refuses"
-        ],
-        [
-          "Musée Marmottan Monet · Impression, soleil levant (en anglais)",
-          "https://www.marmottan.fr/en/notice/4014/"
-        ],
-        [
-          "Larousse · Impressionnisme",
-          "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
-        ],
-        [
-          "Ministère de la Culture · 1874, première exposition impressionniste",
-          "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
-        ],
-        [
-          "Ministère de la Culture · 1886, huitième exposition",
-          "https://www.culture.gouv.fr/fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1886-huitieme-exposition"
-        ]
-      ],
-      "rivalJuste": "Dans l’ordre. Les critiques de l’époque n’auraient pas fait mieux.",
-      "rivalFaux": "Dans le désordre. Les impressionnistes aimaient le flou, pas la chronologie.",
-      "valeurs": {
-        "Salon des refusés": "1863",
-        "Monet peint Impression, soleil levant": "1872",
-        "Première exposition impressionniste": "15 avril 1874",
-        "Dernière exposition impressionniste": "15 mai 1886"
-      }
-    }
+  [
+   "1886",
+   "Huitième et dernière exposition du groupe, rue Laffitte, à Paris."
+  ],
+  [
+   "Plein air",
+   "Peindre devant le motif, vite, pour rendre les effets changeants de la lumière."
   ]
+ ],
+ "sources": [
+  [
+   "Ministère de la Culture · 1874, première exposition impressionniste",
+   "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
+  ],
+  [
+   "Ministère de la Culture · Expositions impressionnistes",
+   "https://www.culture.gouv.fr/Thematiques/Musees/Les-musees-en-France/Les-collections-des-musees-de-France/Decouvrir-les-collections/Expositions-impressionnistes"
+  ],
+  [
+   "Ministère de la Culture · 1886, huitième exposition",
+   "https://www.culture.gouv.fr/fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1886-huitieme-exposition"
+  ],
+  [
+   "Larousse · Impressionnisme",
+   "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
+  ],
+  [
+   "Musée Marmottan Monet · Impression, soleil levant (en anglais)",
+   "https://www.marmottan.fr/en/notice/4014/"
+  ],
+  [
+   "Encyclopædia Britannica · Impressionism (en anglais)",
+   "https://www.britannica.com/art/Impressionism-art"
+  ],
+  [
+   "Musée d’Orsay · Au temps des expositions impressionnistes (1874-1886) (en anglais)",
+   "https://www.musee-orsay.fr/en/node/86"
+  ],
+  [
+   "Musée d’Orsay · Paris 1874. Inventer l’impressionnisme (en anglais)",
+   "https://www.musee-orsay.fr/en/node/278990"
+  ],
+  [
+   "The Metropolitan Museum of Art · Édouard Manet (1832–1883) (en anglais)",
+   "https://www.metmuseum.org/essays/edouard-manet-1832-1883"
+  ],
+  [
+   "Larousse · Salon des refusés",
+   "https://www.larousse.fr/encyclopedie/peinture/Salon_des_refus%C3%A9s/154049"
+  ],
+  [
+   "Encyclopædia Britannica · Salon des Refusés (en anglais)",
+   "https://www.britannica.com/art/Salon-des-Refuses"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "L’origine du mot impressionnisme",
+   "repere": 1,
+   "enonce": "Qui lance par dérision le mot « impressionnistes » en avril 1874 ?",
+   "reponses": [
+    "Louis Leroy, critique au Charivari",
+    "Jules Castagnary, critique d’art",
+    "Nadar, photographe",
+    "Édouard Manet, peintre"
+   ],
+   "bonne": 0,
+   "correction": "Le 25 avril 1874, dans Le Charivari, Louis Leroy détourne par dérision le titre du tableau de Monet Impression, soleil levant. Les peintres adopteront ensuite le mot.",
+   "figure": null,
+   "sources": [
+    [
+     "Ministère de la Culture · 1874, première exposition impressionniste",
+     "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
+    ],
+    [
+     "Larousse · Impressionnisme",
+     "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
+    ],
+    [
+     "Encyclopædia Britannica · Impressionism (en anglais)",
+     "https://www.britannica.com/art/Impressionism-art"
+    ]
+   ],
+   "rivalJuste": "Juste. Il voulait une injure, il a offert un nom de baptême.",
+   "rivalFaux": "Raté. Le premier critique du mouvement n’était pas le plus aimable."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Manet et les impressionnistes",
+   "repere": 0,
+   "affirmation": "Manet, pourtant considéré comme l’inspirateur des impressionnistes, n’a participé à aucune de leurs huit expositions.",
+   "vrai": true,
+   "correction": "Il disait vrai. Manet a décliné l’invitation de 1874 comme celles des sept expositions suivantes, et il a continué d’envoyer ses toiles au Salon.",
+   "figure": null,
+   "sources": [
+    [
+     "Musée d’Orsay · Au temps des expositions impressionnistes (1874-1886) (en anglais)",
+     "https://www.musee-orsay.fr/en/node/86"
+    ],
+    [
+     "The Metropolitan Museum of Art · Édouard Manet (1832–1883) (en anglais)",
+     "https://www.metmuseum.org/essays/edouard-manet-1832-1883"
+    ]
+   ],
+   "rivalJuste": "Bien vu. On le croit au premier rang, il préférait le Salon.",
+   "rivalFaux": "Pour une fois, je disais vrai. Manet a décliné toutes les invitations."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "De Manet à la dernière exposition",
+   "repere": 3,
+   "enonce": "Range ces quatre étapes du plus ancien au plus récent.",
+   "elements": [
+    "Première exposition impressionniste",
+    "Salon des refusés",
+    "Dernière exposition impressionniste",
+    "Monet peint Impression, soleil levant"
+   ],
+   "ordre": [
+    "Salon des refusés",
+    "Monet peint Impression, soleil levant",
+    "Première exposition impressionniste",
+    "Dernière exposition impressionniste"
+   ],
+   "correction": "Le Salon des refusés, où Manet fait scandale, date de 1863. Monet peint Impression, soleil levant en 1872 ; la première exposition du groupe s’ouvre en 1874, la huitième et dernière en 1886.",
+   "figure": null,
+   "sources": [
+    [
+     "Larousse · Salon des refusés",
+     "https://www.larousse.fr/encyclopedie/peinture/Salon_des_refus%C3%A9s/154049"
+    ],
+    [
+     "Encyclopædia Britannica · Salon des Refusés (en anglais)",
+     "https://www.britannica.com/art/Salon-des-Refuses"
+    ],
+    [
+     "Musée Marmottan Monet · Impression, soleil levant (en anglais)",
+     "https://www.marmottan.fr/en/notice/4014/"
+    ],
+    [
+     "Larousse · Impressionnisme",
+     "https://www.larousse.fr/encyclopedie/divers/impressionnisme/60306"
+    ],
+    [
+     "Ministère de la Culture · 1874, première exposition impressionniste",
+     "https://www.culture.gouv.fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1874-premiere-exposition"
+    ],
+    [
+     "Ministère de la Culture · 1886, huitième exposition",
+     "https://www.culture.gouv.fr/fr/thematiques/musees/Les-musees-en-France/les-collections-des-musees-de-france/decouvrir-les-collections/les-huit-expositions-impressionnistes-1874-1886/1886-huitieme-exposition"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Les critiques de l’époque n’auraient pas fait mieux.",
+   "rivalFaux": "Dans le désordre. Les impressionnistes aimaient le flou, pas la chronologie.",
+   "valeurs": {
+    "Salon des refusés": "1863",
+    "Monet peint Impression, soleil levant": "1872",
+    "Première exposition impressionniste": "15 avril 1874",
+    "Dernière exposition impressionniste": "15 mai 1886"
+   }
+  }
+ ]
 }

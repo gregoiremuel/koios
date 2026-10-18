@@ -42,8 +42,10 @@ def verifier(chemin: str) -> list[str]:
     with open(chemin, encoding="utf-8") as f:
         html = f.read()
     problemes = []
-    if chemin.endswith(".js"):
-        texte = " ".join(re.findall(r'"((?:[^"\\]|\\.)*)"', html))
+    if chemin.endswith((".js")) and chemin.split("/")[-1] in ("gothique.js", "icones.js", "rival.js"):
+        texte = ""  # dessins : pas de texte affiché hors étiquettes
+    elif chemin.endswith(".js"):
+        texte = "\n".join(re.findall(r'"((?:[^"\\\n]|\\.)*)"', html))
     elif chemin.endswith(".css"):
         texte = ""
     else:
@@ -60,6 +62,8 @@ def verifier(chemin: str) -> list[str]:
     for m in HEX.finditer(html):
         if violet(m.group(1)):
             problemes.append(f"couleur violette #{m.group(1)}")
+    for m in re.finditer(r"\w[ ][;:?!»]|«[ ]", texte):
+        problemes.append(f"espace simple au lieu d'une insécable : « {m.group(0)} »")
     if re.search(r"[\U0001F300-\U0001FAFF☀-➿]", texte):
         problemes.append("emoji dans le texte")
     return problemes

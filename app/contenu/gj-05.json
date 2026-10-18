@@ -1,0 +1,205 @@
+{
+ "id": "gj-05",
+ "domaine": "gj",
+ "numero": 5,
+ "titre": "Diamant : origine, pureté, synthèse",
+ "figure": null,
+ "essentiel": [
+  "Le diamant est du carbone pur cristallisé, d’indice de réfraction voisin de 2,42.",
+  "Il se forme à grande profondeur dans le manteau terrestre ; la kimberlite est le magma qui le remonte vers la surface.",
+  "Un diamant de laboratoire a la même structure cristalline, faite d’atomes de carbone, qu’un diamant naturel ; des instruments spécialisés permettent de reconnaître son origine.",
+  "Sa pureté se juge à la loupe, à dix grossissements, sur une échelle qui va de Flawless (FL) à Included (I).",
+  "Entre les deux viennent IF, puis les familles VVS, VS et SI, chacune divisée en degrés 1 et 2, le 1 étant le meilleur."
+ ],
+ "reperes": [
+  [
+   "Carbone pur",
+   "Le diamant est du carbone cristallisé ; son indice de réfraction avoisine 2,42."
+  ],
+  [
+   "Manteau, puis kimberlite",
+   "Le diamant se forme en profondeur ; la kimberlite le transporte jusqu’à la surface."
+  ],
+  [
+   "Diamant de laboratoire",
+   "Même structure cristalline que le naturel, mais une origine que les laboratoires savent détecter."
+  ],
+  [
+   "Échelle de pureté",
+   "De FL à I, observée à 10 grossissements : VVS, VS et SI se divisent en degrés 1 et 2."
+  ]
+ ],
+ "sources": [
+  [
+   "Larousse · Diamant",
+   "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+  ],
+  [
+   "Encyclopædia Britannica · Diamond (en anglais)",
+   "https://www.britannica.com/topic/diamond-gemstone"
+  ],
+  [
+   "Handbook of Mineralogy · Diamond (en anglais)",
+   "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+  ],
+  [
+   "GIA, Gems & Gemology · Kimberlites : Earth’s diamond delivery system (en anglais)",
+   "https://www.gia.edu/gems-gemology/summer-2019-kimberlites-earths-diamond-delivery-system"
+  ],
+  [
+   "Encyclopædia Britannica · Kimberlite (en anglais)",
+   "https://www.britannica.com/print/article/317942"
+  ],
+  [
+   "Nature Reviews Earth & Environment · Genesis and evolution of kimberlites (en anglais)",
+   "https://www.nature.com/articles/s43017-023-00481-2"
+  ],
+  [
+   "GIA · Laboratory‑grown diamond (en anglais)",
+   "https://4cs.gia.edu/en-us/laboratory-grown-diamond/"
+  ],
+  [
+   "International Gem Society · Understanding gem synthetics, treatments and imitations, part 3, synthetic diamond (en anglais)",
+   "https://www.gemsociety.org/article/understanding-gem-synthetics-treatments-imitations-part-3-synthetic-diamond/"
+  ],
+  [
+   "GIA · Diamond clarity (en anglais)",
+   "https://4cs.gia.edu/en-us/diamond-clarity/"
+  ],
+  [
+   "IGI · Diamond clarity (en anglais)",
+   "https://www.igi.org/consumer-education/diamond-4cs/diamond-clarity/"
+  ],
+  [
+   "HRD Antwerp · The 4Cs (en anglais)",
+   "https://hrdantwerp.com/4cs/"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+   "https://cameo.mfa.org/wiki/Moissanite"
+  ],
+  [
+   "Museum of Fine Arts, Boston (CAMEO) · Beryl (en anglais)",
+   "https://cameo.mfa.org/wiki/Beryl"
+  ],
+  [
+   "GIA · Ruby (en anglais)",
+   "https://www.gia.edu/ruby/gem-overview"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Composition du diamant",
+   "repere": 0,
+   "enonce": "De quoi un diamant est‑il fait ?",
+   "reponses": [
+    "Carbure de silicium",
+    "Oxyde d’aluminium",
+    "Carbone pur cristallisé",
+    "Silicate de béryllium et d’aluminium"
+   ],
+   "bonne": 2,
+   "correction": "Le diamant est du carbone pur cristallisé. Le carbure de silicium est la moissanite, l’oxyde d’aluminium le corindon, et le silicate de béryllium et d’aluminium le béryl.",
+   "figure": null,
+   "sources": [
+    [
+     "Larousse · Diamant",
+     "https://www.larousse.fr/encyclopedie/divers/diamant/43166"
+    ],
+    [
+     "Encyclopædia Britannica · Diamond (en anglais)",
+     "https://www.britannica.com/topic/diamond-gemstone"
+    ],
+    [
+     "Handbook of Mineralogy · Diamond (en anglais)",
+     "https://www.handbookofmineralogy.org/pdfs/diamond.pdf"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Moissanite (en anglais)",
+     "https://cameo.mfa.org/wiki/Moissanite"
+    ],
+    [
+     "GIA · Ruby (en anglais)",
+     "https://www.gia.edu/ruby/gem-overview"
+    ],
+    [
+     "Museum of Fine Arts, Boston (CAMEO) · Beryl (en anglais)",
+     "https://cameo.mfa.org/wiki/Beryl"
+    ]
+   ],
+   "rivalJuste": "Du carbone pur. Simple, comme tout ce qui coûte cher.",
+   "rivalFaux": "Du carbone pur. Les trois autres, tu les as déjà croisés dans ce parcours."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe‑t‑il ?",
+   "theme": "Où se forme le diamant",
+   "repere": 1,
+   "affirmation": "Le diamant se forme dans la kimberlite.",
+   "vrai": false,
+   "correction": "C’était un bluff. Le diamant se forme à grande profondeur dans le manteau, bien avant l’éruption. La kimberlite, magma qui monte vite, ne fait que le transporter.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA, Gems & Gemology · Kimberlites : Earth’s diamond delivery system (en anglais)",
+     "https://www.gia.edu/gems-gemology/summer-2019-kimberlites-earths-diamond-delivery-system"
+    ],
+    [
+     "Nature Reviews Earth & Environment · Genesis and evolution of kimberlites (en anglais)",
+     "https://www.nature.com/articles/s43017-023-00481-2"
+    ],
+    [
+     "Encyclopædia Britannica · Kimberlite (en anglais)",
+     "https://www.britannica.com/print/article/317942"
+    ]
+   ],
+   "rivalJuste": "Repéré. Le diamant n’est que passager.",
+   "rivalFaux": "Passager, pas natif : le diamant vient de bien plus profond."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Échelle de pureté du diamant",
+   "repere": 3,
+   "enonce": "Range ces quatre degrés de pureté du plus pur au plus inclus.",
+   "elements": [
+    "SI1",
+    "VS2",
+    "VVS2",
+    "VS1"
+   ],
+   "ordre": [
+    "VVS2",
+    "VS1",
+    "VS2",
+    "SI1"
+   ],
+   "correction": "L’ordre est VVS2, VS1, VS2, puis SI1 : on descend de VVS à VS puis à SI, et dans chaque famille le degré 1 vaut mieux que le 2.",
+   "figure": null,
+   "sources": [
+    [
+     "GIA · Diamond clarity (en anglais)",
+     "https://4cs.gia.edu/en-us/diamond-clarity/"
+    ],
+    [
+     "IGI · Diamond clarity (en anglais)",
+     "https://www.igi.org/consumer-education/diamond-4cs/diamond-clarity/"
+    ],
+    [
+     "HRD Antwerp · The 4Cs (en anglais)",
+     "https://hrdantwerp.com/4cs/"
+    ]
+   ],
+   "rivalJuste": "Du plus pur au plus inclus. Tu as l’œil.",
+   "rivalFaux": "VS1 passe avant VS2 : le 1 vaut mieux que le 2, comme d’habitude.",
+   "valeurs": {
+    "VVS2": "VVS · 2e degré",
+    "VS1": "VS · 1er degré",
+    "VS2": "VS · 2e degré",
+    "SI1": "SI · 1er degré"
+   }
+  }
+ ]
+}

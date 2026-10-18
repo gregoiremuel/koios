@@ -51,6 +51,32 @@
     "titre": "Le Boléro de Ravel"
    }
   ],
-  "gj": []
+  "gj": [
+   {
+    "id": "gj-01",
+    "numero": 1,
+    "titre": "Dureté de Mohs et clivage"
+   },
+   {
+    "id": "gj-02",
+    "numero": 2,
+    "titre": "Réfraction, biréfringence, pléochroïsme"
+   },
+   {
+    "id": "gj-03",
+    "numero": 3,
+    "titre": "Corindons : rubis et saphir"
+   },
+   {
+    "id": "gj-04",
+    "numero": 4,
+    "titre": "Béryls : émeraude et aigue‑marine"
+   },
+   {
+    "id": "gj-05",
+    "numero": 5,
+    "titre": "Diamant : origine, pureté, synthèse"
+   }
+  ]
  }
 }
