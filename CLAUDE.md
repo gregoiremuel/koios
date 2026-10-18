@@ -8,7 +8,7 @@ App web (PWA) de défis de savoir entre amis, avec le Rival, une IA taquine qui 
 - Réponse finale en trois parties : **Réponse claire** ; **Niveau de confiance** (0.0 à 1.0, avec la raison) ; **Réserves clés**.
 - Qualité d'abord, puis économie : les petites tâches vont aux sous-agents de `.claude/agents/` (éclaireur et testeur sur Haiku, rédacteur et bâtisseur sur Sonnet). Le relecteur (Opus) relit toute livraison à froid.
 - Toute interface suit `DESIGN.md`. Aucune livraison visuelle sans passage du relecteur.
-- N'invente rien : chaque question porte une source vérifiable. L'inconnu va dans « À valider ».
+- N'invente rien. Chaque réponse est recoupée par au moins 2 sources indépendantes, dont une institutionnelle ou savante (musée, archives, université, encyclopédie éditée, organisme officiel). Wikipédia sert de point de départ, jamais de preuve. L'inconnu va dans « À valider ».
 - Jamais de clé, de mot de passe ou de secret dans le dépôt.
 - Méthode détaillée : skill `methode-koios`.
 

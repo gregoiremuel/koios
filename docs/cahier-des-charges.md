@@ -1,6 +1,6 @@
 # Koîos — cahier des charges
 
-Version du 18 octobre 2026. Version de référence, commentable : le Doc Claude de Greg (https://claude.ai/code/artifact/ae7044c5-fcd9-4ba8-83f7-756b75bd7b12). En cas d'écart, le Doc gagne.
+Version du 18 octobre 2026. Ce fichier est la version de référence. Le Doc Claude de Greg (https://claude.ai/code/artifact/ae7044c5-fcd9-4ba8-83f7-756b75bd7b12) est la version initiale ; ses parties Design et Vérification sont dépassées.
 
 ## Vision et public
 
@@ -67,7 +67,7 @@ Ordre d'appel :
 
 Gemini gratuit exclu : Google réserve sa version payante aux apps proposées dans l'Espace économique européen.
 
-Vérification : source et courte citation par question ; deuxième modèle qui vérifie ; bouton « c'est faux » (2 signalements, seuil à valider, et la question part en revue dans l'espace d'admin).
+Vérification : au moins 2 sources indépendantes par réponse, dont une institutionnelle ou savante (musée, archives, université, encyclopédie éditée, organisme officiel), chacune avec lien et courte citation ; Wikipédia sert de point de départ, jamais de preuve ; un deuxième modèle vérifie que la réponse découle des sources ; le joueur voit « Vérifié par N sources » ; bouton « c'est faux » (2 signalements, seuil à valider, et la question part en revue dans l'espace d'admin).
 
 Sources : documents de Greg, sites spécialisés, recherche web en direct en V2. Capacité estimée à une vingtaine de quiz neufs de 10 questions par jour sur Cloudflare (à mesurer).
 
@@ -79,7 +79,7 @@ Stats : classements, courbe de progression, radar de compétences, bilan de déf
 
 ## Design
 
-Voir `DESIGN.md`.
+Voir `DESIGN.md` (v2, « librairie ludique » : Duolingo croisé avec une vieille librairie, renard bibliothécaire, émojis dessinés Fluent, photos libres et photos de Greg). La v1 « musée » a été abandonnée le 18 octobre 2026.
 
 ## Écrans de la première ébauche
 
@@ -125,7 +125,7 @@ Minimum de données : pseudo, scores, réponses ; email seulement avec un compte
 ## À valider
 
 - Marque Koîos (INPI, EUIPO) et domaine « koios ».
-- Forme exacte du Rival.
+- Rival en renard bibliothécaire : à valider par Greg.
 - Seuil de signalements (proposé : 2).
 - Conditions de GLM et d'OpenRouter pour une app partagée.
 - Publication automatique GitHub → Cloudflare.

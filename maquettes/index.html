@@ -1,165 +1,218 @@
 <title>Koîos</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Young+Serif&display=swap">
 <style>
-/* Mise en page : une page de livre de découverte, orientée comme un musée. Papier, encre, un code couleur par domaine, des filets ; aucune carte. */
+/* Librairie ludique : papier de vieux livre, bois des rayonnages, reliures colorées ; boutons épais façon touche. Un seul thème, clair. */
 :root {
-  --paper: #ffffff;
-  --ink: #17191c;
-  --ink-2: #5a5f66;
-  --hair: #dadcdf;
-  --hg: #b42318;
-  --sn: #1e6b4a;
-  --ac: #1f48b8;
-  --gj: #a87400;
-  --gj-text: #7a5400;
-  --on-ink: #ffffff;
-  --serif: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --sans: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --paper: #141517; --ink: #ecece9; --ink-2: #a3a7ad; --hair: #2e3135;
-    --hg: #f0705f; --sn: #5fbf92; --ac: #8ea8f5; --gj: #e0b23c; --gj-text: #e0b23c; --on-ink: #141517;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --paper: #141517; --ink: #ecece9; --ink-2: #a3a7ad; --hair: #2e3135;
-  --hg: #f0705f; --sn: #5fbf92; --ac: #8ea8f5; --gj: #e0b23c; --gj-text: #e0b23c; --on-ink: #141517;
-  color-scheme: dark;
+  --papier: #fbf6ec; --page: #fffdf8; --ligne: #e8dcc6; --ligne-forte: #d7c4a3;
+  --encre: #2f241c; --encre-2: #6e5d4e;
+  --bois: #6b4a2f; --bois-fonce: #4a3220;
+  --vert: #3e7a5a; --vert-fonce: #2c5a41; --vert-pale: #e3efe6;
+  --bordeaux: #8e2f3c; --bordeaux-fonce: #6f2330; --bordeaux-pale: #f6e3e3;
+  --prusse: #2f5d8a; --prusse-fonce: #224566; --prusse-pale: #e2ebf4;
+  --or: #b8892e; --or-fonce: #8c6720; --or-pale: #f6ecd6;
+  --titre: "Young Serif", "Iowan Old Style", Georgia, serif;
+  --ui: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --veines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.45' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  --reglure: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='30'%3E%3Cline x1='0' y1='29.5' x2='10' y2='29.5' stroke='%23d6e2ec' stroke-width='1'/%3E%3C/svg%3E");
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
-body { background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.page { max-width: 34rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px 104px; display: grid; gap: 36px; }
+body { background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
 button, input { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.label { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
-.meta { font-family: var(--sans); font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.head { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--ink); padding-block: 8px; }
+:focus-visible { outline: 3px solid var(--prusse); outline-offset: 2px; }
+.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px 112px; display: grid; gap: 22px; }
+.ico { width: 24px; height: 24px; flex: none; display: block; }
+h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 1.2; margin: 0; }
+.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
+.carte { background: var(--page); border: 2px solid var(--ligne); border-bottom-width: 5px; border-bottom-color: var(--ligne-forte); border-radius: 18px; padding: 18px; display: grid; gap: 14px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 52px; padding: 0 18px; border: 0; border-radius: 14px; background: var(--vert); color: #fff; box-shadow: 0 4px 0 var(--vert-fonce); font-family: var(--ui); font-weight: 600; font-size: 16px; letter-spacing: 0.03em; text-transform: uppercase; text-decoration: none; cursor: pointer; transition: transform 0.08s, box-shadow 0.08s; }
+.btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--vert-fonce); }
+.btn.clair { background: var(--page); color: var(--prusse); border: 2px solid var(--ligne); box-shadow: 0 4px 0 var(--ligne-forte); }
+.btn.clair:active { box-shadow: 0 0 0 var(--ligne-forte); }
 
-.masthead { display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; }
-.wordmark { font-family: var(--serif); font-weight: 500; font-size: 30px; letter-spacing: -0.01em; text-decoration: none; }
-.who { font-family: var(--sans); font-size: 14px; color: var(--ink-2); }
+.haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.marque { font-family: var(--titre); font-size: 28px; text-decoration: none; letter-spacing: -0.01em; }
+.stats { display: flex; align-items: center; gap: 14px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stats span { display: flex; align-items: center; gap: 6px; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 14px; border: 2px solid var(--page); }
 
-.rival { display: grid; grid-template-columns: 28px 1fr; gap: 14px; align-items: start; }
-.rival svg { width: 28px; height: 48px; overflow: visible; }
-.rival .axe { transform-origin: 14px 46px; transition: transform 0.6s ease; }
-.rival q { font-style: italic; font-size: 20px; line-height: 1.35; quotes: "« " " »"; display: block; text-wrap: balance; }
-.rival .meta { margin-top: 4px; }
+.rival { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: end; }
+.bulle { position: relative; background: var(--page); border: 2px solid var(--ligne); border-radius: 18px; padding: 12px 14px; font-size: 16px; line-height: 1.4; margin-bottom: 18px; }
+.bulle::before { content: ""; position: absolute; left: -10px; bottom: 16px; width: 16px; height: 16px; background: var(--page); border-left: 2px solid var(--ligne); border-bottom: 2px solid var(--ligne); transform: rotate(45deg); }
+.bulle b { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); margin-bottom: 2px; }
 
-.defi { display: grid; gap: 16px; }
-.code { font-family: var(--sans); font-weight: 600; letter-spacing: 0.04em; }
-.defi h2 { margin: 0; font-weight: 400; font-size: 30px; line-height: 1.15; letter-spacing: -0.01em; text-wrap: balance; }
-.track { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-.track span { display: grid; gap: 6px; font-family: var(--sans); font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.track span::before { content: ""; height: 6px; background: var(--hair); }
-.track span.fait::before { background: var(--hg); }
-.track span.jour { color: var(--ink); font-weight: 600; }
-.track span.jour::before { background: var(--ink); }
-.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; background: var(--ink); color: var(--on-ink); font-family: var(--sans); font-weight: 600; font-size: 17px; text-decoration: none; border: 0; width: 100%; cursor: pointer; }
-.cta.ligne { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
+.fiche { background-color: var(--page); background-image: var(--reglure); background-position: 0 6px; position: relative; overflow: hidden; }
+.fiche::before { content: ""; position: absolute; left: 0; right: 0; top: 50px; border-top: 2px solid #e7a6a6; }
+.entete { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.entete .lib { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); flex: 1; }
+.entete .jour { font-weight: 600; font-size: 14px; color: var(--bordeaux); }
+.fiche h2 { font-size: 24px; text-wrap: balance; padding-top: 8px; }
+.joueurs { display: flex; align-items: center; gap: 10px; }
+.pile { display: flex; }
+.pile .avatar { margin-left: -8px; width: 32px; height: 32px; font-size: 13px; }
+.pile .avatar:first-child { margin-left: 0; }
+.jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; }
+.jours span { display: grid; gap: 4px; justify-items: center; font-size: 12px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
+.jours span::before { content: ""; width: 100%; height: 30px; border-radius: 4px 4px 2px 2px; background: var(--ligne); }
+.jours .fait::before { background: var(--bordeaux); }
+.jours .auj { color: var(--encre); font-weight: 600; }
+.jours .auj::before { background: var(--page); border: 2px dashed var(--bordeaux); }
 
-.domaines ul, .duels ul { list-style: none; margin: 0; padding: 0; }
-.domaines a { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; min-height: 76px; padding-block: 12px; border-bottom: 1px solid var(--hair); text-decoration: none; }
-.domaines .code { font-size: 21px; }
-.domaines .nom { display: block; font-size: 21px; line-height: 1.2; }
-.domaines .fleche { font-family: var(--sans); font-size: 17px; color: var(--ink-2); }
+.bandeau { margin: 0; display: grid; gap: 6px; }
+.bandeau img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; border-radius: 18px; border: 2px solid var(--ligne); background: var(--ligne); }
+.bandeau figcaption { font-size: 12px; color: var(--encre-2); }
+.titre-sec { display: flex; justify-content: space-between; align-items: baseline; }
+.etagere { position: relative; padding: 14px 12px 0; border-radius: 16px 16px 6px 6px; background: #8a6443 var(--veines); background-size: 400px 60px; }
+.livres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: end; }
+.livre { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 8px; height: 230px; padding: 10px 4px 12px; border-radius: 6px 6px 3px 3px; border: 0; border-left: 5px solid rgba(0,0,0,0.18); color: #fff; text-decoration: none; cursor: pointer; transition: transform 0.15s; }
+.livre:hover, .livre:focus-visible { transform: translateY(-6px); }
+.livre .ico { width: 34px; height: 34px; background: rgba(255,255,255,0.88); border-radius: 50%; padding: 4px; box-sizing: content-box; }
+.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--titre); font-size: 16px; line-height: 1; white-space: nowrap; min-height: 0; }
+.livre .bandes { display: grid; gap: 3px; width: 70%; }
+.livre .bandes i { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.28); }
+.livre .bandes i.ok { background: #f3d58a; }
+.livre.l1 { background: var(--bordeaux); height: 222px; }
+.livre.l2 { background: var(--vert); height: 236px; }
+.livre.l3 { background: var(--prusse); height: 214px; }
+.livre.l4 { background: var(--or-fonce); height: 230px; }
+.planche { height: 16px; margin: 0 -12px; border-radius: 0 0 6px 6px; background: var(--bois-fonce) var(--veines); border-bottom: 4px solid #33220f; }
+.legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
+.legende b { display: block; color: var(--encre); font-size: 13px; }
 
-.libre { display: grid; gap: 12px; }
-.libre label { font-size: 20px; }
-.libre input { width: 100%; min-height: 52px; padding: 0 14px; border: 1.5px solid var(--ink); background: var(--paper); border-radius: 0; font-family: var(--serif); font-size: 17px; }
-.libre input::placeholder { color: var(--ink-2); font-style: italic; }
-.note { font-family: var(--sans); font-size: 14px; color: var(--ink-2); margin: 0; }
-.note.erreur { color: var(--hg); }
+.libre label { font-family: var(--titre); font-size: 20px; }
+.libre input { width: 100%; min-height: 54px; padding: 0 16px; border: 2px solid var(--ligne); border-radius: 14px; background: var(--papier); font-size: 17px; }
+.libre input:focus { border-color: var(--prusse); outline: none; }
+.libre input::placeholder { color: var(--encre-2); }
+.astuce { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--encre-2); margin: 0; }
+.astuce .ico { width: 22px; height: 22px; }
+.astuce.erreur { color: var(--bordeaux); font-weight: 600; }
 
-.duels li { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding-block: 14px; border-bottom: 1px solid var(--hair); }
-.duels .qui { font-size: 20px; display: block; }
-.duels a.petit { font-family: var(--sans); font-weight: 600; font-size: 14px; min-height: 48px; display: inline-flex; align-items: center; padding: 0 14px; border: 1.5px solid var(--ink); text-decoration: none; }
+.duel { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding-top: 12px; border-top: 2px solid var(--ligne); }
+.duel:first-of-type { border-top: 0; padding-top: 0; }
+.duel .qui { font-weight: 600; }
+.petit { min-height: 44px; width: auto; padding: 0 14px; font-size: 14px; }
+.attente { font-size: 13px; font-weight: 600; color: var(--encre-2); background: var(--papier); border: 2px solid var(--ligne); border-radius: 999px; padding: 4px 10px; }
+.credit { font-size: 12px; color: var(--encre-2); text-align: center; margin: 0; }
 
-.essai { font-family: var(--sans); font-size: 12px; color: var(--ink-2); border-top: 1px solid var(--hair); padding-top: 12px; }
-
-.barre { position: fixed; left: 0; right: 0; bottom: 0; background: var(--paper); border-top: 1px solid var(--ink); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-.barre nav { max-width: 34rem; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
-.barre button { background: none; border: 0; min-height: 56px; font-family: var(--sans); font-size: 13px; color: var(--ink-2); cursor: pointer; border-top: 3px solid transparent; }
-.barre button[aria-current="page"] { color: var(--ink); font-weight: 600; border-top-color: var(--ink); }
-.toast { position: fixed; left: 50%; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--on-ink); font-family: var(--sans); font-size: 14px; padding: 10px 14px; max-width: calc(100% - 32px); }
-@media (prefers-reduced-motion: reduce) { .rival .axe { transition: none; } }
+.nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--page); border-top: 2px solid var(--ligne); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+.nav nav { max-width: 32rem; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding-block: 6px; }
+.nav button { display: grid; justify-items: center; gap: 2px; min-height: 56px; padding: 4px 0; background: none; border: 2px solid transparent; border-radius: 14px; font-size: 12px; font-weight: 600; color: var(--encre-2); cursor: pointer; }
+.nav button[aria-current="page"] { background: var(--prusse-pale); border-color: #b9cde2; color: var(--prusse-fonce); }
+.nav .ico { width: 26px; height: 26px; }
+.toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 16px; border-radius: 12px; max-width: calc(100% - 32px); }
+@media (prefers-reduced-motion: reduce) { .btn, .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }
 </style>
 
 <div class="page">
-  <header class="masthead">
-    <a class="wordmark" href="index.html">Koîos</a>
-    <span class="who">Greg · Compagnon</span>
+  <header class="haut">
+    <a class="marque" href="index.html">Koîos</a>
+    <div class="stats">
+      <span title="Tes points"><img class="ico" src="emojis/trophy_color.svg" alt="">1 240</span>
+      <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)" aria-label="Ton profil, Greg">G</span>
+    </div>
   </header>
 
   <section class="rival" aria-label="Le Rival">
-    <svg viewBox="0 0 28 48" aria-hidden="true">
-      <g class="axe" id="axe">
-        <line x1="14" y1="46" x2="14" y2="18" stroke="currentColor" stroke-width="3" />
-        <polyline points="8,11 14,5 20,11" fill="none" stroke="currentColor" stroke-width="3" />
-      </g>
-    </svg>
-    <div>
-      <q>Jour 3, et toujours deuxième. Robespierre aurait déjà pris des mesures.</q>
-      <div class="meta">Le Rival · ton pince-sans-rire</div>
+    <div id="rival-tete"></div>
+    <p class="bulle"><b>Le Rival</b>Jour 3, et toujours deuxième. Robespierre aurait déjà pris des mesures.</p>
+  </section>
+
+  <section class="carte fiche" aria-labelledby="defi-titre">
+    <div class="entete">
+      <img class="ico" src="emojis/hourglass_not_done_color.svg" alt="">
+      <span class="lib">Défi du groupe</span>
+      <span class="jour">Jour 3 sur 7</span>
+    </div>
+    <h2 id="defi-titre">Expert en 7&nbsp;jours&nbsp;: la&nbsp;Révolution française</h2>
+    <div class="joueurs">
+      <div class="pile" aria-hidden="true">
+        <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)">G</span>
+        <span class="avatar" style="background: var(--prusse-pale); color: var(--prusse-fonce)">L</span>
+        <span class="avatar" style="background: var(--vert-pale); color: var(--vert-fonce)">K</span>
+        <span class="avatar" style="background: var(--bordeaux-pale); color: var(--bordeaux-fonce)">S</span>
+        <span class="avatar" style="background: #efe6da; color: var(--bois)">M</span>
+      </div>
+      <span class="meta">5 joueurs · tu es <b style="color: var(--encre)">2e</b></span>
+    </div>
+    <div class="jours" role="img" aria-label="Jour 3 sur 7 : deux jours faits">
+      <span class="fait">1</span><span class="fait">2</span><span class="auj">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
+    </div>
+    <a class="btn" href="partie.html">Reprendre · jour 3</a>
+  </section>
+
+  <figure class="bandeau" id="bandeau">
+    <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Salle_de_lecture_Bibliotheque_Sainte-Genevieve_n03.jpg?width=900" alt="Salle de lecture de la bibliothèque Sainte-Geneviève à Paris" loading="lazy">
+    <figcaption>Bibliothèque Sainte-Geneviève, Paris · photo Marie-Lan Nguyen, CC BY 2.0 FR (à vérifier) · Wikimedia Commons</figcaption>
+  </figure>
+
+  <section aria-labelledby="etagere-titre" style="display: grid; gap: 12px">
+    <div class="titre-sec"><h2 id="etagere-titre">Ton étagère</h2><span class="meta">Choisis un livre</span></div>
+    <div class="etagere">
+      <div class="livres">
+        <a class="livre l1" href="partie.html" aria-label="Histoire et géographie, Compagnon"><img class="ico" src="emojis/globe_showing_europe-africa_color.svg" alt=""><span class="nom">Histoire · Géo</span><span class="bandes"><i class="ok"></i><i class="ok"></i><i></i></span></a>
+        <a class="livre l2" href="partie.html" aria-label="Sciences et nature, Apprenti"><img class="ico" src="emojis/microscope_color.svg" alt=""><span class="nom">Sciences</span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l3" href="partie.html" aria-label="Arts et culture, Apprenti"><img class="ico" src="emojis/artist_palette_color.svg" alt=""><span class="nom">Arts · Culture</span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, Maître"><img class="ico" src="emojis/gem_stone_color.svg" alt=""><span class="nom">Gemmologie</span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
+      </div>
+      <div class="planche"></div>
+    </div>
+    <div class="legende">
+      <span><b>Compagnon</b>62 questions</span>
+      <span><b>Apprenti</b>18 questions</span>
+      <span><b>Apprenti</b>9 questions</span>
+      <span><b>Maître</b>140 questions</span>
     </div>
   </section>
 
-  <section class="defi" aria-labelledby="defi-titre">
-    <div class="head"><span class="label">Défi du groupe</span><span class="code" style="color: var(--hg)">HG</span></div>
-    <h2 id="defi-titre">Expert en 7 jours : la Révolution française</h2>
-    <div class="meta">5 joueurs · tu es 2e · fin dimanche soir</div>
-    <div class="track" role="img" aria-label="Jour 3 sur 7">
-      <span class="fait">1</span><span class="fait">2</span><span class="jour">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
-    </div>
-    <a class="cta" href="partie.html">Reprendre le défi, jour 3</a>
-  </section>
-
-  <section class="domaines" aria-labelledby="jouer-titre">
-    <div class="head"><span class="label" id="jouer-titre">Jouer</span><span class="meta">4 domaines</span></div>
-    <ul>
-      <li><a href="partie.html"><span class="code" style="color: var(--hg)">HG</span><span><span class="nom">Histoire et géographie</span><span class="meta">Compagnon · 62 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--sn)">SN</span><span><span class="nom">Sciences et nature</span><span class="meta">Apprenti · 18 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--ac)">AC</span><span><span class="nom">Arts et culture</span><span class="meta">Apprenti · 9 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--gj)">GJ</span><span><span class="nom">Gemmologie et joaillerie</span><span class="meta">Maître · 140 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-    </ul>
-  </section>
-
-  <section class="libre" aria-labelledby="libre-titre">
-    <div class="head"><span class="label" id="libre-titre">Sujet libre</span><span class="meta">10 questions</span></div>
-    <label for="sujet">Sur quoi veux-tu être interrogé ?</label>
+  <section class="carte libre" aria-labelledby="libre-titre">
+    <label id="libre-titre" for="sujet">Un sujet en tête&#8239;?</label>
     <input id="sujet" type="text" placeholder="Les volcans d’Islande, le cubisme…" autocomplete="off">
-    <button class="cta ligne" type="button" id="preparer">Préparer la série</button>
-    <p class="note" id="libre-note">Le Rival cherche ses sources avant d’écrire la moindre question.</p>
+    <button class="btn clair" type="button" id="preparer">Préparer 10 questions</button>
+    <p class="astuce" id="astuce"><img class="ico" src="emojis/light_bulb_color.svg" alt=""><span id="astuce-texte">Le Rival croise au moins deux sources sérieuses avant d’écrire une question.</span></p>
   </section>
 
-  <section class="duels" aria-labelledby="duels-titre">
-    <div class="head"><span class="label" id="duels-titre">Duels</span><span class="meta">2 en cours</span></div>
-    <ul>
-      <li><span><span class="qui">Léa t’a défié</span><span class="meta">Arts et culture · elle a fait 7 sur 10</span></span><a class="petit" href="partie.html">Relever</a></li>
-      <li><span><span class="qui">Tu as défié Karim</span><span class="meta">Histoire et géographie · il n’a pas encore joué</span></span><span class="meta">En attente</span></li>
-    </ul>
+  <section class="carte" aria-labelledby="duels-titre">
+    <div class="entete"><img class="ico" src="emojis/crossed_swords_color.svg" alt=""><h2 id="duels-titre" style="font-size: 20px; flex: 1">Duels</h2><span class="meta">2 en cours</span></div>
+    <div class="duel">
+      <span class="avatar" style="background: var(--prusse-pale); color: var(--prusse-fonce)" aria-hidden="true">L</span>
+      <span><span class="qui">Léa t’a défié</span><br><span class="meta">Arts et culture · 7 sur 10</span></span>
+      <a class="btn petit" href="partie.html">Relever</a>
+    </div>
+    <div class="duel">
+      <span class="avatar" style="background: var(--vert-pale); color: var(--vert-fonce)" aria-hidden="true">K</span>
+      <span><span class="qui">Tu as défié Karim</span><br><span class="meta">Histoire · pas encore joué</span></span>
+      <span class="attente">En attente</span>
+    </div>
   </section>
 
-  <p class="essai">Maquette 1 sur 2 · prénoms, scores et défis sont des données d’essai.</p>
+  <p class="credit">Maquette 1 sur 2 · prénoms et scores d’essai · émojis Fluent de Microsoft (licence MIT) · Rival dessiné pour Koîos</p>
 </div>
 
-<div class="barre">
+<div class="nav">
   <nav aria-label="Navigation principale">
-    <button type="button" aria-current="page">Accueil</button>
-    <button type="button" data-ecran="Défis et ligue">Défis</button>
-    <button type="button" data-ecran="Carte des savoirs">Savoirs</button>
-    <button type="button" data-ecran="Profil et réglages">Profil</button>
+    <button type="button" aria-current="page"><img class="ico" src="emojis/books_color.svg" alt="">Étagère</button>
+    <button type="button" data-ecran="Défis et ligue"><img class="ico" src="emojis/trophy_color.svg" alt="">Défis</button>
+    <button type="button" data-ecran="Duels"><img class="ico" src="emojis/crossed_swords_color.svg" alt="">Duels</button>
+    <button type="button" data-ecran="Profil et réglages"><img class="ico" src="emojis/scroll_color.svg" alt="">Profil</button>
   </nav>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 
+<script src="rival.js"></script>
 <script>
 (function () {
+  var bandeau = document.getElementById("bandeau");
+  var photo = bandeau.querySelector("img");
+  photo.addEventListener("error", function () { bandeau.remove(); });
+  if (photo.complete && photo.naturalWidth === 0) bandeau.remove();
+  var tete = document.getElementById("rival-tete");
+  if (window.rivalSVG) tete.innerHTML = rivalSVG("malin", 76);
   var toast = document.getElementById("toast");
   var minuterie;
   function montrer(texte) {
@@ -168,29 +221,23 @@ button, input { font: inherit; color: inherit; }
     clearTimeout(minuterie);
     minuterie = setTimeout(function () { toast.hidden = true; }, 2600);
   }
-  document.querySelectorAll(".barre button[data-ecran]").forEach(function (b) {
+  document.querySelectorAll(".nav button[data-ecran]").forEach(function (b) {
     b.addEventListener("click", function () { montrer("« " + b.dataset.ecran + " » arrive dans l’ébauche jouable."); });
   });
   var champ = document.getElementById("sujet");
-  var note = document.getElementById("libre-note");
+  var astuce = document.getElementById("astuce");
+  var texte = document.getElementById("astuce-texte");
   document.getElementById("preparer").addEventListener("click", function () {
     var sujet = champ.value.trim();
     if (!sujet) {
-      note.textContent = "Tape d’abord un sujet, par exemple « les volcans d’Islande ».";
-      note.classList.add("erreur");
+      texte.textContent = "Tape d’abord un sujet, par exemple « les volcans d’Islande ».";
+      astuce.classList.add("erreur");
       champ.focus();
       return;
     }
-    note.classList.remove("erreur");
-    note.textContent = "Dans l’ébauche, le Rival préparera ici 10 questions sourcées sur « " + sujet + " ».";
+    astuce.classList.remove("erreur");
+    texte.textContent = "Dans l’ébauche, le Rival préparera ici 10 questions sur « " + sujet + " », chacune vérifiée par deux sources.";
   });
-  champ.addEventListener("input", function () { note.classList.remove("erreur"); });
-  var axe = document.getElementById("axe");
-  var calme = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!calme) {
-    var angles = [-8, 0, 6, 0];
-    var i = 0;
-    setInterval(function () { i = (i + 1) % angles.length; axe.style.transform = "rotate(" + angles[i] + "deg)"; }, 1600);
-  }
+  champ.addEventListener("input", function () { astuce.classList.remove("erreur"); });
 })();
 </script>
