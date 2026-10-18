@@ -1,3 +1,8 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Koîos</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="robots" content="noindex">
@@ -20,9 +25,10 @@
   --veines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.45' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
   --reglure: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='30'%3E%3Cline x1='0' y1='29.5' x2='10' y2='29.5' stroke='%23d6e2ec' stroke-width='1'/%3E%3C/svg%3E");
   color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 * { box-sizing: border-box; }
-body { background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 17px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
 button, input { font: inherit; color: inherit; }
 :focus-visible { outline: 3px solid var(--prusse); outline-offset: 2px; }
@@ -37,13 +43,14 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 .btn.clair:active { box-shadow: 0 0 0 var(--ligne-forte); }
 
 .haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.marque { font-family: var(--titre); font-size: 28px; text-decoration: none; letter-spacing: -0.01em; }
+.marque { font-family: var(--titre); font-size: 28px; text-decoration: none; letter-spacing: -0.01em; min-height: 44px; display: inline-flex; align-items: center; }
 .stats { display: flex; align-items: center; gap: 14px; font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
 .stats span { display: flex; align-items: center; gap: 6px; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 14px; border: 2px solid var(--page); }
 
 .rival { display: grid; grid-template-columns: 76px 1fr; gap: 10px; align-items: end; }
-.bulle { position: relative; background: var(--page); border: 2px solid var(--ligne); border-radius: 18px; padding: 12px 14px; font-size: 16px; line-height: 1.4; margin-bottom: 18px; }
+.bulle { position: relative; background: var(--page); border: 2px solid var(--ligne); border-radius: 18px; padding: 12px 14px; font-family: var(--titre); font-size: 17px; line-height: 1.4; margin-bottom: 18px; }
+.bulle b { font-family: var(--ui); }
 .bulle::before { content: ""; position: absolute; left: -10px; bottom: 16px; width: 16px; height: 16px; background: var(--page); border-left: 2px solid var(--ligne); border-bottom: 2px solid var(--ligne); transform: rotate(45deg); }
 .bulle b { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); margin-bottom: 2px; }
 
@@ -60,20 +67,22 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 .jours { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; align-items: end; }
 .jours span { display: grid; gap: 4px; justify-items: center; font-size: 12px; color: var(--encre-2); font-variant-numeric: tabular-nums; }
 .jours span::before { content: ""; width: 100%; height: 30px; border-radius: 4px 4px 2px 2px; background: var(--ligne); }
-.jours .fait::before { background: var(--bordeaux); }
+.jours .fait::before { background: var(--or); }
 .jours .auj { color: var(--encre); font-weight: 600; }
-.jours .auj::before { background: var(--page); border: 2px dashed var(--bordeaux); }
+.jours .auj::before { background: var(--page); border: 2px dashed var(--or-fonce); }
 
 .bandeau { margin: 0; display: grid; gap: 6px; }
 .bandeau img { width: 100%; aspect-ratio: 16 / 8; object-fit: cover; border-radius: 18px; border: 2px solid var(--ligne); background: var(--ligne); }
 .bandeau figcaption { font-size: 12px; color: var(--encre-2); }
 .titre-sec { display: flex; justify-content: space-between; align-items: baseline; }
 .etagere { position: relative; padding: 14px 12px 0; border-radius: 16px 16px 6px 6px; background: #8a6443 var(--veines); background-size: 400px 60px; }
-.livres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; align-items: end; }
-.livre { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 8px; height: 230px; padding: 10px 4px 12px; border-radius: 6px 6px 3px 3px; border: 0; border-left: 5px solid rgba(0,0,0,0.18); color: #fff; text-decoration: none; cursor: pointer; transition: transform 0.15s; }
+.livres { display: grid; grid-template-columns: 1.1fr 0.92fr 1fr 0.88fr; gap: 6px; align-items: end; }
+.livre { position: relative; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; height: 230px; padding: 12px 6px 14px; border-radius: 5px 5px 3px 3px; border: 0; border-left: 5px solid rgba(0,0,0,0.18); color: #fff; text-decoration: none; cursor: pointer; transition: transform 0.15s; }
 .livre:hover, .livre:focus-visible { transform: translateY(-6px); }
-.livre .ico { width: 34px; height: 34px; background: rgba(255,255,255,0.88); border-radius: 50%; padding: 4px; box-sizing: content-box; }
-.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--titre); font-size: 16px; line-height: 1; white-space: nowrap; min-height: 0; }
+.livre .nerfs { display: grid; gap: 6px; width: 100%; }
+.livre .nerfs i { height: 5px; background: rgba(0,0,0,0.24); border-top: 1px solid rgba(255,255,255,0.28); }
+.livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0,0,0,0.26); border: 1px solid rgba(243,213,138,0.55); border-radius: 3px; min-height: 0; }
+.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--titre); font-size: 15px; line-height: 1; white-space: nowrap; color: #f6e7bd; }
 .livre .bandes { display: grid; gap: 3px; width: 70%; }
 .livre .bandes i { height: 3px; border-radius: 2px; background: rgba(255,255,255,0.28); }
 .livre .bandes i.ok { background: #f3d58a; }
@@ -83,6 +92,8 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 .livre.l4 { background: var(--or-fonce); height: 230px; }
 .planche { height: 16px; margin: 0 -12px; border-radius: 0 0 6px 6px; background: var(--bois-fonce) var(--veines); border-bottom: 4px solid #33220f; }
 .legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
+.legende span { display: grid; justify-items: center; gap: 2px; }
+.legende .ico { width: 24px; height: 24px; }
 .legende b { display: block; color: var(--encre); font-size: 13px; }
 
 .libre label { font-family: var(--titre); font-size: 20px; }
@@ -108,13 +119,14 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 16px; border-radius: 12px; max-width: calc(100% - 32px); }
 @media (prefers-reduced-motion: reduce) { .btn, .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }
 </style>
-
+</head>
+<body>
 <div class="page">
   <header class="haut">
     <a class="marque" href="index.html">Koîos</a>
     <div class="stats">
-      <span title="Tes points"><img class="ico" src="emojis/trophy_color.svg" alt="">1 240</span>
-      <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)" aria-label="Ton profil, Greg">G</span>
+      <span title="Tes points"><img class="ico" src="emojis/trophy_flat.svg" alt="">1 240</span>
+      <span class="avatar" style="background: var(--or-pale); color: var(--or-fonce)" role="img" aria-label="Ton profil, Greg">G</span>
     </div>
   </header>
 
@@ -125,7 +137,7 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 
   <section class="carte fiche" aria-labelledby="defi-titre">
     <div class="entete">
-      <img class="ico" src="emojis/hourglass_not_done_color.svg" alt="">
+      <img class="ico" src="emojis/hourglass_not_done_flat.svg" alt="">
       <span class="lib">Défi du groupe</span>
       <span class="jour">Jour 3 sur 7</span>
     </div>
@@ -148,25 +160,25 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 
   <figure class="bandeau" id="bandeau">
     <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Salle_de_lecture_Bibliotheque_Sainte-Genevieve_n03.jpg?width=900" alt="Salle de lecture de la bibliothèque Sainte-Geneviève à Paris" loading="lazy">
-    <figcaption>Bibliothèque Sainte-Geneviève, Paris · photo Marie-Lan Nguyen, CC BY 2.0 FR (à vérifier) · Wikimedia Commons</figcaption>
+    <figcaption>Bibliothèque Sainte-Geneviève, Paris · photo Marie-Lan Nguyen, CC BY 2.0 FR · Wikimedia Commons</figcaption>
   </figure>
 
   <section aria-labelledby="etagere-titre" style="display: grid; gap: 12px">
     <div class="titre-sec"><h2 id="etagere-titre">Ton étagère</h2><span class="meta">Choisis un livre</span></div>
     <div class="etagere">
       <div class="livres">
-        <a class="livre l1" href="partie.html" aria-label="Histoire et géographie, Compagnon"><img class="ico" src="emojis/globe_showing_europe-africa_color.svg" alt=""><span class="nom">Histoire · Géo</span><span class="bandes"><i class="ok"></i><i class="ok"></i><i></i></span></a>
-        <a class="livre l2" href="partie.html" aria-label="Sciences et nature, Apprenti"><img class="ico" src="emojis/microscope_color.svg" alt=""><span class="nom">Sciences</span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
-        <a class="livre l3" href="partie.html" aria-label="Arts et culture, Apprenti"><img class="ico" src="emojis/artist_palette_color.svg" alt=""><span class="nom">Arts · Culture</span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
-        <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, Maître"><img class="ico" src="emojis/gem_stone_color.svg" alt=""><span class="nom">Gemmologie</span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
+        <a class="livre l1" href="partie.html" aria-label="Histoire et géographie, Compagnon"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Histoire · Géo</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i></i></span></a>
+        <a class="livre l2" href="partie.html" aria-label="Sciences et nature, Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Sciences</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l3" href="partie.html" aria-label="Arts et culture, Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Arts · Culture</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
+        <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, Maître"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Gemmologie</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
       </div>
       <div class="planche"></div>
     </div>
     <div class="legende">
-      <span><b>Compagnon</b>62 questions</span>
-      <span><b>Apprenti</b>18 questions</span>
-      <span><b>Apprenti</b>9 questions</span>
-      <span><b>Maître</b>140 questions</span>
+      <span><img class="ico" src="emojis/globe_showing_europe-africa_flat.svg" alt=""><b>Compagnon</b>62 questions</span>
+      <span><img class="ico" src="emojis/microscope_flat.svg" alt=""><b>Apprenti</b>18 questions</span>
+      <span><img class="ico" src="emojis/artist_palette_flat.svg" alt=""><b>Apprenti</b>9 questions</span>
+      <span><img class="ico" src="emojis/gem_stone_flat.svg" alt=""><b>Maître</b>140 questions</span>
     </div>
   </section>
 
@@ -174,11 +186,11 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
     <label id="libre-titre" for="sujet">Un sujet en tête&#8239;?</label>
     <input id="sujet" type="text" placeholder="Les volcans d’Islande, le cubisme…" autocomplete="off">
     <button class="btn clair" type="button" id="preparer">Préparer 10 questions</button>
-    <p class="astuce" id="astuce"><img class="ico" src="emojis/light_bulb_color.svg" alt=""><span id="astuce-texte">Le Rival croise au moins deux sources sérieuses avant d’écrire une question.</span></p>
+    <p class="astuce" id="astuce"><img class="ico" src="emojis/light_bulb_flat.svg" alt=""><span id="astuce-texte">Le Rival croise au moins deux sources sérieuses avant d’écrire une question.</span></p>
   </section>
 
   <section class="carte" aria-labelledby="duels-titre">
-    <div class="entete"><img class="ico" src="emojis/crossed_swords_color.svg" alt=""><h2 id="duels-titre" style="font-size: 20px; flex: 1">Duels</h2><span class="meta">2 en cours</span></div>
+    <div class="entete"><img class="ico" src="emojis/crossed_swords_flat.svg" alt=""><h2 id="duels-titre" style="font-size: 20px; flex: 1">Duels</h2><span class="meta">2 en cours</span></div>
     <div class="duel">
       <span class="avatar" style="background: var(--prusse-pale); color: var(--prusse-fonce)" aria-hidden="true">L</span>
       <span><span class="qui">Léa t’a défié</span><br><span class="meta">Arts et culture · 7 sur 10</span></span>
@@ -196,10 +208,10 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
 
 <div class="nav">
   <nav aria-label="Navigation principale">
-    <button type="button" aria-current="page"><img class="ico" src="emojis/books_color.svg" alt="">Étagère</button>
-    <button type="button" data-ecran="Défis et ligue"><img class="ico" src="emojis/trophy_color.svg" alt="">Défis</button>
-    <button type="button" data-ecran="Duels"><img class="ico" src="emojis/crossed_swords_color.svg" alt="">Duels</button>
-    <button type="button" data-ecran="Profil et réglages"><img class="ico" src="emojis/scroll_color.svg" alt="">Profil</button>
+    <button type="button" aria-current="page"><img class="ico" src="emojis/books_flat.svg" alt="">Étagère</button>
+    <button type="button" data-ecran="Défis et ligue"><img class="ico" src="emojis/trophy_flat.svg" alt="">Défis</button>
+    <button type="button" data-ecran="Duels"><img class="ico" src="emojis/crossed_swords_flat.svg" alt="">Duels</button>
+    <button type="button" data-ecran="Profil et réglages"><img class="ico" src="emojis/scroll_flat.svg" alt="">Profil</button>
   </nav>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -241,3 +253,5 @@ h2 { font-family: var(--titre); font-weight: 400; font-size: 22px; line-height: 
   champ.addEventListener("input", function () { astuce.classList.remove("erreur"); });
 })();
 </script>
+</body>
+</html>

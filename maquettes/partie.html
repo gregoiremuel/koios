@@ -39,7 +39,7 @@ img { max-width: 100%; }
 .quitter { width: 44px; height: 44px; display: grid; place-items: center; font-size: 28px; line-height: 1; text-decoration: none; color: var(--encre-2); border-radius: 12px; }
 .avance { height: 16px; border-radius: 999px; background: var(--ligne); overflow: hidden; }
 .avance i { display: block; height: 100%; width: 0; background: var(--vert); border-radius: 999px; transition: width 0.4s ease; }
-.compte { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.compte { font-weight: 600; font-size: 15px; font-variant-numeric: lining-nums tabular-nums; }
 .infos { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .puce { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px 0 8px; border-radius: 999px; font-size: 14px; font-weight: 600; border: 2px solid transparent; }
 .puce.dom { background: var(--bordeaux-pale); color: var(--bordeaux-fonce); }
@@ -94,11 +94,11 @@ figcaption { font-size: 12px; color: var(--encre-2); }
 .verdict .pts { font-weight: 600; font-variant-numeric: tabular-nums; }
 .verdict p { margin: 0; }
 details.sources { background: rgba(255,255,255,0.6); border-radius: 12px; padding: 10px 12px; }
-details.sources summary { cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; min-height: 28px; }
+details.sources summary { cursor: pointer; font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
 details.sources ul { margin: 8px 0 2px; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; }
-details.sources a { color: var(--prusse-fonce); }
+details.sources a { color: var(--prusse-fonce); display: block; padding: 10px 0; }
 .rival { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; }
-.rival p { font-style: italic; font-size: 16px; line-height: 1.4; }
+.rival p { font-family: var(--titre); font-size: 17px; line-height: 1.35; }
 .bulle-bluff { display: grid; gap: 6px; }
 .bulle-bluff .bulle { margin-bottom: 0; }
 .bulle-bluff .bulle::before { left: 34px; top: -10px; bottom: auto; border-left: 2px solid var(--ligne); border-top: 2px solid var(--ligne); border-bottom: 0; }
@@ -118,12 +118,12 @@ details.sources a { color: var(--prusse-fonce); }
 .pioche .tuile .etat { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); }
 
 .bilan { display: grid; gap: 16px; justify-items: center; text-align: center; }
-.bilan .ico { width: 84px; height: 84px; animation: pop 0.6s ease-out; }
+.bilan > .ico { width: 84px; height: 84px; animation: pop 0.6s ease-out; }
 .bilan .score { font-family: var(--titre); font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
 .bilan .actions { display: grid; gap: 14px; width: 100%; margin-top: 6px; }
 .credit { font-size: 12px; color: var(--encre-2); text-align: center; margin: 0; }
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .verdict .titre .ico, .bilan .ico { animation: none; } .tuile, .btn, .avance i { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .verdict .titre .ico, .bilan > .ico { animation: none; } .tuile, .btn, .avance i { transition: none; } }
 </style>
 </head>
 <body>
@@ -134,8 +134,8 @@ details.sources a { color: var(--prusse-fonce); }
     <span class="compte" id="compte">1 / 3</span>
   </div>
   <div class="infos">
-    <span class="puce dom"><img class="ico" src="emojis/globe_showing_europe-africa_color.svg" alt="">Histoire et géographie</span>
-    <span class="puce temps" id="temps"><img class="ico" src="emojis/hourglass_not_done_color.svg" alt=""><span id="secondes">25 s</span></span>
+    <span class="puce dom"><img class="ico" src="emojis/globe_showing_europe-africa_flat.svg" alt="">Histoire et géographie</span>
+    <span class="puce temps" id="temps"><img class="ico" src="emojis/hourglass_not_done_flat.svg" alt=""><span id="secondes">25 s</span></span>
   </div>
   <main id="scene"></main>
   <p class="credit">Maquette 2 sur 2 · chaque réponse vérifiée par 2 sources au moins · émojis Fluent de Microsoft (licence MIT)</p>
@@ -165,7 +165,7 @@ details.sources a { color: var(--prusse-fonce); }
       type: "bluff",
       lib: "Le Rival bluffe ?",
       affirmation: "Le Danube traverse quatre capitales : Vienne, Bratislava, Budapest et Belgrade.",
-      figure: { src: "https://commons.wikimedia.org/wiki/Special:FilePath/Budapest_city_099.jpg?width=800", alt: "Le pont des Chaînes sur le Danube à Budapest", credit: "Budapest, pont des Chaînes · photo Wilfredor, CC BY-SA 3.0 (à vérifier) · Wikimedia Commons" },
+      figure: { src: "https://commons.wikimedia.org/wiki/Special:FilePath/Budapest_city_099.jpg?width=800", alt: "Le pont des Chaînes sur le Danube à Budapest", credit: "Budapest, pont des Chaînes · photo Wilfredor, CC BY-SA 3.0 · Wikimedia Commons" },
       vrai: true,
       correction: "C’est exact : Vienne, Bratislava, Budapest et Belgrade sont toutes les quatre sur le Danube.",
       sources: [
@@ -184,7 +184,7 @@ details.sources a { color: var(--prusse-fonce); }
       elements: ["Sacre de Napoléon", "Prise de la Bastille", "Fête de la Fédération"],
       ordre: ["Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
       dates: { "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
-      correction: "La Bastille tombe en 1789, la Fédération la fête un an plus tard, et Napoléon se fait sacrer à Notre-Dame quinze ans après.",
+      correction: "La Bastille tombe en 1789, la Fédération la fête un an plus tard, et Napoléon se fait sacrer à Notre-Dame en 1804.",
       sources: [
         ["Encyclopædia Universalis · Quatorze juillet 1789", "https://www.universalis.fr/encyclopedie/quatorze-juillet-1789/"],
         ["BnF Essentiels · La fête de la Fédération", "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"],
@@ -217,7 +217,7 @@ details.sources a { color: var(--prusse-fonce); }
     (enfants || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
   }
-  function ico(nom, cls) { return el("img", { "class": cls || "ico", src: E + nom, alt: "" }); }
+  function ico(nom, cls, alt) { return el("img", { "class": cls || "ico", src: E + nom, alt: alt || "" }); }
   function pts(n) { return (n < 0 ? "−" + Math.abs(n) : (n > 0 ? "+" + n : "0")) + (Math.abs(n) > 1 ? " points" : " point"); }
   function signe(n) { return n < 0 ? "−" + Math.abs(n) : "+" + n; }
   function rival(humeur, texte, taille) {
@@ -259,13 +259,14 @@ details.sources a { color: var(--prusse-fonce); }
     q.sources.forEach(function (s) { liste.appendChild(el("li", {}, [el("a", { href: s[1], target: "_blank", rel: "noopener", text: s[0] })])); });
     var bloc = el("section", { "class": "verdict " + (juste ? "ok" : "ko"), role: "status" }, [
       el("div", { "class": "titre" }, [
-        ico(juste ? "party_popper_color.svg" : "cross_mark_color.svg"),
+        ico(juste ? "party_popper_flat.svg" : "cross_mark_flat.svg"),
         el("strong", { text: horsTemps ? "Temps écoulé" : (juste ? "Bien joué !" : "Pas cette fois") }),
         el("span", { "class": "pts", text: pts(gagne) })
       ]),
       el("p", { text: texte }),
+      figure(q.figure),
       el("details", { "class": "sources" }, [
-        el("summary", {}, [ico("check_mark_button_color.svg", "ico"), "Vérifié par " + q.sources.length + " sources"]),
+        el("summary", {}, [ico("check_mark_button_flat.svg", "ico"), "Vérifié par " + q.sources.length + " sources"]),
         liste
       ]),
       rival(juste ? "vexe" : "ravi", juste ? q.rivalJuste : q.rivalFaux, 60)
@@ -311,23 +312,23 @@ details.sources a { color: var(--prusse-fonce); }
     });
     majRegle();
     var pari = el("div", { "class": "pari" }, [
-      el("div", { "class": "ligne-titre" }, [el("span", {}, [ico("bookmark_color.svg"), "Ton pari de confiance"]), regle]),
+      el("div", { "class": "ligne-titre" }, [el("span", {}, [ico("bookmark_flat.svg"), "Ton pari de confiance"]), regle]),
       jetons
     ]);
     var alerte = el("p", { "class": "alerte", text: "Choisis d’abord une réponse.", hidden: "" });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider" });
     var zone = el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), figure(q.figure), el("h1", { text: q.enonce })]),
+      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]),
       rep, pari, valider, alerte
     ]);
     function conclure(horsTemps) {
       tuiles.forEach(function (t) { t.disabled = true; t.setAttribute("aria-pressed", "false"); });
       var juste = choisi === q.bonne;
       tuiles[q.bonne].classList.add("juste");
-      tuiles[q.bonne].querySelector(".fin").appendChild(ico("check_mark_button_color.svg", "marque"));
+      tuiles[q.bonne].querySelector(".fin").appendChild(ico("check_mark_button_flat.svg", "marque", "Bonne réponse"));
       if (choisi !== null && !juste) {
         tuiles[choisi].classList.add("faux");
-        tuiles[choisi].querySelector(".fin").appendChild(ico("cross_mark_color.svg", "marque"));
+        tuiles[choisi].querySelector(".fin").appendChild(ico("cross_mark_flat.svg", "marque", "Ta réponse, fausse"));
       }
       pari.remove(); valider.remove(); alerte.remove();
       var gagne = juste ? BAREME[certitude][0] : (choisi === null ? 0 : BAREME[certitude][1]);
@@ -345,11 +346,11 @@ details.sources a { color: var(--prusse-fonce); }
     var tete = el("div");
     tete.innerHTML = window.rivalSVG ? rivalSVG("malin", 84) : "";
     var rep = el("div", { "class": "reponses deux", role: "group", "aria-label": "Ton verdict" });
-    var vraiB = el("button", { "class": "tuile", type: "button" }, [ico("check_mark_button_color.svg"), el("span", { text: "Il dit vrai" })]);
-    var bluffB = el("button", { "class": "tuile", type: "button" }, [ico("thinking_face_color.svg"), el("span", { text: "Il bluffe" })]);
+    var vraiB = el("button", { "class": "tuile", type: "button" }, [ico("check_mark_button_flat.svg"), el("span", { text: "Il dit vrai" })]);
+    var bluffB = el("button", { "class": "tuile", type: "button" }, [ico("thinking_face_flat.svg"), el("span", { text: "Il bluffe" })]);
     rep.appendChild(vraiB); rep.appendChild(bluffB);
     var zone = el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("div", { "class": "bulle-bluff" }, [tete, el("p", { "class": "bulle", text: "« " + q.affirmation + " »" })]), figure(q.figure)]),
+      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("div", { "class": "bulle-bluff" }, [tete, el("p", { "class": "bulle", text: "« " + q.affirmation + " »" })])]),
       rep
     ]);
     function conclure(dit) {
@@ -383,7 +384,7 @@ details.sources a { color: var(--prusse-fonce); }
       });
     }
     q.elements.forEach(function (nom) {
-      var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [ico("scroll_color.svg"), el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
+      var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [ico("scroll_flat.svg"), el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
       b.addEventListener("click", function () {
         var k = placees.indexOf(nom);
         if (k >= 0) placees.splice(k, 1); else if (placees.length < 3) placees.push(nom);
@@ -394,7 +395,7 @@ details.sources a { color: var(--prusse-fonce); }
     });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider l’ordre" });
     var zone = el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), figure(q.figure), el("h1", { text: q.enonce })]),
+      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]),
       rayon, pioche, valider, alerte
     ]);
     function conclure(horsTemps) {
@@ -425,10 +426,10 @@ details.sources a { color: var(--prusse-fonce); }
     var humeur = justes >= 2 ? "vexe" : "ravi";
     var mot = justes === 3 ? "Trois sur trois. Je vais devoir relire mes fiches."
       : justes === 2 ? "Deux sur trois. Honorable. Demain, je durcis le ton."
-      : justes === 1 ? "Une sur trois. On reprend la frise ensemble ?"
+      : justes === 1 ? "Une sur trois. Je t’attends demain pour la revanche."
       : "Zéro. J’ai rarement gagné aussi facilement.";
     var lienTexte = el("p", { "class": "meta", style: "margin:0" });
-    var defier = el("button", { "class": "btn clair", type: "button" }, [ico("crossed_swords_color.svg"), "Défier un ami"]);
+    var defier = el("button", { "class": "btn clair", type: "button" }, [ico("crossed_swords_flat.svg"), "Défier un ami"]);
     defier.addEventListener("click", function () {
       var lien = "koios.app/duel/7K2Q";
       var repli = function () { lienTexte.textContent = "Copie impossible ici. Lien d’essai : " + lien; };
@@ -437,7 +438,7 @@ details.sources a { color: var(--prusse-fonce); }
     var rejouer = el("button", { "class": "btn", type: "button", text: "Rejouer la série" });
     rejouer.addEventListener("click", function () { index = 0; justes = 0; total = 0; avanceBarre.style.width = "0"; afficher(); });
     return el("section", { "class": "bilan feuille" }, [
-      ico(justes >= 2 ? "trophy_color.svg" : "books_color.svg"),
+      ico(justes >= 2 ? "trophy_flat.svg" : "books_flat.svg"),
       el("span", { "class": "meta", text: "Série terminée · Histoire et géographie" }),
       el("span", { "class": "score", text: justes + " / 3" }),
       el("span", { style: "font-weight:600", text: pts(total) }),

@@ -131,3 +131,5 @@ Minimum de données : pseudo, scores, réponses ; email seulement avec un compte
 - Publication automatique GitHub → Cloudflare.
 - Sites spécialisés en gemmologie autorisés comme sources.
 - API de recherche web pour la V2.
+- Licences et auteurs des photos Wikimedia (salle Sainte-Geneviève, pont des Chaînes) à confirmer sur Commons : les pages n'ont pas pu être ouvertes depuis l'espace de travail.
+- Photos de Greg à intégrer (compressées, sans données GPS).
