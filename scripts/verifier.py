@@ -1,6 +1,6 @@
 """Vérifie que les pages HTML de Koîos n'utilisent rien d'interdit par DESIGN.md.
 
-Usage : python3 scripts/verifier.py [fichiers...]  (par défaut : maquettes/*.html)
+Usage : python3 scripts/verifier.py [fichiers...]  (par défaut : app/*.html, *.js, *.css)
 Sortie : la liste des problèmes, ou « Tout passe ». Code de sortie 1 s'il y a un problème.
 """
 import glob
@@ -42,7 +42,12 @@ def verifier(chemin: str) -> list[str]:
     with open(chemin, encoding="utf-8") as f:
         html = f.read()
     problemes = []
-    texte = texte_visible(html)
+    if chemin.endswith(".js"):
+        texte = " ".join(re.findall(r'"((?:[^"\\]|\\.)*)"', html))
+    elif chemin.endswith(".css"):
+        texte = ""
+    else:
+        texte = texte_visible(html)
     for mot in MOTS:
         if re.search(r"(?<!\w)" + re.escape(mot) + r"(?!\w)", texte, re.I):
             problemes.append(f"mot interdit « {mot} »")
@@ -61,7 +66,7 @@ def verifier(chemin: str) -> list[str]:
 
 
 def main() -> int:
-    fichiers = sys.argv[1:] or sorted(glob.glob("maquettes/**/*.html", recursive=True))
+    fichiers = sys.argv[1:] or sorted(glob.glob("app/*.html") + glob.glob("app/*.js") + glob.glob("app/*.css"))
     total = 0
     for chemin in fichiers:
         for p in verifier(chemin):

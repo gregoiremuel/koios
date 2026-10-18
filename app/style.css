@@ -1,0 +1,250 @@
+/* Koîos v4 : bibliothèque d'étude (papier, bois, cuir) avec une touche de cathédrale gothique (arcs brisés, rosace, lettrines). Un seul thème, clair. */
+:root {
+  --papier: #f8f3ea; --page: #fffdf9; --feuille: #fffaf0; --ligne: #e4d9c7; --ligne-forte: #cdbb9c;
+  --encre: #2a2119; --encre-2: #6b5d4f;
+  --bois: #6b4a2f; --bois-fonce: #4a3220; --niche: #2b1c0f; --pierre: #e2d3b3;
+  --vert: #3b6b52; --vert-fonce: #2a4f3c; --vert-pale: #e4ede6;
+  --bordeaux: #7d2a35; --bordeaux-fonce: #5f1f29; --bordeaux-pale: #f3e4e4;
+  --prusse: #2c5378; --prusse-fonce: #203d59; --prusse-pale: #e3eaf2;
+  --or: #a8802f; --or-fonce: #7f6022; --or-pale: #f3ead6; --or-clair: #e9cd86;
+  --livre: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --ui: "Libre Franklin", "Franklin Gothic Medium", "Helvetica Neue", Arial, sans-serif;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.42 0 0 0 0 0.3 0 0 0 0 0.16 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --vieux: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.62 0 0 0 0 0.46 0 0 0 0 0.24 0 0 0 0.13 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
+  --veines: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='60'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.45' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23w)'/%3E%3C/svg%3E");
+  --arcs: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='16'%3E%3Cpath d='M3 16V8.5A13 13 0 0 1 12 1.5A13 13 0 0 1 21 8.5V16' fill='none' stroke='%23a8802f' stroke-width='1'/%3E%3Cpath d='M0 15.5H24' stroke='%23a8802f' stroke-width='1'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--papier) var(--grain); color: var(--encre); font-family: var(--ui); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; padding-top: env(safe-area-inset-top, 0px); }
+a { color: inherit; }
+button, input, textarea { font: inherit; color: inherit; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.rosace .petale.neuf { animation: allumer 1.4s ease-out both; }
+@keyframes allumer { from { opacity: 0.25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rosace .petale.neuf { animation: none; } }
+:focus-visible { outline: 2px solid var(--prusse); outline-offset: 2px; }
+.page { max-width: 32rem; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 8px 108px; display: grid; gap: 24px; }
+.page.sans-nav { padding-bottom: 40px; gap: 18px; }
+.i { width: 20px; height: 20px; flex: none; display: block; }
+.ic { display: inline-flex; }
+h1 { margin: 0; font-family: var(--livre); font-weight: 500; font-size: 24px; line-height: 1.3; text-wrap: balance; }
+h2 { margin: 0; font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 1.25; }
+p { margin: 0; }
+.lib { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--encre-2); }
+.meta { font-size: 14px; color: var(--encre-2); font-variant-numeric: lining-nums tabular-nums; }
+.pile { display: grid; gap: 14px; }
+.pile.large { gap: 18px; }
+.titre-sec { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+
+/* En-tête et frise d'arcatures */
+.haut { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.marque { font-family: var(--livre); font-weight: 600; font-size: 30px; letter-spacing: 0.01em; text-decoration: none; min-height: 44px; display: inline-flex; align-items: center; gap: 10px; }
+.marque svg { width: 30px; height: 30px; }
+.initiale { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: 15px; background: var(--or-pale); color: var(--or-fonce); border: 1px solid var(--ligne-forte); text-decoration: none; }
+.arcature { height: 16px; background: var(--arcs) repeat-x left bottom; opacity: 0.55; margin-top: -14px; }
+
+/* Cartes, feuilles, boutons */
+.carte { background: var(--page); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 18px; display: grid; gap: 14px; }
+.feuille { background-color: var(--feuille); background-image: var(--vieux); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 20px 18px; display: grid; gap: 12px; }
+.feuille > .arcature { margin: -8px -4px 2px; }
+.btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 50px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--vert); color: #fff; border-bottom: 2px solid var(--vert-fonce); font-weight: 600; font-size: 16px; text-decoration: none; cursor: pointer; text-align: center; }
+.btn:active { transform: translateY(1px); }
+.btn.trait { background: transparent; color: var(--encre); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; }
+.btn:disabled { opacity: 0.6; cursor: wait; }
+.lien { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; background: none; border: 0; font-weight: 600; font-size: 15px; color: var(--prusse); text-decoration: none; cursor: pointer; }
+.lien .i { width: 18px; height: 18px; }
+.lien.discret { font-size: 14px; color: var(--encre-2); }
+.alerte { font-size: 14px; font-weight: 600; color: var(--bordeaux); }
+.champ { width: 100%; min-height: 50px; padding: 0 14px; border: 1px solid var(--ligne-forte); border-radius: 8px; background: var(--papier); font-family: var(--livre); font-size: 17px; }
+textarea.champ { min-height: 96px; padding: 10px 14px; resize: vertical; }
+.champ:focus { border-color: var(--prusse); outline: 2px solid var(--prusse-pale); outline-offset: 0; }
+.champ::placeholder { color: var(--encre-2); font-style: italic; }
+.astuce { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--encre-2); }
+.astuce .i { color: var(--vert); width: 18px; height: 18px; margin-top: 2px; }
+.choix { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.choix button { min-height: 64px; padding: 8px 10px; background: var(--page); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; border-radius: 8px; text-align: left; cursor: pointer; display: grid; gap: 2px; }
+.choix button b { font-family: var(--livre); font-weight: 600; font-size: 17px; }
+.choix button span { font-size: 13px; color: var(--encre-2); line-height: 1.35; }
+.choix button[aria-pressed="true"] { background: var(--prusse-pale); border-color: var(--prusse); }
+
+/* Ornements gothiques */
+.filet { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; color: var(--or); }
+.filet::before, .filet::after { content: ""; border-top: 1px solid var(--ligne-forte); }
+.filet svg { width: 16px; height: 16px; display: block; }
+.lettrine { float: left; font-family: var(--livre); font-weight: 600; font-size: 50px; line-height: 1; width: 58px; height: 58px; display: grid; place-items: center; margin: 4px 10px 0 0; background: var(--bordeaux) var(--grain); color: var(--or-clair); border-radius: 3px; outline: 1px solid var(--or-clair); outline-offset: -4px; }
+.essentiel { display: grid; gap: 10px; }
+.essentiel p { font-family: var(--livre); font-size: 17px; line-height: 1.55; }
+.essentiel::after { content: ""; display: block; clear: both; }
+
+/* Armoire-vitrail : une niche en arc brisé, la rosace des savoirs, l'étagère */
+.armoire { max-width: 22rem; width: 100%; margin: 0 auto; padding: 12px 12px 0; border-radius: 8px 8px 4px 4px; background: var(--bois) var(--veines); background-size: 400px 60px; }
+.armoire svg.ogive { display: block; width: 100%; height: auto; overflow: visible; }
+.niche { position: relative; background: var(--niche) var(--veines); background-size: 400px 60px; padding: 18px 10px 0; }
+.niche::before { content: ""; position: absolute; top: 0; bottom: 0; left: 2%; right: 2%; border-left: 1px solid rgba(201, 160, 67, 0.5); border-right: 1px solid rgba(201, 160, 67, 0.5); pointer-events: none; }
+.livres { position: relative; display: flex; gap: 4px; align-items: flex-end; justify-content: center; }
+.livre { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; padding: 12px 5px 14px; border-radius: 3px 3px 1px 1px; border-left: 3px solid rgba(0, 0, 0, 0.22); background-image: var(--grain); text-decoration: none; cursor: pointer; transition: transform 0.15s; }
+.livre:hover, .livre:focus-visible { transform: translateY(-5px); }
+.livre .nerfs { display: grid; gap: 6px; width: 100%; }
+.livre .nerfs i { height: 5px; background: rgba(0, 0, 0, 0.24); border-top: 1px solid rgba(255, 255, 255, 0.25); }
+.livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0, 0, 0, 0.26); border: 1px solid rgba(243, 213, 138, 0.5); border-radius: 2px; }
+.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--livre); font-weight: 500; font-size: 14px; line-height: 1; white-space: nowrap; color: #f2e4bd; }
+.livre .bandes { display: grid; gap: 3px; width: 70%; }
+.livre .bandes i { height: 3px; border-radius: 1px; background: rgba(255, 255, 255, 0.25); }
+.livre .bandes i.ok { background: var(--or-clair); }
+.serre { width: 14px; height: 120px; margin-left: 6px; border-radius: 3px 3px 0 0; background: #3b2716 var(--veines); border-left: 3px solid #1f140a; }
+.planche { height: 14px; margin: 0 -22px; border-radius: 0 0 4px 4px; background: var(--bois-fonce) var(--veines); border-bottom: 3px solid #33220f; position: relative; }
+.legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
+.legende a { display: grid; justify-items: center; gap: 3px; text-decoration: none; min-height: 44px; }
+.legende .pastille { width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--encre); }
+.legende b { color: var(--encre); font-size: 13px; font-weight: 600; }
+.vitrail { max-width: 22rem; width: 100%; margin: 0 auto; padding: 12px 12px 12px; border-radius: 8px; background: var(--bois) var(--veines); background-size: 400px 60px; }
+.vitrail svg { display: block; width: 100%; height: auto; overflow: visible; }
+.medaillon { width: 132px; height: 132px; margin: 0 auto; }
+
+/* Note du Rival */
+.note, .marge { display: grid; grid-template-columns: 48px 1fr; gap: 12px; align-items: center; }
+.note p, .marge p { font-family: var(--livre); font-style: italic; font-size: 17px; line-height: 1.4; color: var(--encre); }
+.note small, .marge small { display: block; font-family: var(--ui); font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); margin-bottom: 2px; }
+
+/* Reprendre, programme */
+.reprendre h2 { font-size: 24px; }
+.sous { font-family: var(--livre); font-size: 18px; color: var(--encre-2); margin-top: -8px; }
+.infos { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.infos span { display: flex; align-items: center; gap: 6px; }
+.infos .i { color: var(--encre-2); width: 18px; height: 18px; }
+.barres { display: grid; gap: 4px; }
+.barres i { height: 6px; border-radius: 2px; background: var(--ligne); }
+.barres i.fait { background: var(--or); }
+.barres i.cours { background: var(--page); border: 1px solid var(--or); }
+
+/* Formation : table des chapitres */
+.tete-livre { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: center; }
+.tete-livre svg { width: 44px; height: 92px; display: block; }
+.table { list-style: none; margin: 0; padding: 0; display: grid; }
+.table li { border-top: 1px solid var(--ligne); }
+.table li:first-child { border-top: 0; }
+.table a { display: grid; grid-template-columns: 40px 1fr auto; gap: 10px; align-items: center; min-height: 64px; padding-block: 10px; text-decoration: none; }
+.table .num { font-family: var(--livre); font-weight: 600; font-size: 18px; color: var(--or-fonce); font-variant-numeric: lining-nums; }
+.table b { display: block; font-family: var(--livre); font-weight: 600; font-size: 17px; line-height: 1.3; }
+.table .etat { display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; color: var(--encre-2); white-space: nowrap; }
+.table .etat.ok { color: var(--vert-fonce); }
+.table .etat.ko { color: var(--bordeaux); }
+.table .etat .i { width: 18px; height: 18px; }
+
+/* Chapitre */
+.barre-chap { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; min-height: 48px; }
+.retour { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; padding: 0 6px 0 0; background: none; border: 0; font-weight: 600; font-size: 14px; color: var(--encre-2); text-decoration: none; cursor: pointer; }
+.retour .i { width: 18px; height: 18px; }
+.titre-chap { text-align: center; font-family: var(--livre); font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compteur { min-width: 56px; text-align: right; }
+.etapes { display: grid; gap: 4px; margin-top: -6px; }
+.etapes i { height: 4px; border-radius: 2px; background: var(--ligne); }
+.etapes i.fait { background: var(--vert); }
+.etapes i.cours { background: var(--encre); }
+.bandeau-brouillon { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border: 1px solid var(--bordeaux); border-radius: 8px; background: var(--bordeaux-pale); color: var(--bordeaux-fonce); font-size: 14px; }
+.bandeau-brouillon b { display: block; font-size: 15px; }
+.bandeau-defi { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border: 1px solid var(--or); border-radius: 8px; background: var(--or-pale); font-size: 15px; }
+.bandeau-defi .i { color: var(--or-fonce); }
+figure { margin: 0; display: grid; gap: 6px; }
+figure img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; border: 1px solid var(--ligne); background: var(--ligne); }
+figcaption { font-family: var(--livre); font-style: italic; font-size: 13px; color: var(--encre-2); }
+.reperes { list-style: none; margin: 0; padding: 0; display: grid; }
+.reperes li { display: grid; grid-template-columns: minmax(96px, 34%) 1fr; gap: 12px; padding-block: 10px; border-top: 1px solid var(--ligne); }
+.reperes li:first-child { border-top: 0; }
+.reperes .cle { font-family: var(--livre); font-weight: 600; color: var(--or-fonce); font-variant-numeric: lining-nums; }
+.reperes .def { font-family: var(--livre); font-size: 17px; line-height: 1.4; }
+.reperes li.revoir { background: var(--or-pale); margin-inline: -10px; padding-inline: 10px; border-radius: 6px; }
+.reperes li.revoir .def::after { content: "À revoir"; display: block; font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--bordeaux); margin-top: 2px; }
+
+.reponses { display: grid; gap: 8px; }
+.reponses.deux { grid-template-columns: 1fr 1fr; }
+.tuile { display: grid; grid-template-columns: 30px 1fr auto; gap: 12px; align-items: center; min-height: 56px; padding: 8px 14px 8px 10px; text-align: left; background: var(--page); border: 1px solid var(--ligne-forte); border-bottom-width: 2px; border-radius: 8px; font-family: var(--livre); font-size: 18px; line-height: 1.35; cursor: pointer; }
+.tuile .lettre { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--ligne-forte); border-radius: 6px; font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
+.tuile .marque-rep { width: 22px; height: 22px; }
+.tuile[aria-pressed="true"] { background: var(--prusse-pale); border-color: var(--prusse); }
+.tuile[aria-pressed="true"] .lettre { border-color: var(--prusse); color: var(--prusse); }
+.tuile.juste { background: var(--vert-pale); border-color: var(--vert); color: var(--vert-fonce); }
+.tuile.juste .lettre { border-color: var(--vert); color: var(--vert); }
+.tuile.faux { background: var(--bordeaux-pale); border-color: var(--bordeaux); color: var(--bordeaux-fonce); }
+.tuile.faux .lettre { border-color: var(--bordeaux); color: var(--bordeaux); }
+.tuile:disabled { cursor: default; }
+.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; min-height: 64px; padding: 12px; }
+.pari { display: grid; gap: 8px; }
+.pari .ligne-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.jetons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.jetons button { min-height: 46px; background: var(--page); border: 1px solid var(--ligne-forte); border-radius: 8px; font-weight: 600; font-size: 15px; font-variant-numeric: lining-nums tabular-nums; cursor: pointer; }
+.jetons button[aria-pressed="true"] { background: var(--prusse-pale); border-color: var(--prusse); color: var(--prusse-fonce); }
+.affirmation { font-family: var(--livre); font-style: italic; font-size: 20px; line-height: 1.4; }
+
+.verdict { background: var(--page); border: 1px solid var(--ligne); border-bottom: 2px solid var(--ligne-forte); border-radius: 10px; padding: 18px; display: grid; gap: 12px; }
+.verdict .titre { display: flex; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--ligne); }
+.verdict .titre .i { width: 28px; height: 28px; }
+.verdict.ok .titre .i, .verdict.ok .titre strong { color: var(--vert-fonce); }
+.verdict.ko .titre .i, .verdict.ko .titre strong { color: var(--bordeaux); }
+.verdict .titre strong { font-family: var(--livre); font-weight: 600; font-size: 21px; flex: 1; }
+.verdict .pts { font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+.explication { font-family: var(--livre); font-size: 17px; line-height: 1.5; }
+details.sources { border-top: 1px solid var(--ligne); padding-top: 4px; }
+details.sources summary { cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
+details.sources summary .i { color: var(--vert); }
+details.sources ul { margin: 0 0 4px; padding-left: 18px; font-size: 14px; }
+details.sources a { color: var(--prusse-fonce); display: block; padding: 11px 0; }
+.sans-source { display: flex; gap: 8px; align-items: center; font-size: 14px; font-weight: 600; color: var(--bordeaux); border-top: 1px solid var(--ligne); padding-top: 10px; }
+.signaler { display: grid; gap: 8px; }
+
+.rayon { display: grid; gap: 6px; }
+.case { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: center; min-height: 54px; padding: 8px 12px 8px 10px; border: 1px dashed var(--ligne-forte); border-radius: 8px; font-family: var(--livre); font-size: 18px; }
+.case.pleine { border-style: solid; background: var(--page); }
+.case.ok { border-style: solid; background: var(--vert-pale); border-color: var(--vert); }
+.case.ko { border-style: solid; background: var(--bordeaux-pale); border-color: var(--bordeaux); }
+.case .num { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; border: 1px solid var(--ligne-forte); font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
+.case em { color: var(--encre-2); font-size: 16px; }
+.case small { display: block; font-family: var(--ui); font-size: 13px; color: var(--bordeaux-fonce); }
+.pioche { display: grid; gap: 6px; }
+.pioche .tuile { grid-template-columns: 1fr auto; }
+.pioche .tuile .etat { font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
+.pioche .tuile[aria-pressed="true"] { background: var(--papier); border-style: dashed; color: var(--encre-2); }
+
+.score { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.score strong { font-family: var(--livre); font-weight: 500; font-size: 52px; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.liste-revoir { list-style: none; margin: 0; padding: 0; display: grid; }
+.liste-revoir li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding-block: 8px; border-top: 1px solid var(--ligne); font-family: var(--livre); font-size: 17px; }
+.liste-revoir .i { width: 20px; height: 20px; margin-top: 3px; }
+.liste-revoir li:first-child { border-top: 0; }
+.allume { display: grid; grid-template-columns: 132px 1fr; gap: 16px; align-items: center; }
+.allume p { font-family: var(--livre); font-size: 17px; line-height: 1.45; }
+
+/* Révisions, cercle, profil */
+.lignes { list-style: none; margin: 0; padding: 0; display: grid; }
+.lignes li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding-block: 8px; border-top: 1px solid var(--ligne); }
+.lignes li:first-child { border-top: 0; }
+.lignes b { font-family: var(--livre); font-weight: 600; font-size: 17px; }
+.lignes .i { color: var(--or-fonce); }
+.classement { list-style: none; margin: 0; padding: 0; display: grid; }
+.classement li { display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center; min-height: 48px; border-top: 1px solid var(--ligne); font-variant-numeric: lining-nums tabular-nums; }
+.classement li:first-child { border-top: 0; }
+.classement .rang { font-family: var(--livre); font-weight: 600; color: var(--or-fonce); }
+.classement .qui { font-family: var(--livre); font-weight: 600; font-size: 17px; }
+.classement .moi .qui::after { content: " · toi"; font-family: var(--ui); font-weight: 600; font-size: 13px; color: var(--encre-2); }
+.chiffres { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.chiffres div { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--ligne); border-radius: 8px; background: var(--papier); }
+.chiffres strong { font-family: var(--livre); font-weight: 500; font-size: 30px; line-height: 1.1; font-variant-numeric: lining-nums tabular-nums; }
+.cle-lecteur { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; word-break: break-all; padding: 10px 12px; border: 1px dashed var(--ligne-forte); border-radius: 8px; background: var(--papier); user-select: all; }
+.etat-sync { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--encre-2); }
+.etat-sync .i { width: 18px; height: 18px; color: var(--vert); }
+.etat-sync.hors .i { color: var(--or-fonce); }
+.attente { display: flex; gap: 12px; align-items: center; font-family: var(--livre); font-style: italic; font-size: 17px; color: var(--encre-2); }
+.credit { font-size: 12px; color: var(--encre-2); text-align: center; }
+
+/* Navigation */
+.nav { position: fixed; left: 0; right: 0; bottom: 0; background: var(--page); border-top: 1px solid var(--ligne-forte); padding-bottom: env(safe-area-inset-bottom, 0px); padding-left: max(8px, env(safe-area-inset-left, 0px)); padding-right: max(8px, env(safe-area-inset-right, 0px)); z-index: 5; }
+.nav nav { max-width: 32rem; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); }
+.nav a { display: grid; justify-items: center; gap: 3px; min-height: 58px; padding: 8px 0 6px; border-top: 2px solid transparent; font-size: 12px; font-weight: 600; color: var(--encre-2); text-decoration: none; }
+.nav a[aria-current="page"] { color: var(--encre); border-top-color: var(--encre); }
+.nav .i { width: 22px; height: 22px; }
+.toast { position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--encre); color: var(--page); font-size: 14px; padding: 10px 14px; border-radius: 8px; max-width: calc(100% - 32px); z-index: 6; }
+@media (prefers-reduced-motion: reduce) { .livre { transition: none; } .livre:hover, .livre:focus-visible { transform: none; } }

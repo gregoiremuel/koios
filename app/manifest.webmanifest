@@ -1,0 +1,16 @@
+{
+  "name": "Koîos",
+  "short_name": "Koîos",
+  "description": "Une bibliothèque d’étude : chapitres vérifiés, exercices et un Rival qui corrige en marge.",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f3ea",
+  "theme_color": "#4a3220",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

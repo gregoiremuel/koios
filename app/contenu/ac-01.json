@@ -1,0 +1,197 @@
+{
+  "id": "ac-01",
+  "domaine": "ac",
+  "numero": 1,
+  "titre": "L’architecture gothique",
+  "figure": null,
+  "essentiel": [
+    "Vers 1137, l’abbé Suger fait reconstruire l’abbatiale de Saint‑Denis ; son chevet, consacré en 1144, applique pour la première fois de façon systématique les procédés du style gothique.",
+    "Ces procédés sont l’arc brisé, la croisée d’ogives et l’arc‑boutant, qui reprend la poussée des voûtes à l’extérieur : les murs montent plus haut et s’ouvrent en larges verrières, dont la rosace monumentale, présente dans la plupart des cathédrales du XIIIe siècle.",
+    "La croisée d’ogives n’est pas née à Saint‑Denis : on l’emploie depuis la fin du XIe siècle en Angleterre et en Normandie.",
+    "Chartres est reconstruite à partir de 1194, après un incendie ; la première pierre de la cathédrale de Reims est posée le 6 mai 1211 ; Amiens est commencée en 1220.",
+    "À Reims, la plupart des rois de France sont sacrés, jusqu’à Charles X en 1825, et Amiens, la plus grande cathédrale de France, élève ses voûtes à plus de 42 mètres."
+  ],
+  "reperes": [
+    [
+      "1144",
+      "Le chevet de Saint‑Denis, voulu par l’abbé Suger, est consacré ; il applique de façon systématique les procédés gothiques."
+    ],
+    [
+      "Arc brisé, ogives, arc‑boutant",
+      "Trois procédés qui permettent d’élever haut les murs et de les percer de larges ouvertures."
+    ],
+    [
+      "1194",
+      "Un incendie frappe Chartres ; la cathédrale est reconstruite, à l’exception de la façade."
+    ],
+    [
+      "6 mai 1211",
+      "Première pierre de Notre‑Dame de Reims, future cathédrale des sacres."
+    ],
+    [
+      "1220",
+      "Début d’Amiens, sous Robert de Luzarches ; sa nef est voûtée à plus de 42 mètres."
+    ]
+  ],
+  "sources": [
+    [
+      "BnF Essentiels · L’architecture gothique",
+      "https://essentiels.bnf.fr/fr/arts/architecture-et-urbanisme/7ee9ea29-4efd-43ab-ab38-ff643c38d2cc-architecture-gothique/article/e680747d-6757-46be-9e94-a1ef1c271b74-architecture-gothique"
+    ],
+    [
+      "BnF Essentiels · La naissance du style gothique à Saint-Denis",
+      "https://passerelles.essentiels.bnf.fr/fr/chronologie/construction/55e1a07f-e1e6-47e3-a690-ef8c003c9159-basilique-saint-denis/article/3038d0ed-badc-47e6-a520-5c8b6caeeca8-naissance-style-gothique-saint-denis"
+    ],
+    [
+      "Larousse · Gothique",
+      "https://www.larousse.fr/encyclopedie/divers/gothique/55987"
+    ],
+    [
+      "Larousse · Voûte sur croisée d’ogives",
+      "https://www.larousse.fr/encyclopedie/divers/vo%C3%BBte_sur_crois%C3%A9e_dogives/74608"
+    ],
+    [
+      "The Metropolitan Museum of Art · Gothic Art (en anglais)",
+      "https://www.metmuseum.org/TOAH/hd/mgot/hd_mgot.htm"
+    ],
+    [
+      "UNESCO · Cathédrale de Chartres",
+      "https://whc.unesco.org/fr/list/81"
+    ],
+    [
+      "Larousse · Cathédrale Notre-Dame de Reims",
+      "https://www.larousse.fr/encyclopedie/divers/cath%C3%A9drale_Notre-Dame_de_Reims/182248"
+    ],
+    [
+      "Encyclopædia Universalis · Cathédrale de Reims",
+      "https://www.universalis.fr/encyclopedie/cathedrale-de-reims/"
+    ],
+    [
+      "Encyclopædia Britannica · Reims Cathedral (en anglais)",
+      "https://www.britannica.com/topic/Reims-Cathedral"
+    ],
+    [
+      "Larousse · Cathédrale Notre-Dame d’Amiens",
+      "https://www.larousse.fr/encyclopedie/divers/cath%C3%A9drale_Notre-Dame_dAmiens/180442"
+    ],
+    [
+      "Encyclopædia Britannica · Amiens Cathedral (en anglais)",
+      "https://www.britannica.com/topic/Amiens-Cathedral?oasmId=456"
+    ]
+  ],
+  "exercices": [
+    {
+      "type": "qcm",
+      "lib": "Exercice 1 · question à choix",
+      "theme": "Le rôle de l’arc‑boutant",
+      "repere": 1,
+      "enonce": "Quel élément gothique, placé à l’extérieur, reprend la poussée des voûtes ?",
+      "reponses": [
+        "L’arc‑boutant",
+        "Le tympan",
+        "La rosace",
+        "Le triforium"
+      ],
+      "bonne": 0,
+      "correction": "L’arc‑boutant, placé à l’extérieur, s’appuie sur des contreforts et reprend la poussée des voûtes. Il rend possibles des nefs de plus en plus hautes.",
+      "figure": null,
+      "sources": [
+        [
+          "BnF Essentiels · L’architecture gothique",
+          "https://essentiels.bnf.fr/fr/arts/architecture-et-urbanisme/7ee9ea29-4efd-43ab-ab38-ff643c38d2cc-architecture-gothique/article/e680747d-6757-46be-9e94-a1ef1c271b74-architecture-gothique"
+        ],
+        [
+          "Larousse · Gothique",
+          "https://www.larousse.fr/encyclopedie/divers/gothique/55987"
+        ],
+        [
+          "The Metropolitan Museum of Art · Gothic Art (en anglais)",
+          "https://www.metmuseum.org/TOAH/hd/mgot/hd_mgot.htm"
+        ]
+      ],
+      "rivalJuste": "Juste. Les voûtes poussaient, lui retenait. La cathédrale tient encore debout.",
+      "rivalFaux": "Raté. Heureusement, les bâtisseurs du XIIIe siècle connaissaient la bonne réponse."
+    },
+    {
+      "type": "bluff",
+      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+      "theme": "L’origine de la croisée d’ogives",
+      "repere": 1,
+      "affirmation": "La croisée d’ogives a été inventée par l’abbé Suger, à Saint‑Denis, vers 1140.",
+      "vrai": false,
+      "correction": "C’était un bluff. La croisée d’ogives existe avant Saint‑Denis (Morienval, vers 1125 ; Durham, commencée en 1093) : Suger l’applique de façon systématique, il ne l’invente pas.",
+      "figure": null,
+      "sources": [
+        [
+          "Larousse · Voûte sur croisée d’ogives",
+          "https://www.larousse.fr/encyclopedie/divers/vo%C3%BBte_sur_crois%C3%A9e_dogives/74608"
+        ],
+        [
+          "Larousse · Gothique",
+          "https://www.larousse.fr/encyclopedie/divers/gothique/55987"
+        ],
+        [
+          "BnF Essentiels · L’architecture gothique",
+          "https://essentiels.bnf.fr/fr/arts/architecture-et-urbanisme/7ee9ea29-4efd-43ab-ab38-ff643c38d2cc-architecture-gothique/article/e680747d-6757-46be-9e94-a1ef1c271b74-architecture-gothique"
+        ]
+      ],
+      "rivalJuste": "Repéré. Suger a bon dos : on lui prête déjà bien assez.",
+      "rivalFaux": "Piégé. Suger dirigeait l’orchestre, il n’avait pas inventé les instruments."
+    },
+    {
+      "type": "frise",
+      "lib": "Exercice 3 · frise",
+      "theme": "Les grands chantiers gothiques",
+      "repere": 3,
+      "enonce": "Range ces quatre chantiers du plus ancien au plus récent.",
+      "elements": [
+        "Cathédrale d’Amiens",
+        "Chevet de Saint-Denis",
+        "Cathédrale de Reims",
+        "Cathédrale de Chartres"
+      ],
+      "ordre": [
+        "Chevet de Saint-Denis",
+        "Cathédrale de Chartres",
+        "Cathédrale de Reims",
+        "Cathédrale d’Amiens"
+      ],
+      "correction": "Saint‑Denis ouvre la série avec son chevet consacré en 1144. Chartres suit, reconstruite à partir de 1194, puis Reims en 1211 et Amiens en 1220.",
+      "figure": null,
+      "sources": [
+        [
+          "BnF Essentiels · La naissance du style gothique à Saint-Denis",
+          "https://passerelles.essentiels.bnf.fr/fr/chronologie/construction/55e1a07f-e1e6-47e3-a690-ef8c003c9159-basilique-saint-denis/article/3038d0ed-badc-47e6-a520-5c8b6caeeca8-naissance-style-gothique-saint-denis"
+        ],
+        [
+          "UNESCO · Cathédrale de Chartres",
+          "https://whc.unesco.org/fr/list/81"
+        ],
+        [
+          "Larousse · Cathédrale Notre-Dame de Reims",
+          "https://www.larousse.fr/encyclopedie/divers/cath%C3%A9drale_Notre-Dame_de_Reims/182248"
+        ],
+        [
+          "Encyclopædia Universalis · Cathédrale de Reims",
+          "https://www.universalis.fr/encyclopedie/cathedrale-de-reims/"
+        ],
+        [
+          "Larousse · Cathédrale Notre-Dame d’Amiens",
+          "https://www.larousse.fr/encyclopedie/divers/cath%C3%A9drale_Notre-Dame_dAmiens/180442"
+        ],
+        [
+          "Encyclopædia Britannica · Amiens Cathedral (en anglais)",
+          "https://www.britannica.com/topic/Amiens-Cathedral?oasmId=456"
+        ]
+      ],
+      "rivalJuste": "Dans l’ordre. Les maîtres d’œuvre auraient approuvé, sans le dire.",
+      "rivalFaux": "Dans le désordre, comme un chantier. Reprends, les pierres attendent.",
+      "valeurs": {
+        "Chevet de Saint-Denis": "consacré en 1144",
+        "Cathédrale de Chartres": "reconstruite dès 1194",
+        "Cathédrale de Reims": "première pierre en 1211",
+        "Cathédrale d’Amiens": "commencée en 1220"
+      }
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+ "domaines": {
+  "hg": [
+   {
+    "id": "hg-01",
+    "numero": 1,
+    "titre": "De la Révolution à l’Empire"
+   },
+   {
+    "id": "hg-02",
+    "numero": 2,
+    "titre": "La conquête normande de l’Angleterre"
+   },
+   {
+    "id": "hg-03",
+    "numero": 3,
+    "titre": "Les grands sommets du monde"
+   }
+  ],
+  "sn": [
+   {
+    "id": "sn-01",
+    "numero": 1,
+    "titre": "Le système solaire en chiffres"
+   },
+   {
+    "id": "sn-02",
+    "numero": 2,
+    "titre": "L’ADN et la cellule"
+   }
+  ],
+  "ac": [
+   {
+    "id": "ac-01",
+    "numero": 1,
+    "titre": "L’architecture gothique"
+   },
+   {
+    "id": "ac-02",
+    "numero": 2,
+    "titre": "L’impressionnisme"
+   }
+  ],
+  "gj": []
+ }
+}

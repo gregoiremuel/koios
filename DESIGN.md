@@ -1,8 +1,8 @@
-# DESIGN.md — Koîos (v3, « bibliothèque d'étude »)
+# DESIGN.md — Koîos (v4, « bibliothèque-cathédrale »)
 
 Koîos est une app de formation pour adultes : on suit un programme par sujet, chapitre après chapitre, dans l'ambiance d'une bibliothèque ancienne. Sage, mûr, chaleureux, jamais enfantin. En cas de doute, ce fichier gagne.
 
-Historique : v1 « musée » (trop froide), v2 « librairie ludique » (trop enfantine, 18 octobre 2026). On garde de la v2 l'étagère, les livres, les textures et les couleurs.
+Historique : v1 « musée » (trop froide), v2 « librairie ludique » (trop enfantine), v3 « bibliothèque d'étude » (validée, 18 octobre 2026). v4 garde la v3 et ajoute une touche de cathédrale gothique bien présente, fine et élancée, pour adultes.
 
 ## Principes
 
@@ -10,6 +10,17 @@ Historique : v1 « musée » (trop froide), v2 « librairie ludique » (trop enf
 - **Typographie de livre** : le contenu se lit comme une page imprimée.
 - **Traits fins, pas de jouet** : bords de 1 px, coins de 8 à 10 px, boutons sobres, pas de capitales criées sur les boutons, pas de célébration animée.
 - **Le Rival annote en marge**, comme un professeur exigeant au crayon : courtes phrases en italique, signées de son ex-libris.
+
+## Touche gothique (v4)
+
+- **Arc brisé** équilatéral : la niche de l'étagère, la lancette d'un domaine. Traits fins, pierre claire `#e2d3b3`, filet or.
+- **Rosace des savoirs** : un vitrail par chapitre du catalogue, dans la couleur de verre de son domaine ; éteint (`#4f4134`) tant que le chapitre n'est pas validé. Elle sert de carte de progression (bibliothèque, bilan, profil). Pas de célébration : le vitrail s'allume en fondu.
+- **Frise d'arcatures** : fine rangée d'arcs or sous l'en-tête et en tête des fiches.
+- **Lettrine enluminée** : première lettre de « L'essentiel », or clair sur bordeaux, filet or intérieur.
+- **Fleuron quadrilobé** entre les sections d'une fiche.
+- Chapitres numérotés en chiffres romains.
+- Verres des domaines : Histoire `#b0414f`, Sciences `#4f8f6c`, Arts `#4a7fb3`, Gemmologie `#cfa645`. Cuirs des reliures : `#5e2430`, `#2f5442`, `#24405e`, `#6a5020`.
+- Interdit : police gothique (fraktur), gargouilles, croix, ambiance sombre de jeu vidéo. La pierre et le vitrail restent des ornements, le papier reste le fond.
 
 ## Couleurs (jetons)
 
@@ -44,7 +55,7 @@ Historique : v1 « musée » (trop froide), v2 « librairie ludique » (trop enf
 
 ## Icônes
 
-- **Phosphor Duotone** (licence MIT), en ligne via `icones.js`, couleur de l'encre ou du domaine. Une icône a un rôle (domaine, état, action), jamais décorative.
+- **Phosphor Duotone** (licence MIT), en ligne via `icones.js` ; ornements gothiques dans `gothique.js`, couleur de l'encre ou du domaine. Une icône a un rôle (domaine, état, action), jamais décorative.
 - Plus d'émojis.
 
 ## Le Rival
@@ -61,4 +72,4 @@ Historique : v1 « musée » (trop froide), v2 « librairie ludique » (trop enf
 - Gabarits « IA » : grande accroche centrée suivie de trois cartes, cartes dans des cartes, liseré de couleur sur le côté d'une carte.
 - Mots : Bienvenue, Découvrez, N'hésitez pas, au cœur de, véritable, incontournable, passion, sublimer, écrin, expérience, univers, authentique, d'exception, excellence, intemporel, En savoir plus.
 
-Vérification automatique : `python3 scripts/verifier.py`.
+Vérification automatique : `python3 scripts/verifier.py` (app) et `python3 scripts/catalogue.py` (contenu).

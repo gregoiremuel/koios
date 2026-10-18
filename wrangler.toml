@@ -1,0 +1,14 @@
+name = "koios"
+pages_build_output_dir = "app"
+compatibility_date = "2026-10-01"
+
+# Workers AI : le Rival écrit les sujets libres.
+[ai]
+binding = "AI"
+
+# Base D1. Sans cette liaison, l'API répond 503 {"erreur":"base absente"}
+# sur les routes qui ont besoin de la base.
+[[d1_databases]]
+binding = "DB"
+database_name = "koios"
+database_id = "a8c63c1f-f40c-4204-b201-0914846bd0db"

@@ -1,0 +1,221 @@
+{
+  "id": "hg-03",
+  "domaine": "hg",
+  "numero": 3,
+  "titre": "Les grands sommets du monde",
+  "figure": null,
+  "essentiel": [
+    "L’Everest, à la frontière du Népal et de la Chine, est le point le plus élevé au-dessus du niveau de la mer : 8 848,86 m, valeur annoncée conjointement par les deux pays en décembre 2020.",
+    "Mesuré depuis sa base, sur le plancher de l’océan, le Mauna Kea, à Hawaï, est pourtant plus grand : environ 10 210 m, dont seuls 4 200 m environ émergent.",
+    "Le sommet le plus éloigné du centre de la Terre est celui du Chimborazo, en Équateur : la Terre étant renflée à l’équateur, il se trouve environ 2 070 m plus loin du centre que celui de l’Everest.",
+    "Le Kilimandjaro, volcan de Tanzanie, est le plus haut sommet d’Afrique (5 895 m) ; le Denali, en Alaska, est le plus haut d’Amérique du Nord (6 190 m, mesure de 2015).",
+    "Dans les Alpes, le mont Blanc culmine autour de 4 800 m."
+  ],
+  "reperes": [
+    [
+      "8 848,86 m",
+      "Hauteur de l’Everest au-dessus du niveau de la mer, annoncée par le Népal et la Chine en décembre 2020."
+    ],
+    [
+      "10 210 m",
+      "Hauteur du Mauna Kea, à Hawaï, de sa base sous l’océan à son sommet."
+    ],
+    [
+      "Chimborazo",
+      "Sommet le plus éloigné du centre de la Terre, environ 2 070 m plus loin que l’Everest."
+    ],
+    [
+      "5 895 m · 6 190 m",
+      "Le Kilimandjaro et le Denali, plus hauts sommets d’Afrique et d’Amérique du Nord."
+    ],
+    [
+      "Env. 4 800 m",
+      "Le mont Blanc, point culminant des Alpes."
+    ]
+  ],
+  "sources": [
+    [
+      "NOAA · What is the tallest mountain in the world ? (en anglais)",
+      "https://oceanservice.noaa.gov/facts/highestpoint.html"
+    ],
+    [
+      "NASA Earth Observatory · Chimborazo and Tungurahua, Ecuador (en anglais)",
+      "https://science.nasa.gov/earth/earth-observatory/chimborazo-and-tungurahua-ecuador-6099/"
+    ],
+    [
+      "Encyclopædia Britannica · Is Mount Everest Really the Tallest Mountain in the World ? (en anglais)",
+      "https://www.britannica.com/story/is-mount-everest-really-the-tallest-mountain-in-the-world"
+    ],
+    [
+      "Encyclopædia Britannica · Mauna Kea (en anglais)",
+      "https://www.britannica.com/place/Mauna-Kea"
+    ],
+    [
+      "Encyclopædia Britannica · Mount Everest (en anglais)",
+      "https://www.britannica.com/place/Mount-Everest"
+    ],
+    [
+      "Encyclopædia Britannica · The height of Everest (en anglais)",
+      "https://www.britannica.com/place/Mount-Everest/The-height-of-Everest"
+    ],
+    [
+      "Nature · Daily briefing : Mount Everest is officially taller (en anglais)",
+      "https://www.nature.com/articles/d41586-020-03502-y"
+    ],
+    [
+      "National Geographic · Mount Everest is more than two feet taller, China and Nepal announce (en anglais)",
+      "https://www.nationalgeographic.com/science/article/new-height-of-mount-everest-announced-by-china-and-nepal"
+    ],
+    [
+      "UNESCO · Kilimanjaro National Park (en anglais)",
+      "https://whc.unesco.org/en/list/403/"
+    ],
+    [
+      "Larousse · Kilimandjaro",
+      "https://www.larousse.fr/encyclopedie/mont/Kilimandjaro/127482"
+    ],
+    [
+      "Encyclopædia Britannica · Kilimanjaro (en anglais)",
+      "https://www.britannica.com/place/Kilimanjaro"
+    ],
+    [
+      "Encyclopædia Britannica · The World’s Highest Mountains by Continent (en anglais)",
+      "https://www.britannica.com/story/7-or-8-summits-the-worlds-highest-mountains-by-continent"
+    ],
+    [
+      "U.S. Geological Survey · New Elevation for Nation’s Highest Peak (en anglais)",
+      "https://www.usgs.gov/news/national-news-release/new-elevation-nations-highest-peak"
+    ],
+    [
+      "IGN · Altitude et pesanteur du mont Blanc : récit d’une mission au sommet",
+      "https://www.ign.fr/mag/altitude-et-pesanteur-du-mont-blanc-recit-dune-mission-au-sommet"
+    ],
+    [
+      "Larousse · Mont Blanc",
+      "https://www.larousse.fr/encyclopedie/mont/mont_Blanc/109035"
+    ]
+  ],
+  "exercices": [
+    {
+      "type": "qcm",
+      "lib": "Exercice 1 · question à choix",
+      "theme": "Haute de la base au sommet",
+      "repere": 1,
+      "enonce": "Si l’on mesure chaque montagne de sa base à son sommet, y compris sous l’eau, laquelle est la plus haute du monde ?",
+      "reponses": [
+        "L’Everest, entre le Népal et la Chine",
+        "Le Kilimandjaro, en Tanzanie",
+        "Le Denali, en Alaska",
+        "Le Mauna Kea, à Hawaï"
+      ],
+      "bonne": 3,
+      "correction": "Le Mauna Kea mesure environ 10 210 m de sa base, sur le plancher de l’océan, à son sommet. Seuls 4 200 m environ émergent : l’Everest reste le plus haut au-dessus du niveau de la mer.",
+      "figure": null,
+      "sources": [
+        [
+          "NOAA · What is the tallest mountain in the world ? (en anglais)",
+          "https://oceanservice.noaa.gov/facts/highestpoint.html"
+        ],
+        [
+          "Encyclopædia Britannica · Is Mount Everest Really the Tallest Mountain in the World ? (en anglais)",
+          "https://www.britannica.com/story/is-mount-everest-really-the-tallest-mountain-in-the-world"
+        ],
+        [
+          "Encyclopædia Britannica · Mauna Kea (en anglais)",
+          "https://www.britannica.com/place/Mauna-Kea"
+        ]
+      ],
+      "rivalJuste": "Juste. L’Everest prend la lumière, le Mauna Kea garde l’avantage sous l’eau.",
+      "rivalFaux": "L’Everest a toute l’attention. Le Mauna Kea, lui, a l’habitude de patienter."
+    },
+    {
+      "type": "bluff",
+      "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+      "theme": "Le sommet le plus éloigné du centre",
+      "repere": 2,
+      "affirmation": "Le sommet de l’Everest est le point de la surface terrestre le plus éloigné du centre de la Terre.",
+      "vrai": false,
+      "correction": "C’était un bluff. L’Everest est le plus haut au-dessus du niveau de la mer, mais la Terre est renflée à l’équateur : le sommet du Chimborazo, en Équateur, est environ 2 070 m plus loin du centre.",
+      "figure": null,
+      "sources": [
+        [
+          "NOAA · What is the tallest mountain in the world ? (en anglais)",
+          "https://oceanservice.noaa.gov/facts/highestpoint.html"
+        ],
+        [
+          "NASA Earth Observatory · Chimborazo and Tungurahua, Ecuador (en anglais)",
+          "https://science.nasa.gov/earth/earth-observatory/chimborazo-and-tungurahua-ecuador-6099/"
+        ],
+        [
+          "Encyclopædia Britannica · Is Mount Everest Really the Tallest Mountain in the World ? (en anglais)",
+          "https://www.britannica.com/story/is-mount-everest-really-the-tallest-mountain-in-the-world"
+        ]
+      ],
+      "rivalJuste": "Repéré. Le centre de la Terre ne se laisse pas impressionner par l’altitude.",
+      "rivalFaux": "L’Everest t’a ébloui. Le Chimborazo, plus loin du centre, a l’habitude d’être oublié."
+    },
+    {
+      "type": "frise",
+      "lib": "Exercice 3 · classement",
+      "theme": "Classer les sommets par altitude",
+      "repere": 3,
+      "enonce": "Range ces quatre sommets du moins élevé au plus élevé, par altitude au-dessus du niveau de la mer.",
+      "elements": [
+        "Denali",
+        "Mont Blanc",
+        "Everest",
+        "Kilimandjaro"
+      ],
+      "ordre": [
+        "Mont Blanc",
+        "Kilimandjaro",
+        "Denali",
+        "Everest"
+      ],
+      "correction": "Du plus bas au plus haut : le mont Blanc (autour de 4 800 m), le Kilimandjaro (5 895 m), le Denali (6 190 m) et l’Everest (8 848,86 m).",
+      "figure": null,
+      "sources": [
+        [
+          "IGN · Altitude et pesanteur du mont Blanc : récit d’une mission au sommet",
+          "https://www.ign.fr/mag/altitude-et-pesanteur-du-mont-blanc-recit-dune-mission-au-sommet"
+        ],
+        [
+          "Larousse · Mont Blanc",
+          "https://www.larousse.fr/encyclopedie/mont/mont_Blanc/109035"
+        ],
+        [
+          "UNESCO · Kilimanjaro National Park (en anglais)",
+          "https://whc.unesco.org/en/list/403/"
+        ],
+        [
+          "Larousse · Kilimandjaro",
+          "https://www.larousse.fr/encyclopedie/mont/Kilimandjaro/127482"
+        ],
+        [
+          "U.S. Geological Survey · New Elevation for Nation’s Highest Peak (en anglais)",
+          "https://www.usgs.gov/news/national-news-release/new-elevation-nations-highest-peak"
+        ],
+        [
+          "Encyclopædia Britannica · The World’s Highest Mountains by Continent (en anglais)",
+          "https://www.britannica.com/story/7-or-8-summits-the-worlds-highest-mountains-by-continent"
+        ],
+        [
+          "Nature · Daily briefing : Mount Everest is officially taller (en anglais)",
+          "https://www.nature.com/articles/d41586-020-03502-y"
+        ],
+        [
+          "Encyclopædia Britannica · The height of Everest (en anglais)",
+          "https://www.britannica.com/place/Mount-Everest/The-height-of-Everest"
+        ]
+      ],
+      "rivalJuste": "Dans l’ordre. Tu montes sans reprendre ton souffle.",
+      "rivalFaux": "Tu as perdu de l’altitude. On reprend doucement.",
+      "valeurs": {
+        "Mont Blanc": "Env. 4 800 m",
+        "Kilimandjaro": "5 895 m",
+        "Denali": "6 190 m",
+        "Everest": "8 848,86 m"
+      }
+    }
+  ]
+}
