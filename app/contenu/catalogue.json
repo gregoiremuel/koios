@@ -27,6 +27,11 @@
     "id": "sn-02",
     "numero": 2,
     "titre": "L’ADN et la cellule"
+   },
+   {
+    "id": "sn-03",
+    "numero": 3,
+    "titre": "Plaques tectoniques et volcans"
    }
   ],
   "ac": [
@@ -39,6 +44,11 @@
     "id": "ac-02",
     "numero": 2,
     "titre": "L’impressionnisme"
+   },
+   {
+    "id": "ac-03",
+    "numero": 3,
+    "titre": "Le Boléro de Ravel"
    }
   ],
   "gj": []
