@@ -67,17 +67,18 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
 
 .titre-sec { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .etagere { position: relative; padding: 14px 12px 0; border-radius: 10px 10px 4px 4px; background: #876143 var(--veines); background-size: 400px 60px; }
-.livres { display: grid; grid-template-columns: 1.1fr 0.92fr 1fr 0.88fr; gap: 6px; align-items: end; }
-.livre { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; padding: 12px 6px 14px; border-radius: 4px 4px 2px 2px; border-left: 4px solid rgba(0,0,0,0.18); text-decoration: none; cursor: pointer; transition: transform 0.15s; }
+.livres { display: flex; gap: 3px; align-items: flex-end; }
+.serre { width: 14px; height: 120px; margin-left: 6px; border-radius: 3px 3px 0 0; background: #3b2716 var(--veines); border-left: 3px solid #2a1b0f; }
+.livre { display: grid; grid-template-rows: auto 1fr auto; justify-items: center; align-items: center; gap: 10px; padding: 12px 5px 14px; border-radius: 3px 3px 1px 1px; border-left: 3px solid rgba(0,0,0,0.22); background-image: var(--grain); text-decoration: none; cursor: pointer; transition: transform 0.15s; }
 .livre:hover, .livre:focus-visible { transform: translateY(-5px); }
 .livre .nerfs { display: grid; gap: 6px; width: 100%; }
 .livre .nerfs i { height: 5px; background: rgba(0,0,0,0.24); border-top: 1px solid rgba(255,255,255,0.25); }
 .livre .piece { display: grid; place-items: center; padding: 10px 5px; background: rgba(0,0,0,0.26); border: 1px solid rgba(243,213,138,0.5); border-radius: 2px; min-height: 0; }
-.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--livre); font-weight: 500; font-size: 15px; line-height: 1; white-space: nowrap; color: #f2e4bd; }
+.livre .nom { writing-mode: vertical-rl; transform: rotate(180deg); font-family: var(--livre); font-weight: 500; font-size: 14px; line-height: 1; white-space: nowrap; color: #f2e4bd; }
 .livre .bandes { display: grid; gap: 3px; width: 70%; }
 .livre .bandes i { height: 3px; border-radius: 1px; background: rgba(255,255,255,0.25); }
 .livre .bandes i.ok { background: #e9cd86; }
-.l1 { background: var(--bordeaux); height: 222px; } .l2 { background: var(--vert); height: 236px; } .l3 { background: var(--prusse); height: 214px; } .l4 { background: var(--or-fonce); height: 230px; }
+.l1 { background-color: #5e2430; width: 56px; height: 224px; } .l2 { background-color: #2f5442; width: 48px; height: 238px; } .l3 { background-color: #24405e; width: 52px; height: 214px; } .l4 { background-color: #6a5020; width: 46px; height: 230px; }
 .planche { height: 14px; margin: 0 -12px; border-radius: 0 0 4px 4px; background: var(--bois-fonce) var(--veines); border-bottom: 3px solid #33220f; }
 .legende { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; font-size: 12px; color: var(--encre-2); line-height: 1.3; }
 .legende span { display: grid; justify-items: center; gap: 3px; }
@@ -90,6 +91,11 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
 .jours .fait::before { background: var(--or); }
 .jours .auj { color: var(--encre); font-weight: 600; }
 .jours .auj::before { background: var(--page); border: 1px solid var(--or); }
+.reviser { list-style: none; margin: 0; padding: 0; display: grid; }
+.reviser li { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; padding-block: 8px; border-top: 1px solid var(--ligne); }
+.reviser li:first-child { border-top: 0; }
+.reviser b { font-family: var(--livre); font-weight: 600; font-size: 17px; }
+.reviser .i { color: var(--or-fonce); }
 .classement { list-style: none; margin: 0; padding: 0; display: grid; }
 .classement li { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; min-height: 40px; border-top: 1px solid var(--ligne); font-variant-numeric: lining-nums tabular-nums; }
 .classement li:first-child { border-top: 0; }
@@ -128,7 +134,6 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
   <header class="haut">
     <a class="marque" href="index.html">Koîos</a>
     <div class="compte">
-      <span title="Tes points"><span data-ico="trophee"></span>1 240</span>
       <span class="initiale" role="img" aria-label="Ton profil, Greg">G</span>
     </div>
   </header>
@@ -143,9 +148,9 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
     <h2 id="reprendre-titre">Histoire et géographie</h2>
     <p class="sous">Chapitre 3 · De la Révolution à l’Empire</p>
     <div class="infos meta">
-      <span><span data-ico="livre"></span>Fiche « À retenir »</span>
+      <span><span data-ico="livre"></span>Fiche «&nbsp;À retenir&nbsp;»</span>
       <span><span data-ico="liste"></span>3 exercices</span>
-      <span><span data-ico="sablier"></span>8 min environ</span>
+      <span><span data-ico="sablier"></span>8&nbsp;min environ</span>
     </div>
     <div class="programme">
       <div class="chapitres" role="img" aria-label="Chapitre 3 sur 8 : deux chapitres validés">
@@ -169,29 +174,20 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
         <a class="livre l2" href="partie.html" aria-label="Sciences et nature, niveau Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Sciences</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
         <a class="livre l3" href="partie.html" aria-label="Arts et culture, niveau Apprenti"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Arts · Culture</span></span><span class="bandes"><i class="ok"></i><i></i><i></i></span></a>
         <a class="livre l4" href="partie.html" aria-label="Gemmologie et joaillerie, niveau Maître"><span class="nerfs"><i></i><i></i></span><span class="piece"><span class="nom">Gemmologie</span></span><span class="bandes"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span></a>
+        <span class="serre" aria-hidden="true"></span>
       </div>
       <div class="planche"></div>
     </div>
-    <div class="legende">
-      <span><span data-ico="globe" style="color: var(--bordeaux)"></span><b>Compagnon</b>35 %</span>
-      <span><span data-ico="microscope" style="color: var(--vert)"></span><b>Apprenti</b>12 %</span>
-      <span><span data-ico="palette" style="color: var(--prusse)"></span><b>Apprenti</b>8 %</span>
-      <span><span data-ico="gemme" style="color: var(--or-fonce)"></span><b>Maître</b>92 %</span>
-    </div>
+    <p class="meta" style="margin: 0">Touche un livre pour ouvrir sa formation.</p>
   </section>
 
-  <section class="carte" aria-labelledby="cercle-titre">
-    <div class="titre-sec"><span class="lib">Cercle d’étude · 5 membres</span><span class="meta">Jour 3 sur 7</span></div>
-    <h2 id="cercle-titre">Défi : expert de la Révolution en 7&nbsp;jours</h2>
-    <div class="jours" role="img" aria-label="Jour 3 sur 7, deux jours réussis">
-      <span class="fait">1</span><span class="fait">2</span><span class="auj">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
-    </div>
-    <ol class="classement" aria-label="Classement du cercle">
-      <li><span class="rang">1</span><span>Léa</span><span class="meta">420 pts</span></li>
-      <li class="moi"><span class="rang">2</span><span>Toi</span><span class="meta" style="color: var(--encre)">395 pts</span></li>
-      <li><span class="rang">3</span><span>Karim</span><span class="meta">360 pts</span></li>
-    </ol>
-    <a class="lien" href="#" id="voir-cercle">Voir tout le cercle <span data-ico="fleche"></span></a>
+  <section class="carte" aria-labelledby="reviser-titre">
+    <div class="titre-sec"><h2 id="reviser-titre">À réviser</h2><span class="meta">Tiré de tes bilans</span></div>
+    <ul class="reviser">
+      <li><span data-ico="revision"></span><span><b>Les prisonniers de la Bastille</b><br><span class="meta">Histoire et géographie · chapitre 3</span></span><a class="lien" href="partie.html">Revoir</a></li>
+      <li><span data-ico="revision"></span><span><b>Le lieu des États généraux</b><br><span class="meta">Histoire et géographie · chapitre 3</span></span><a class="lien" href="partie.html">Revoir</a></li>
+      <li><span data-ico="revision"></span><span><b>La perspective chez Piero della Francesca</b><br><span class="meta">Arts et culture · chapitre 1</span></span><a class="lien" href="partie.html">Revoir</a></li>
+    </ul>
   </section>
 
   <section class="carte libre" aria-labelledby="libre-titre">
@@ -201,19 +197,7 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
     <p class="astuce" id="astuce"><span data-ico="verifie"></span><span id="astuce-texte">Chaque notion est vérifiée par au moins deux sources sérieuses avant d’entrer dans le programme.</span></p>
   </section>
 
-  <section class="carte" aria-labelledby="duels-titre">
-    <div class="titre-sec"><h2 id="duels-titre">Défis entre amis</h2><span class="meta">2 en cours</span></div>
-    <div class="duel">
-      <span><span class="qui">Léa te défie</span><br><span class="meta">Arts et culture · 7 sur 10</span></span>
-      <a class="btn petit" href="partie.html">Relever</a>
-    </div>
-    <div class="duel">
-      <span><span class="qui">Ton défi à Karim</span><br><span class="meta">Histoire · pas encore joué</span></span>
-      <span class="attente">En attente</span>
-    </div>
-  </section>
-
-  <p class="credit">Maquette 1 sur 2 · prénoms et scores d’essai · icônes Phosphor (licence MIT) · Rival dessiné pour Koîos</p>
+  <p class="credit">Maquette 1 sur 2 · progression d’essai · icônes Phosphor (licence MIT) · Rival dessiné pour Koîos</p>
 </div>
 
 <div class="nav">
@@ -247,7 +231,6 @@ h2 { font-family: var(--livre); font-weight: 600; font-size: 21px; line-height: 
   document.querySelectorAll(".nav button[data-ecran]").forEach(function (b) {
     b.addEventListener("click", function () { montrer("« " + b.dataset.ecran + " » arrive dans l’ébauche jouable."); });
   });
-  document.getElementById("voir-cercle").addEventListener("click", function (e) { e.preventDefault(); montrer("Le cercle complet arrive dans l’ébauche jouable."); });
   var champ = document.getElementById("sujet");
   var astuce = document.getElementById("astuce");
   var texte = document.getElementById("astuce-texte");

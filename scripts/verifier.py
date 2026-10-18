@@ -31,8 +31,11 @@ def violet(hexa: str) -> bool:
 
 
 def texte_visible(html: str) -> str:
+    """Texte affiché : le HTML hors balises, plus les chaînes entre guillemets des scripts (textes injectés en JS)."""
+    scripts = " ".join(re.findall(r"<script[^>]*>(.*?)</script>", html, flags=re.S | re.I))
+    chaines = " ".join(re.findall(r'"((?:[^"\\]|\\.)*)"', scripts))
     html = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
-    return re.sub(r"<[^>]+>", " ", html)
+    return re.sub(r"<[^>]+>", " ", html) + " " + chaines
 
 
 def verifier(chemin: str) -> list[str]:

@@ -60,6 +60,10 @@ figcaption { font-family: var(--livre); font-style: italic; font-size: 13px; col
 .reperes li:first-child { border-top: 0; }
 .reperes time { font-family: var(--livre); font-weight: 600; color: var(--or-fonce); font-variant-numeric: lining-nums; }
 .reperes span { font-family: var(--livre); font-size: 17px; line-height: 1.4; }
+.reperes li.revoir { background: var(--or-pale); margin-inline: -10px; padding-inline: 10px; border-radius: 6px; }
+.reperes li.revoir span::after { content: "À revoir"; display: block; font-family: var(--ui); font-size: 12px; font-weight: 600; color: var(--bordeaux); margin-top: 2px; }
+.essentiel { display: grid; gap: 10px; }
+.essentiel p { margin: 0; font-family: var(--livre); font-size: 17px; line-height: 1.55; }
 
 .reponses { display: grid; gap: 8px; }
 .reponses.deux { grid-template-columns: 1fr 1fr; }
@@ -73,8 +77,7 @@ figcaption { font-family: var(--livre); font-style: italic; font-size: 13px; col
 .tuile.faux { background: var(--bordeaux-pale); border-color: var(--bordeaux); color: var(--bordeaux-fonce); }
 .tuile.faux .lettre { border-color: var(--bordeaux); color: var(--bordeaux); }
 .tuile:disabled { cursor: default; }
-.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; gap: 6px; min-height: 92px; padding: 12px; font-size: 18px; }
-.reponses.deux .tuile .i { width: 30px; height: 30px; color: var(--encre-2); }
+.reponses.deux .tuile { grid-template-columns: 1fr; justify-items: center; text-align: center; min-height: 64px; padding: 12px; font-size: 18px; }
 
 .pari { display: grid; gap: 8px; }
 .pari .ligne-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -100,7 +103,7 @@ details.sources { border-top: 1px solid var(--ligne); padding-top: 4px; }
 details.sources summary { cursor: pointer; font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; min-height: 44px; }
 details.sources summary .i { color: var(--vert); }
 details.sources ul { margin: 0 0 4px; padding-left: 18px; font-size: 14px; }
-details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; }
+details.sources a { color: var(--prusse-fonce); display: block; padding: 11px 0; }
 .marge { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: center; }
 .marge p { font-family: var(--livre); font-style: italic; font-size: 17px; line-height: 1.4; color: var(--encre); margin: 0; }
 .marge small { display: block; font-family: var(--ui); font-style: normal; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--bordeaux); }
@@ -116,7 +119,7 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
 .case small { display: block; font-family: var(--ui); font-size: 13px; color: var(--bordeaux-fonce); }
 .pioche { display: grid; gap: 6px; }
 .pioche .tuile { grid-template-columns: 1fr auto; font-size: 18px; }
-.pioche .tuile .etat { font-family: var(--ui); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--encre-2); }
+.pioche .tuile .etat { font-family: var(--ui); font-size: 13px; font-weight: 600; color: var(--encre-2); }
 .pioche .tuile[aria-pressed="true"] { background: var(--papier); border-style: dashed; color: var(--encre-2); }
 
 .bilan { display: grid; gap: 14px; }
@@ -134,7 +137,7 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
   <div class="haut">
     <a class="retour" href="index.html"><span data-ico="retour"></span>Bibliothèque</a>
     <span class="titre-chap">Chapitre 3</span>
-    <span class="temps" id="temps" hidden><span data-ico="sablier"></span><span id="secondes">25 s</span></span>
+    <span class="meta" id="compteur" style="min-width:56px;text-align:right"></span>
   </div>
   <div class="etapes" role="progressbar" aria-label="Avancement du chapitre" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="etapes"><i></i><i></i><i></i><i></i><i></i></div>
   <main id="scene"></main>
@@ -149,15 +152,21 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
   var FICHE = {
     chapitre: "De la Révolution à l’Empire",
     figure: { src: FP + "Couder_Stati_generali.jpg?width=800", alt: "Tableau de l’ouverture des États généraux à Versailles", credit: "Auguste Couder, Ouverture des États généraux, 1839 · domaine public · Wikimedia Commons" },
+    essentiel: [
+      "Le 5 mai 1789, les États généraux s’ouvrent à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
+      "Le 14 juillet 1789, les Parisiens prennent la Bastille. La forteresse ne détient alors que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
+      "Un an plus tard, le 14 juillet 1790, la fête de la Fédération se tient au Champ‑de‑Mars, à Paris.",
+      "Le 2 décembre 1804, Napoléon est sacré empereur à Notre-Dame de Paris. Jacques-Louis David en a tiré le tableau du Sacre, conservé au Louvre."
+    ],
     reperes: [
       ["5 mai 1789", "Ouverture des États généraux à Versailles, à l’hôtel des Menus‑Plaisirs."],
       ["14 juillet 1789", "Prise de la Bastille ; la forteresse ne détient alors que sept prisonniers."],
-      ["14 juillet 1790", "Fête de la Fédération au Champ-de-Mars, un an après."],
+      ["14 juillet 1790", "Fête de la Fédération au Champ‑de‑Mars, un an après."],
       ["2 décembre 1804", "Sacre de Napoléon à Notre-Dame de Paris."]
     ],
     sources: [
       ["Assemblée nationale · La réunion des états généraux, mai 1789", "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"],
-      ["Château de Versailles · Versailles au cœur de la Révolution", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
+      ["Château de Versailles · Versailles at the heart of the French Revolution (en anglais)", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
       ["Larousse · La Bastille", "https://www.larousse.fr/encyclopedie/divers/la_Bastille/107806"],
       ["BnF Essentiels · La fête de la Fédération", "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"],
       ["Fondation Napoléon · Le sacre du 2 décembre 1804", "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"]
@@ -165,21 +174,21 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
   };
   var EXERCICES = [
     {
-      type: "qcm", lib: "Exercice 1 · question à choix", theme: "La date des États généraux",
-      enonce: "En quelle année les États généraux s’ouvrent‑ils à Versailles ?",
-      reponses: ["1787", "1789", "1791", "1793"], bonne: 1,
+      type: "qcm", lib: "Exercice 1 · question à choix", theme: "Le lieu des États généraux", repere: 0,
+      enonce: "Le 5 mai 1789, où s’ouvrent les États généraux ?",
+      reponses: ["À l’hôtel des Menus‑Plaisirs, à Versailles", "Dans la salle du Jeu de paume, à Versailles", "Dans la galerie des Glaces du château", "Au Manège des Tuileries, à Paris"], bonne: 0,
       correction: "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, dans la salle bâtie à l’hôtel des Menus‑Plaisirs.",
       figure: null,
       sources: [
         ["Assemblée nationale · La réunion des états généraux, mai 1789", "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"],
-        ["Château de Versailles · Versailles au cœur de la Révolution", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
+        ["Château de Versailles · Versailles at the heart of the French Revolution (en anglais)", "https://en.chateauversailles.fr/discover/history/key-dates/versailles-heart-french-revolution"],
         ["Centre de musique baroque de Versailles · L’hôtel des Menus-Plaisirs", "https://cmbv.fr/en/node/2691"]
       ],
       rivalJuste: "Juste. Louis XVI a mis plus longtemps que toi à saisir l’enjeu.",
       rivalFaux: "La Révolution n’a pas attendu que tu arrives."
     },
     {
-      type: "bluff", lib: "Exercice 2 · le Rival bluffe-t-il ?", theme: "Les prisonniers de la Bastille",
+      type: "bluff", lib: "Exercice 2 · le Rival bluffe-t-il ?", theme: "Les prisonniers de la Bastille", repere: 1,
       affirmation: "Le 14 juillet 1789, les émeutiers libèrent des centaines de prisonniers de la Bastille.",
       vrai: false,
       correction: "C’était un bluff. Ce jour-là, la Bastille ne détenait que sept prisonniers : quatre faussaires, deux aliénés et un comte enfermé à la demande de sa famille.",
@@ -193,14 +202,15 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
       rivalFaux: "Sept prisonniers. Je savais que la légende te plairait plus que les archives."
     },
     {
-      type: "frise", lib: "Exercice 3 · frise", theme: "L’ordre des grandes dates",
-      enonce: "Range ces événements du plus ancien au plus récent.",
-      elements: ["Sacre de Napoléon", "Prise de la Bastille", "Fête de la Fédération"],
-      ordre: ["Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
-      dates: { "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
-      correction: "La Bastille tombe en 1789, la Fédération la célèbre en 1790, et Napoléon se fait sacrer à Notre-Dame en 1804.",
+      type: "frise", lib: "Exercice 3 · frise", theme: "L’ordre des grandes dates", repere: 2,
+      enonce: "Range ces quatre événements du plus ancien au plus récent.",
+      elements: ["Fête de la Fédération", "Prise de la Bastille", "Sacre de Napoléon", "Ouverture des États généraux"],
+      ordre: ["Ouverture des États généraux", "Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
+      dates: { "Ouverture des États généraux": "5 mai 1789", "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
+      correction: "Deux de ces événements tombent en 1789 : les États généraux en mai, la Bastille en juillet. La Fédération suit en 1790, le sacre en 1804.",
       figure: { src: FP + "Le_Sacre_de_Napol%C3%A9on,_David,_1804.jpg?width=800", alt: "Le Sacre de Napoléon peint par Jacques-Louis David", credit: "Jacques-Louis David, Le Sacre de Napoléon, musée du Louvre · domaine public · Wikimedia Commons" },
       sources: [
+        ["Assemblée nationale · La réunion des états généraux, mai 1789", "https://www2.assemblee-nationale.fr/15/evenements/2019/la-revolution-s-affiche/la-reunion-des-etats-generaux-mai-1789"],
         ["Encyclopædia Universalis · Quatorze juillet 1789", "https://www.universalis.fr/encyclopedie/quatorze-juillet-1789/"],
         ["BnF Essentiels · La fête de la Fédération", "https://essentiels.bnf.fr/fr/image/7a19b025-e335-4675-a13b-666a7c31095d-fete-la-federation-14-juillet-1790"],
         ["Fondation Napoléon · Le sacre du 2 décembre 1804", "https://www.napoleon.org/histoire-des-2-empires/dossiers-thematiques/le-sacre-de-napoleon-ier-le-2-decembre-1804-a-notre-dame/"],
@@ -211,13 +221,14 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
     }
   ];
   var BAREME = { 50: [6, -1], 70: [8, -4], 90: [9, -8], 100: [10, -20] };
-  var DUREE = 25;
+  var SUITE = "Chapitre 4 · L’Europe napoléonienne, 1804‑1815";
 
   var scene = document.getElementById("scene");
   var etapes = document.getElementById("etapes");
-  var temps = document.getElementById("temps");
-  var secondes = document.getElementById("secondes");
-  var etape = 0, justes = 0, total = 0, chrono = null, erreurs = [];
+  var compteur = document.getElementById("compteur");
+  var serie = EXERCICES.slice();
+  var aRevoir = [];
+  var etape = 0, justes = 0, total = 0, rates = [];
 
   function el(tag, attrs, enfants) {
     var n = document.createElement(tag);
@@ -255,36 +266,26 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
     return el("details", { "class": "sources" }, [el("summary", {}, [icone("verifie"), "Vérifié par " + liste.length + " sources"]), ul]);
   }
   function majEtapes() {
-    etapes.querySelectorAll("i").forEach(function (b, k) { b.className = k < etape ? "fait" : (k === etape ? "cours" : ""); });
+    var n = serie.length + 2;
+    etapes.innerHTML = "";
+    for (var k = 0; k < n; k++) etapes.appendChild(el("i", { "class": k < etape ? "fait" : (k === etape ? "cours" : "") }));
+    etapes.style.gridTemplateColumns = "repeat(" + n + ", 1fr)";
+    etapes.setAttribute("aria-valuemax", String(n));
     etapes.setAttribute("aria-valuenow", String(etape + 1));
+    compteur.textContent = etape === 0 ? "Fiche" : (etape > serie.length ? "Bilan" : etape + " / " + serie.length);
   }
-  function lancerChrono(surFin) {
-    clearInterval(chrono);
-    var reste = DUREE;
-    temps.hidden = false;
-    temps.classList.remove("vite");
-    secondes.textContent = reste + " s";
-    chrono = setInterval(function () {
-      reste -= 1;
-      secondes.textContent = Math.max(reste, 0) + " s";
-      if (reste <= 5) temps.classList.add("vite");
-      if (reste <= 0) { clearInterval(chrono); surFin(); }
-    }, 1000);
-  }
-  function arreter() { clearInterval(chrono); }
 
-  function verdict(q, juste, gagne, horsTemps) {
-    arreter();
-    if (juste) justes += 1; else erreurs.push(q.theme);
+  function verdict(q, juste, gagne) {
+    if (juste) justes += 1; else rates.push(q);
     total += gagne;
     var b = el("section", { "class": "verdict " + (juste ? "ok" : "ko"), role: "status" }, [
-      el("div", { "class": "titre" }, [icone(juste ? "juste" : "faux"), el("strong", { text: horsTemps ? "Temps écoulé" : (juste ? "Exact" : "Inexact") }), el("span", { "class": "pts", text: pts(gagne) })]),
+      el("div", { "class": "titre" }, [icone(juste ? "juste" : "faux"), el("strong", { text: juste ? "Exact" : "Inexact" }), el("span", { "class": "pts", text: pts(gagne) })]),
       el("p", { "class": "explication", text: q.correction }),
       figure(q.figure),
       sources(q.sources),
       marge(juste ? "vexe" : "ravi", juste ? q.rivalJuste : q.rivalFaux)
     ]);
-    var suite = el("button", { "class": "btn", type: "button", id: "continuer", text: etape === EXERCICES.length ? "Voir le bilan du chapitre" : "Exercice suivant" });
+    var suite = el("button", { "class": "btn", type: "button", id: "continuer", text: etape === serie.length ? "Voir le bilan" : "Exercice suivant" });
     suite.addEventListener("click", function () { etape += 1; afficher(); });
     b.appendChild(suite);
     return b;
@@ -297,23 +298,32 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
   }
 
   function fiche() {
-    temps.hidden = true;
+    var revision = aRevoir.length > 0;
     var liste = el("ol", { "class": "reperes" });
-    FICHE.reperes.forEach(function (r) { liste.appendChild(el("li", {}, [el("time", { text: r[0] }), el("span", { text: r[1] })])); });
-    var go = el("button", { "class": "btn", type: "button", id: "commencer", text: "Commencer les 3 exercices" });
+    FICHE.reperes.forEach(function (r, k) {
+      var li = el("li", {}, [el("time", { text: r[0] }), el("span", { text: r[1] })]);
+      if (aRevoir.indexOf(k) >= 0) li.classList.add("revoir");
+      liste.appendChild(li);
+    });
+    var essentiel = el("div", { "class": "essentiel" });
+    FICHE.essentiel.forEach(function (t) { essentiel.appendChild(el("p", { text: t })); });
+    var n = serie.length;
+    var go = el("button", { "class": "btn", type: "button", id: "commencer", text: revision ? "Rejouer " + (n > 1 ? "les " + n + " exercices manqués" : "l’exercice manqué") : "Passer aux " + n + " exercices" });
     go.addEventListener("click", function () { etape = 1; afficher(); });
     return el("div", { style: "display:grid;gap:18px" }, [
-      el("div", { "class": "feuille" }, [
-        el("span", { "class": "lib", text: "Histoire et géographie · chapitre 3" }),
+      el("article", { "class": "feuille" }, [
+        el("span", { "class": "lib", text: revision ? "Révision · chapitre 3" : "Histoire et géographie · chapitre 3" }),
         el("h1", { text: FICHE.chapitre }),
         figure(FICHE.figure),
-        el("h2", { text: "À retenir" }),
+        el("h2", { text: "L’essentiel" }),
+        essentiel,
+        el("h2", { text: "Repères" }),
         liste,
         sources(FICHE.sources)
       ]),
-      marge("explique", "Quatre dates, et je te les demanderai toutes. Prends ton temps."),
+      marge("explique", revision ? "J’ai surligné ce qui t’a échappé. Relis, puis on reprend." : "Quatre dates, et je te les demanderai toutes. Prends ton temps."),
       go,
-      el("p", { "class": "meta", style: "margin:-8px 0 0;text-align:center", text: "3 exercices · 25 secondes chacun" })
+      el("p", { "class": "meta", style: "margin:-8px 0 0;text-align:center", text: n + (n > 1 ? " exercices" : " exercice") + " · sans chronomètre" })
     ]);
   }
 
@@ -339,28 +349,24 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
     var pari = el("div", { "class": "pari" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "lib", text: "Ta certitude" }), regle]), jetons]);
     var alerte = el("p", { "class": "alerte", text: "Choisis d’abord une réponse.", hidden: "" });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider" });
-    var zone = el("div", { style: "display:grid;gap:16px" }, [
-      el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]),
-      rep, pari, valider, alerte
-    ]);
-    function conclure(horsTemps) {
+    var zone = el("div", { style: "display:grid;gap:16px" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]), rep, pari, valider, alerte]);
+    valider.addEventListener("click", function () {
+      if (choisi === null) { alerte.hidden = false; return; }
       tuiles.forEach(function (t) { t.disabled = true; t.setAttribute("aria-pressed", "false"); });
       var juste = choisi === q.bonne;
       tuiles[q.bonne].classList.add("juste");
       tuiles[q.bonne].querySelector(".fin").appendChild(icone("juste", "i marque", "Bonne réponse"));
-      if (choisi !== null && !juste) { tuiles[choisi].classList.add("faux"); tuiles[choisi].querySelector(".fin").appendChild(icone("faux", "i marque", "Ta réponse, inexacte")); }
+      if (!juste) { tuiles[choisi].classList.add("faux"); tuiles[choisi].querySelector(".fin").appendChild(icone("faux", "i marque", "Ta réponse, inexacte")); }
       pari.remove(); valider.remove(); alerte.remove();
-      poser(zone, verdict(q, juste, juste ? BAREME[certitude][0] : (choisi === null ? 0 : BAREME[certitude][1]), horsTemps));
-    }
-    valider.addEventListener("click", function () { if (choisi === null) { alerte.hidden = false; return; } conclure(false); });
-    lancerChrono(function () { conclure(true); });
+      poser(zone, verdict(q, juste, BAREME[certitude][juste ? 0 : 1]));
+    });
     return zone;
   }
 
   function bluff(q) {
     var rep = el("div", { "class": "reponses deux", role: "group", "aria-label": "Ton verdict" });
-    var vraiB = el("button", { "class": "tuile", type: "button" }, [icone("juste"), el("span", { text: "Il dit vrai" })]);
-    var bluffB = el("button", { "class": "tuile", type: "button" }, [icone("faux"), el("span", { text: "Il bluffe" })]);
+    var vraiB = el("button", { "class": "tuile", type: "button", text: "Il dit vrai" });
+    var bluffB = el("button", { "class": "tuile", type: "button", text: "Il bluffe" });
     rep.appendChild(vraiB); rep.appendChild(bluffB);
     var tete = el("div", { "class": "marge" });
     tete.innerHTML = window.rivalSVG ? rivalSVG("malin", 44) : "";
@@ -370,60 +376,58 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
       vraiB.disabled = true; bluffB.disabled = true;
       var juste = dit === q.vrai;
       (q.vrai ? vraiB : bluffB).classList.add("juste");
-      if (dit !== null && !juste) (dit ? vraiB : bluffB).classList.add("faux");
-      poser(zone, verdict(q, juste, juste ? 8 : (dit === null ? 0 : -4), dit === null));
+      if (!juste) (dit ? vraiB : bluffB).classList.add("faux");
+      poser(zone, verdict(q, juste, juste ? 8 : -4));
     }
     vraiB.addEventListener("click", function () { conclure(true); });
     bluffB.addEventListener("click", function () { conclure(false); });
-    lancerChrono(function () { conclure(null); });
     return zone;
   }
 
   function frise(q) {
     var placees = [];
+    var n = q.ordre.length;
     var rayon = el("div", { "class": "rayon", role: "group", "aria-label": "Ton ordre" });
     var pioche = el("div", { "class": "pioche", role: "group", "aria-label": "Événements à placer" });
-    var alerte = el("p", { "class": "alerte", text: "Place les trois événements avant de valider.", hidden: "" });
+    var alerte = el("p", { "class": "alerte", text: "Place les " + n + " événements avant de valider.", hidden: "" });
     function dessiner() {
       rayon.innerHTML = "";
-      for (var k = 0; k < 3; k++) {
+      for (var k = 0; k < n; k++) {
         var nom = placees[k];
-        rayon.appendChild(el("div", { "class": "case" + (nom ? " pleine" : "") }, [el("span", { "class": "num", text: String(k + 1) }), nom ? el("span", { text: nom }) : el("em", { text: k === 0 ? "Le plus ancien" : (k === 2 ? "Le plus récent" : "Entre les deux") })]));
+        rayon.appendChild(el("div", { "class": "case" + (nom ? " pleine" : "") }, [el("span", { "class": "num", text: String(k + 1) }), nom ? el("span", { text: nom }) : el("em", { text: k === 0 ? "Le plus ancien" : (k === n - 1 ? "Le plus récent" : "Ensuite") })]));
       }
       pioche.querySelectorAll("button").forEach(function (b) { var d = placees.indexOf(b.dataset.nom) >= 0; b.setAttribute("aria-pressed", d ? "true" : "false"); b.querySelector(".etat").textContent = d ? "Retirer" : "Placer"; });
     }
     q.elements.forEach(function (nom) {
       var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
-      b.addEventListener("click", function () { var k = placees.indexOf(nom); if (k >= 0) placees.splice(k, 1); else if (placees.length < 3) placees.push(nom); alerte.hidden = true; dessiner(); });
+      b.addEventListener("click", function () { var k = placees.indexOf(nom); if (k >= 0) placees.splice(k, 1); else if (placees.length < n) placees.push(nom); alerte.hidden = true; dessiner(); });
       pioche.appendChild(b);
     });
     var valider = el("button", { "class": "btn", type: "button", id: "valider", text: "Valider l’ordre" });
     var zone = el("div", { style: "display:grid;gap:16px" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]), rayon, pioche, valider, alerte]);
-    function conclure(horsTemps) {
-      var juste = placees.length === 3 && placees.every(function (n, k) { return n === q.ordre[k]; });
+    valider.addEventListener("click", function () {
+      if (placees.length < n) { alerte.hidden = false; return; }
+      var juste = placees.every(function (x, k) { return x === q.ordre[k]; });
       pioche.remove(); valider.remove(); alerte.remove();
       rayon.innerHTML = "";
       q.ordre.forEach(function (nom, k) {
         var ok = placees[k] === nom;
         var txt = el("span", {}, [nom + ", " + q.dates[nom]]);
-        if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici : " + (placees[k] || "rien") }));
+        if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici : " + placees[k] }));
         rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(k + 1) }), txt]));
       });
-      poser(zone, verdict(q, juste, juste ? 10 : 0, horsTemps));
-    }
-    valider.addEventListener("click", function () { if (placees.length < 3) { alerte.hidden = false; return; } conclure(false); });
+      poser(zone, verdict(q, juste, juste ? 10 : 0));
+    });
     dessiner();
-    lancerChrono(function () { conclure(true); });
     return zone;
   }
 
   function bilan() {
-    arreter();
-    temps.hidden = true;
-    var pct = Math.round(justes / EXERCICES.length * 100);
-    var valide = justes >= 2;
+    var n = serie.length;
+    var pct = Math.round(justes / n * 100);
+    var valide = justes >= Math.ceil(n * 2 / 3);
     var revoir = el("ul", { "class": "revoir" });
-    if (erreurs.length) erreurs.forEach(function (e) { revoir.appendChild(el("li", {}, [icone("revision"), e])); });
+    if (rates.length) rates.forEach(function (q) { revoir.appendChild(el("li", {}, [icone("revision"), q.theme])); });
     else revoir.appendChild(el("li", {}, [icone("juste"), "Rien à revoir sur ce chapitre."]));
     var copie = el("p", { "class": "meta", style: "margin:0" });
     var defier = el("button", { "class": "btn trait", type: "button" }, [icone("epee"), "Défier un ami sur ce chapitre"]);
@@ -432,24 +436,34 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
       var repli = function () { copie.textContent = "Copie impossible ici. Lien d’essai : " + lien; };
       try { navigator.clipboard.writeText(lien).then(function () { copie.textContent = "Lien d’essai copié : colle-le dans WhatsApp."; }, repli); } catch (e) { repli(); }
     });
-    var refaire = el("button", { "class": "btn", type: "button", text: erreurs.length ? "Revoir mes erreurs" : "Refaire le chapitre" });
-    refaire.addEventListener("click", function () { etape = 0; justes = 0; total = 0; erreurs = []; afficher(); });
-    var mot = justes === 3 ? "Trois sur trois. Je reprends mes fiches, et tu passes au chapitre 4."
-      : justes === 2 ? "Validé, de justesse. Le chapitre 4 sera moins indulgent."
-      : justes === 1 ? "Une sur trois. Relis la fiche, je t’attends."
-      : "Aucune. Relis la fiche, puis reviens me voir.";
-    return el("div", { style: "display:grid;gap:18px" }, [
+    var principal;
+    if (rates.length) {
+      principal = el("button", { "class": "btn", type: "button", text: "Revoir mes erreurs" });
+      principal.addEventListener("click", function () {
+        aRevoir = rates.map(function (q) { return q.repere; });
+        serie = rates.slice();
+        etape = 0; justes = 0; total = 0; rates = [];
+        afficher();
+      });
+    } else {
+      principal = el("a", { "class": "btn", href: "index.html", text: "Retour à la bibliothèque" });
+    }
+    var mot = rates.length === 0 ? "Rien à redire. Le chapitre 4 sera moins indulgent."
+      : valide ? "Validé, mais pas sans fautes. Revois-les avant de passer à la suite."
+      : "Pas encore. Relis ce que j’ai surligné, puis reviens.";
+    var blocs = [
       el("section", { "class": "feuille bilan", "aria-labelledby": "bilan-titre" }, [
-        el("span", { "class": "lib", text: "Chapitre 3 · bilan" }),
-        el("h1", { id: "bilan-titre", text: valide ? "Chapitre validé" : "Chapitre à reprendre" }),
-        el("div", { "class": "score" }, [el("strong", { text: justes + "/" + EXERCICES.length }), el("span", { "class": "meta", text: pct + " % · " + pts(total) })]),
+        el("span", { "class": "lib", text: aRevoir.length ? "Révision · bilan" : "Chapitre 3 · bilan" }),
+        el("h1", { id: "bilan-titre", text: valide ? (aRevoir.length ? "Erreurs corrigées" : "Chapitre validé") : "Chapitre à reprendre" }),
+        el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta", text: pct + " % · " + pts(total) })]),
         el("h2", { text: "Points à revoir" }),
         revoir,
-        el("p", { "class": "meta", style: "margin:0", text: valide ? "Suite : chapitre 4, Le Consulat et l’Empire." : "Il faut 2 bonnes réponses sur 3 pour valider." })
+        el("p", { "class": "meta", style: "margin:0", text: valide ? "Suite : " + SUITE + "." : "Il faut " + Math.ceil(n * 2 / 3) + (Math.ceil(n * 2 / 3) > 1 ? " bonnes réponses" : " bonne réponse") + " sur " + n + " pour valider." })
       ]),
       marge(valide ? "vexe" : "ravi", mot),
-      el("div", { "class": "actions" }, [refaire, defier, copie, el("a", { "class": "btn trait", href: "index.html", text: "Retour à la bibliothèque" })])
-    ]);
+      el("div", { "class": "actions" }, [principal, defier, copie, rates.length ? el("a", { "class": "btn trait", href: "index.html", text: "Retour à la bibliothèque" }) : null])
+    ];
+    return el("div", { style: "display:grid;gap:18px" }, blocs);
   }
 
   function afficher() {
@@ -457,8 +471,8 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 9px 0; 
     window.scrollTo(0, 0);
     majEtapes();
     if (etape === 0) { scene.appendChild(fiche()); return; }
-    if (etape > EXERCICES.length) { scene.appendChild(bilan()); return; }
-    var q = EXERCICES[etape - 1];
+    if (etape > serie.length) { scene.appendChild(bilan()); return; }
+    var q = serie[etape - 1];
     scene.appendChild(q.type === "qcm" ? qcm(q) : q.type === "bluff" ? bluff(q) : frise(q));
   }
   if (window.poserIcones) poserIcones();
