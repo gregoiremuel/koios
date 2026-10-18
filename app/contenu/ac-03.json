@@ -8,7 +8,7 @@
   "En 1928, Maurice Ravel compose le Boléro pour la danseuse russe Ida Rubinstein, à qui la partition est dédiée.",
   "Ida Rubinstein lui avait d’abord demandé d’orchestrer Iberia, d’Isaac Albéniz ; Ravel écrit finalement une œuvre originale.",
   "Le ballet est créé le 22 novembre 1928 à l’Opéra de Paris (Palais Garnier), dans une chorégraphie de Bronislava Nijinska.",
-  "La partition répète un même thème, du début très doux à la fin très fort : seule l’orchestration change, sur le rythme obstiné de la caisse claire.",
+  "La partition répète un même thème en deux parties, du début très doux à la fin très fort : le thème ne change pas, ce sont les instruments qui changent, sur le rythme obstiné de la caisse claire.",
   "Entre sa naissance à Ciboure en 1875 et sa mort à Paris en 1937, Ravel a aussi vu créer, en 1912, Daphnis et Chloé, ballet commandé par Diaghilev pour les Ballets russes."
  ],
  "reperes": [
@@ -25,8 +25,8 @@
    "Création du ballet à l’Opéra de Paris (Palais Garnier), chorégraphie de Bronislava Nijinska."
   ],
   [
-   "Un thème, un crescendo",
-   "La mélodie ne change pas ; seule l’orchestration varie, d’un début très doux à une fin jouée aussi fort que possible."
+   "Un thème en deux parties",
+   "Le thème ne change pas ; seuls les instruments varient, d’un début très doux à une fin jouée aussi fort que possible."
   ],
   [
    "1875 – 1937",
@@ -115,7 +115,7 @@
    "repere": 3,
    "affirmation": "Dans le Boléro, Ravel présente une mélodie différente à chaque reprise.",
    "vrai": false,
-   "correction": "C’était un bluff. Le Boléro répète le même thème, en crescendo, du début à la fin : seule l’orchestration change d’une reprise à l’autre.",
+   "correction": "C’était un bluff. Le Boléro répète un même thème en deux parties, en crescendo, du début à la fin : le thème ne change pas, seuls les instruments changent d’une reprise à l’autre.",
    "figure": null,
    "sources": [
     [
@@ -132,7 +132,7 @@
     ]
    ],
    "rivalJuste": "Repéré. Même mélodie pendant tout le ballet, et personne ne bâille.",
-   "rivalFaux": "Piégé. Un seul thème, répété avec art. C’est tout le tour de Ravel."
+   "rivalFaux": "Piégé. Un seul thème en deux parties, répété avec art. C’est tout le tour de Ravel."
   },
   {
    "type": "frise",

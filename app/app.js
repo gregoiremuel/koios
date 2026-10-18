@@ -4,9 +4,9 @@
   "use strict";
   var F = " ", N = " "; // fine insécable, insécable
   var DOMAINES = [
-    { code: "hg", nom: "Histoire et géographie", court: "Histoire · Géo", verre: "#b0414f", cuir: "#5e2430", ico: "sablier", w: 56, h: 214 },
+    { code: "hg", nom: "Histoire et géographie", court: "Histoire · Géo", verre: "#b0414f", cuir: "#5e2430", ico: "sablier", w: 56, h: 214 },
     { code: "sn", nom: "Sciences et nature", court: "Sciences", verre: "#4f8f6c", cuir: "#2f5442", ico: "microscope", w: 48, h: 206 },
-    { code: "ac", nom: "Arts et culture", court: "Arts · Culture", verre: "#4a7fb3", cuir: "#24405e", ico: "palette", w: 52, h: 210 },
+    { code: "ac", nom: "Arts et culture", court: "Arts · Culture", verre: "#4a7fb3", cuir: "#24405e", ico: "palette", w: 52, h: 210 },
     { code: "gj", nom: "Gemmologie et joaillerie", court: "Gemmologie", verre: "#cfa645", cuir: "#6a5020", ico: "gemme", w: 46, h: 202 }
   ];
   var DOM = {};
