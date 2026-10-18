@@ -48,7 +48,7 @@ button, input { font: inherit; color: inherit; }
 .rival { display: grid; grid-template-columns: 28px 1fr; gap: 14px; align-items: start; }
 .rival svg { width: 28px; height: 48px; overflow: visible; }
 .rival .axe { transform-origin: 14px 46px; transition: transform 0.6s ease; }
-.rival q { font-style: italic; font-size: 20px; line-height: 1.35; quotes: "« " " »"; display: block; text-wrap: balance; }
+.rival q { font-style: italic; font-size: 20px; line-height: 1.35; quotes: "« " " »"; display: block; text-wrap: balance; }
 .rival .meta { margin-top: 4px; }
 
 .defi { display: grid; gap: 16px; }
@@ -60,28 +60,25 @@ button, input { font: inherit; color: inherit; }
 .track span.fait::before { background: var(--hg); }
 .track span.jour { color: var(--ink); font-weight: 600; }
 .track span.jour::before { background: var(--ink); }
-.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; background: var(--ink); color: var(--on-ink); font-family: var(--sans); font-weight: 600; font-size: 16px; text-decoration: none; border: 0; width: 100%; cursor: pointer; }
+.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; background: var(--ink); color: var(--on-ink); font-family: var(--sans); font-weight: 600; font-size: 17px; text-decoration: none; border: 0; width: 100%; cursor: pointer; }
 .cta.ligne { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
 
 .domaines ul, .duels ul { list-style: none; margin: 0; padding: 0; }
 .domaines a { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center; min-height: 76px; padding-block: 12px; border-bottom: 1px solid var(--hair); text-decoration: none; }
-.domaines .code { font-size: 22px; }
+.domaines .code { font-size: 21px; }
 .domaines .nom { display: block; font-size: 21px; line-height: 1.2; }
-.domaines .fleche { font-family: var(--sans); font-size: 18px; color: var(--ink-2); }
-.grade { display: inline-flex; gap: 3px; vertical-align: 1px; margin-right: 6px; }
-.grade i { width: 10px; height: 4px; background: var(--hair); }
-.grade i.ok { background: var(--ink-2); }
+.domaines .fleche { font-family: var(--sans); font-size: 17px; color: var(--ink-2); }
 
 .libre { display: grid; gap: 12px; }
 .libre label { font-size: 20px; }
-.libre input { width: 100%; min-height: 52px; padding: 0 14px; border: 1.5px solid var(--ink); background: var(--paper); border-radius: 0; font-family: var(--serif); font-size: 18px; }
+.libre input { width: 100%; min-height: 52px; padding: 0 14px; border: 1.5px solid var(--ink); background: var(--paper); border-radius: 0; font-family: var(--serif); font-size: 17px; }
 .libre input::placeholder { color: var(--ink-2); font-style: italic; }
 .note { font-family: var(--sans); font-size: 14px; color: var(--ink-2); margin: 0; }
 .note.erreur { color: var(--hg); }
 
 .duels li { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; padding-block: 14px; border-bottom: 1px solid var(--hair); }
-.duels .qui { font-size: 19px; display: block; }
-.duels a.petit { font-family: var(--sans); font-weight: 600; font-size: 14px; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1.5px solid var(--ink); text-decoration: none; }
+.duels .qui { font-size: 20px; display: block; }
+.duels a.petit { font-family: var(--sans); font-weight: 600; font-size: 14px; min-height: 48px; display: inline-flex; align-items: center; padding: 0 14px; border: 1.5px solid var(--ink); text-decoration: none; }
 
 .essai { font-family: var(--sans); font-size: 12px; color: var(--ink-2); border-top: 1px solid var(--hair); padding-top: 12px; }
 
@@ -102,12 +99,12 @@ button, input { font: inherit; color: inherit; }
   <section class="rival" aria-label="Le Rival">
     <svg viewBox="0 0 28 48" aria-hidden="true">
       <g class="axe" id="axe">
-        <line x1="14" y1="46" x2="14" y2="8" stroke="currentColor" stroke-width="2" />
-        <circle cx="14" cy="6" r="4" fill="currentColor" />
+        <line x1="14" y1="46" x2="14" y2="18" stroke="currentColor" stroke-width="3" />
+        <polyline points="8,11 14,5 20,11" fill="none" stroke="currentColor" stroke-width="3" />
       </g>
     </svg>
     <div>
-      <q>Trois jours sans rouvrir la Révolution. Robespierre s'impatiente, et moi aussi.</q>
+      <q>Jour 3, et toujours deuxième. Robespierre aurait déjà pris des mesures.</q>
       <div class="meta">Le Rival · ton pince-sans-rire</div>
     </div>
   </section>
@@ -116,7 +113,7 @@ button, input { font: inherit; color: inherit; }
     <div class="head"><span class="label">Défi du groupe</span><span class="code" style="color: var(--hg)">HG</span></div>
     <h2 id="defi-titre">Expert en 7 jours : la Révolution française</h2>
     <div class="meta">5 joueurs · tu es 2e · fin dimanche soir</div>
-    <div class="track" aria-label="Jour 3 sur 7">
+    <div class="track" role="img" aria-label="Jour 3 sur 7">
       <span class="fait">1</span><span class="fait">2</span><span class="jour">3</span><span>4</span><span>5</span><span>6</span><span>7</span>
     </div>
     <a class="cta" href="partie.html">Reprendre le défi, jour 3</a>
@@ -125,30 +122,30 @@ button, input { font: inherit; color: inherit; }
   <section class="domaines" aria-labelledby="jouer-titre">
     <div class="head"><span class="label" id="jouer-titre">Jouer</span><span class="meta">4 domaines</span></div>
     <ul>
-      <li><a href="partie.html"><span class="code" style="color: var(--hg)">HG</span><span><span class="nom">Histoire et géographie</span><span class="meta"><span class="grade"><i class="ok"></i><i class="ok"></i><i></i></span>Compagnon · 62 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--sn)">SN</span><span><span class="nom">Sciences et nature</span><span class="meta"><span class="grade"><i class="ok"></i><i></i><i></i></span>Apprenti · 18 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--ac)">AC</span><span><span class="nom">Arts et culture</span><span class="meta"><span class="grade"><i class="ok"></i><i></i><i></i></span>Apprenti · 9 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
-      <li><a href="partie.html"><span class="code" style="color: var(--gj)">GJ</span><span><span class="nom">Gemmologie et joaillerie</span><span class="meta"><span class="grade"><i class="ok"></i><i class="ok"></i><i class="ok"></i></span>Maître · 140 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
+      <li><a href="partie.html"><span class="code" style="color: var(--hg)">HG</span><span><span class="nom">Histoire et géographie</span><span class="meta">Compagnon · 62 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
+      <li><a href="partie.html"><span class="code" style="color: var(--sn)">SN</span><span><span class="nom">Sciences et nature</span><span class="meta">Apprenti · 18 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
+      <li><a href="partie.html"><span class="code" style="color: var(--ac)">AC</span><span><span class="nom">Arts et culture</span><span class="meta">Apprenti · 9 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
+      <li><a href="partie.html"><span class="code" style="color: var(--gj)">GJ</span><span><span class="nom">Gemmologie et joaillerie</span><span class="meta">Maître · 140 questions</span></span><span class="fleche" aria-hidden="true">→</span></a></li>
     </ul>
   </section>
 
   <section class="libre" aria-labelledby="libre-titre">
     <div class="head"><span class="label" id="libre-titre">Sujet libre</span><span class="meta">10 questions</span></div>
-    <label for="sujet">Sur quoi veux-tu être interrogé ?</label>
-    <input id="sujet" type="text" placeholder="Les volcans d'Islande, le cubisme…" autocomplete="off">
+    <label for="sujet">Sur quoi veux-tu être interrogé ?</label>
+    <input id="sujet" type="text" placeholder="Les volcans d’Islande, le cubisme…" autocomplete="off">
     <button class="cta ligne" type="button" id="preparer">Préparer la série</button>
-    <p class="note" id="libre-note">Le Rival cherche ses sources avant d'écrire la moindre question.</p>
+    <p class="note" id="libre-note">Le Rival cherche ses sources avant d’écrire la moindre question.</p>
   </section>
 
   <section class="duels" aria-labelledby="duels-titre">
     <div class="head"><span class="label" id="duels-titre">Duels</span><span class="meta">2 en cours</span></div>
     <ul>
-      <li><span><span class="qui">Léa t'a défié</span><span class="meta">Arts et culture · elle a fait 7 sur 10</span></span><a class="petit" href="partie.html">Relever</a></li>
-      <li><span><span class="qui">Tu as défié Karim</span><span class="meta">Histoire et géographie · il n'a pas encore joué</span></span><span class="meta">En attente</span></li>
+      <li><span><span class="qui">Léa t’a défié</span><span class="meta">Arts et culture · elle a fait 7 sur 10</span></span><a class="petit" href="partie.html">Relever</a></li>
+      <li><span><span class="qui">Tu as défié Karim</span><span class="meta">Histoire et géographie · il n’a pas encore joué</span></span><span class="meta">En attente</span></li>
     </ul>
   </section>
 
-  <p class="essai">Maquette 1 sur 2 · prénoms, scores et défis sont des données d'essai.</p>
+  <p class="essai">Maquette 1 sur 2 · prénoms, scores et défis sont des données d’essai.</p>
 </div>
 
 <div class="barre">
@@ -159,7 +156,7 @@ button, input { font: inherit; color: inherit; }
     <button type="button" data-ecran="Profil et réglages">Profil</button>
   </nav>
 </div>
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script>
 (function () {
@@ -172,20 +169,20 @@ button, input { font: inherit; color: inherit; }
     minuterie = setTimeout(function () { toast.hidden = true; }, 2600);
   }
   document.querySelectorAll(".barre button[data-ecran]").forEach(function (b) {
-    b.addEventListener("click", function () { montrer("« " + b.dataset.ecran + " » arrive dans l'ébauche jouable."); });
+    b.addEventListener("click", function () { montrer("« " + b.dataset.ecran + " » arrive dans l’ébauche jouable."); });
   });
   var champ = document.getElementById("sujet");
   var note = document.getElementById("libre-note");
   document.getElementById("preparer").addEventListener("click", function () {
     var sujet = champ.value.trim();
     if (!sujet) {
-      note.textContent = "Tape d'abord un sujet, par exemple « les volcans d'Islande ».";
+      note.textContent = "Tape d’abord un sujet, par exemple « les volcans d’Islande ».";
       note.classList.add("erreur");
       champ.focus();
       return;
     }
     note.classList.remove("erreur");
-    note.textContent = "Dans l'ébauche, le Rival préparera ici 10 questions sourcées sur « " + sujet + " ».";
+    note.textContent = "Dans l’ébauche, le Rival préparera ici 10 questions sourcées sur « " + sujet + " ».";
   });
   champ.addEventListener("input", function () { note.classList.remove("erreur"); });
   var axe = document.getElementById("axe");

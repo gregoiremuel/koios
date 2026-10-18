@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">
 <style>
-/* Une partie : en-tête courant entre deux filets, la question en grand, les réponses en lignes. La couleur du domaine s'affirme seulement en jeu. */
+/* Une partie : en-tête courant entre deux filets, la question en grand, les réponses en lignes. La couleur du domaine s’affirme seulement en jeu. */
 :root {
   --paper: #ffffff;
   --ink: #17191c;
@@ -46,49 +46,52 @@ button { font: inherit; color: inherit; }
 
 .kicker { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spacing: -0.01em; text-wrap: balance; }
-.affirmation { margin: 0; font-style: italic; font-size: 24px; line-height: 1.3; quotes: "« " " »"; text-wrap: balance; }
+.affirmation { margin: 0; font-style: italic; font-size: 28px; line-height: 1.3; quotes: "« " " »"; text-wrap: balance; }
 .affirmation::before { content: open-quote; }
 .affirmation::after { content: close-quote; }
 
 .choix { display: grid; border-top: 1px solid var(--hair); }
 .choix button { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; text-align: left; min-height: 60px; padding: 10px 12px; background: none; border: 0; border-bottom: 1px solid var(--hair); cursor: pointer; font-family: var(--serif); font-size: 21px; }
 .choix button .lettre { font-family: var(--sans); font-weight: 600; font-size: 14px; color: var(--ink-2); }
-.choix button .etat { font-family: var(--sans); font-size: 13px; font-weight: 600; }
-.choix button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); }
-.choix button[aria-pressed="true"] .lettre { color: var(--on-ink); }
-.choix button.juste { background: var(--dom); color: var(--on-dom); }
-.choix button.juste .lettre { color: var(--on-dom); }
-.choix button.faux { background: none; color: var(--ink-2); text-decoration: line-through; }
+.choix button .etat { font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.choix button[aria-pressed="true"] { box-shadow: inset 0 3px 0 var(--ink); font-weight: 500; }
+.choix button[aria-pressed="true"] .lettre { color: var(--ink); }
+.choix button.juste { background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.choix button.juste .lettre { color: var(--on-ink); }
+.choix button.faux { background: none; color: var(--ink-2); text-decoration: line-through; box-shadow: none; font-weight: 400; }
 .choix button.faux .lettre { color: var(--ink-2); }
 .choix button:disabled { cursor: default; }
 .deux { grid-template-columns: 1fr 1fr; gap: 8px; border-top: 0; }
-.deux button { grid-template-columns: 1fr auto; padding: 0 14px; border: 1.5px solid var(--ink); min-height: 64px; font-size: 20px; }
+.deux button { grid-template-columns: 1fr auto; padding: 0 14px; border: 1.5px solid var(--ink); min-height: 52px; font-size: 20px; }
 
 .certitude { display: grid; gap: 8px; }
 .segments { display: grid; grid-template-columns: repeat(4, 1fr); border: 1.5px solid var(--ink); }
-.segments button { min-height: 48px; background: none; border: 0; border-left: 1px solid var(--hair); font-family: var(--sans); font-size: 15px; font-variant-numeric: tabular-nums; cursor: pointer; }
+.segments button { min-height: 48px; background: none; border: 0; border-left: 1px solid var(--hair); font-family: var(--sans); font-size: 14px; font-variant-numeric: tabular-nums; cursor: pointer; }
 .segments button:first-child { border-left: 0; }
-.segments button[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); font-weight: 600; }
+.segments button[aria-pressed="true"] { box-shadow: inset 0 3px 0 var(--ink); font-weight: 600; }
 
 .frise-slots { display: grid; gap: 0; border-top: 1px solid var(--hair); }
 .frise-slots div { display: grid; grid-template-columns: 32px 1fr; align-items: center; min-height: 56px; border-bottom: 1px solid var(--hair); font-size: 20px; }
 .frise-slots div span { font-family: var(--sans); font-weight: 600; font-size: 14px; color: var(--ink-2); padding-left: 4px; }
-.frise-slots div em { color: var(--ink-2); font-size: 16px; }
-.pioche { display: flex; flex-wrap: wrap; gap: 8px; }
-.pioche button { min-height: 48px; padding: 0 14px; background: none; border: 1.5px solid var(--ink); font-family: var(--serif); font-size: 18px; cursor: pointer; }
-.pioche button[aria-pressed="true"] { border-style: dashed; color: var(--ink-2); }
+.frise-slots div em { color: var(--ink-2); font-size: 17px; }
+.frise-slots small { display: block; font-family: var(--sans); font-size: 14px; color: var(--ink-2); font-style: normal; }
+.pioche { display: grid; border-top: 1px solid var(--ink); }
+.pioche button { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; padding: 0 12px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--hair); font-family: var(--serif); font-size: 20px; cursor: pointer; }
+.pioche button::after { content: "Placer"; font-family: var(--sans); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-2); }
+.pioche button[aria-pressed="true"] { color: var(--ink-2); }
+.pioche button[aria-pressed="true"]::after { content: "Retirer"; }
 
-.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; width: 100%; background: var(--ink); color: var(--on-ink); border: 0; font-family: var(--sans); font-weight: 600; font-size: 16px; cursor: pointer; text-decoration: none; }
+.cta { display: flex; align-items: center; justify-content: center; min-height: 52px; width: 100%; background: var(--ink); color: var(--on-ink); border: 0; font-family: var(--sans); font-weight: 600; font-size: 17px; cursor: pointer; text-decoration: none; }
 .cta.ligne { background: transparent; color: var(--ink); border: 1.5px solid var(--ink); }
 .erreur { margin: -12px 0 0; font-family: var(--sans); font-size: 14px; color: var(--dom); }
 
 .correction { display: grid; gap: 8px; border-top: 2px solid var(--dom); padding-top: 12px; }
 .correction p { margin: 0; }
-.source { font-style: italic; color: var(--ink-2); font-size: 15px; }
+.source { font-style: italic; color: var(--ink-2); font-size: 17px; }
 .rival { display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; }
 .rival svg { width: 22px; height: 38px; overflow: visible; }
 .rival .axe { transform-origin: 11px 36px; transition: transform 0.6s ease; }
-.rival p { margin: 0; font-style: italic; font-size: 19px; line-height: 1.35; }
+.rival p { margin: 0; font-style: italic; font-size: 20px; line-height: 1.35; }
 .points { font-family: var(--sans); font-weight: 600; font-size: 14px; font-variant-numeric: tabular-nums; }
 
 .score { display: grid; gap: 4px; }
@@ -109,8 +112,8 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
     <span class="folio" id="folio">01 / 03</span>
   </div>
   <div class="temps" aria-hidden="true"><i id="temps"></i></div>
-  <main id="scene" aria-live="polite"></main>
-  <p class="essai">Maquette 2 sur 2 · trois questions d'essai, sources à revérifier avant la banque.</p>
+  <main id="scene"></main>
+  <p class="essai">Maquette 2 sur 2 · trois questions d’essai, sources à revérifier avant la banque.</p>
 </div>
 
 <script>
@@ -119,34 +122,35 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
     {
       type: "qcm",
       kicker: "Question à choix",
-      enonce: "En quelle année les États généraux s'ouvrent‑ils à Versailles ?",
+      enonce: "En quelle année les États généraux s’ouvrent‑ils à Versailles ?",
       reponses: ["1787", "1789", "1791", "1793"],
       bonne: 1,
-      correction: "Les États généraux s'ouvrent le 5 mai 1789 à Versailles, à l'hôtel des Menus-Plaisirs.",
-      source: "Source : Wikipédia, « États généraux de 1789 »",
-      rivalJuste: "Juste. Louis XVI a mis plus longtemps que toi à saisir l'enjeu.",
-      rivalFaux: "Raté. La Révolution n'a pas attendu que tu arrives."
+      correction: "Les États généraux s’ouvrent le 5 mai 1789 à Versailles, à l’hôtel des Menus-Plaisirs.",
+      source: "Source : Wikipédia, « États généraux de 1789 »",
+      rivalJuste: "Juste. Louis XVI a mis plus longtemps que toi à saisir l’enjeu.",
+      rivalFaux: "Raté. La Révolution n’a pas attendu que tu arrives."
     },
     {
       type: "bluff",
-      kicker: "Le Rival bluffe ?",
-      affirmation: "Le Danube traverse quatre capitales : Vienne, Bratislava, Budapest et Belgrade.",
+      kicker: "Le Rival bluffe ?",
+      affirmation: "Le Danube traverse quatre capitales : Vienne, Bratislava, Budapest et Belgrade.",
       vrai: true,
-      correction: "C'est exact : le Danube arrose Vienne, Bratislava, Budapest et Belgrade.",
-      source: "Source : Wikipédia, « Danube »",
+      correction: "C’est exact : le Danube arrose Vienne, Bratislava, Budapest et Belgrade.",
+      source: "Source : Wikipédia, « Danube »",
       rivalJuste: "Bien vu. La prochaine fois, je mentirai mieux.",
-      rivalFaux: "Je ne bluffe pas toujours. C'est ce qui me rend dangereux."
+      rivalFaux: "Je ne bluffe pas toujours. C’est ce qui me rend dangereux."
     },
     {
       type: "frise",
       kicker: "Frise",
-      enonce: "Remets ces événements dans l'ordre, du plus ancien au plus récent.",
+      enonce: "Remets ces événements dans l’ordre, du plus ancien au plus récent.",
       elements: ["Sacre de Napoléon", "Prise de la Bastille", "Fête de la Fédération"],
       ordre: ["Prise de la Bastille", "Fête de la Fédération", "Sacre de Napoléon"],
       dates: { "Prise de la Bastille": "14 juillet 1789", "Fête de la Fédération": "14 juillet 1790", "Sacre de Napoléon": "2 décembre 1804" },
-      source: "Source : Wikipédia, articles de chaque événement",
-      rivalJuste: "Dans l'ordre. Même Napoléon aurait signé.",
-      rivalFaux: "Tu as couronné l'Empereur avant la prise de la Bastille. Audacieux."
+      correction: "La Bastille tombe en 1789, la Fédération la fête un an plus tard, et Napoléon se fait sacrer quinze ans après.",
+      source: "Source : Wikipédia, articles de chaque événement",
+      rivalJuste: "Dans l’ordre. Même Napoléon aurait signé.",
+      rivalFaux: "La chronologie ne pardonne pas. Moi non plus."
     }
   ];
   var CERTITUDES = [50, 70, 90, 100];
@@ -172,7 +176,7 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
   function deux(n) { return (n < 10 ? "0" : "") + n; }
   function majTotal() { totalEl.textContent = pts(total); }
   function rivalBloc(texte, angle) {
-    var svg = '<svg viewBox="0 0 22 38" aria-hidden="true"><g class="axe" style="transform: rotate(' + angle + 'deg)"><line x1="11" y1="36" x2="11" y2="7" stroke="currentColor" stroke-width="2"/><circle cx="11" cy="5" r="3.5" fill="currentColor"/></g></svg>';
+    var svg = '<svg viewBox="0 0 22 38" aria-hidden="true"><g class="axe" style="transform: rotate(' + angle + 'deg)"><line x1="11" y1="36" x2="11" y2="14" stroke="currentColor" stroke-width="3"/><polyline points="6,9 11,4 16,9" fill="none" stroke="currentColor" stroke-width="3"/></g></svg>';
     return el("div", { "class": "rival", html: svg + "<p></p>" }, null);
   }
   function rival(texte, juste) {
@@ -207,11 +211,11 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
     var b = el("button", { "class": "cta", type: "button", text: dernier ? "Voir le résultat" : "Question suivante" });
     b.addEventListener("click", function () { index += 1; afficher(); });
     zone.appendChild(b);
-    b.focus({ preventScroll: true });
+    setTimeout(function () { b.focus({ preventScroll: true }); }, 0);
   }
   function bilan(q, juste, gagne, texte) {
     var zone = el("div", { style: "display:grid;gap:24px" });
-    var corr = el("section", { "class": "correction" }, [
+    var corr = el("section", { "class": "correction", role: "status" }, [
       el("div", { "class": "kicker" }, [el("span", { "class": "label", text: juste ? "Juste" : "Faux" }), el("span", { "class": "points", text: (gagne > 0 ? "+" : "") + pts(gagne) })]),
       el("p", { text: texte }),
       el("p", { "class": "source", text: q.source })
@@ -243,7 +247,7 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
     function majRegle() { regle.textContent = "Juste " + signe(gain(certitude)) + " · faux " + signe(perte(certitude)); }
     var seg = el("div", { "class": "segments", role: "group", "aria-label": "Ta certitude" });
     CERTITUDES.forEach(function (c) {
-      var b = el("button", { type: "button", "aria-pressed": c === certitude ? "true" : "false", text: c + " %" });
+      var b = el("button", { type: "button", "aria-pressed": c === certitude ? "true" : "false", text: c + " %" });
       b.addEventListener("click", function () {
         certitude = c;
         seg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); });
@@ -256,7 +260,7 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
       el("div", { "class": "kicker" }, [el("span", { "class": "label", text: "Pari de confiance" }), regle]),
       seg
     ]);
-    var erreur = el("p", { "class": "erreur", text: "Choisis d'abord une réponse.", hidden: "" });
+    var erreur = el("p", { "class": "erreur", text: "Choisis d’abord une réponse.", hidden: "" });
     var valider = el("button", { "class": "cta", type: "button", text: "Valider" });
     var bloc = el("div", { style: "display:grid;gap:24px" }, [
       el("div", { "class": "kicker" }, [el("span", { "class": "label", text: q.kicker }), el("span", { "class": "meta", text: DUREE + " s" })]),
@@ -283,8 +287,9 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
     lancerChrono(function () { conclure(true); });
     return bloc;
   }
-  function gain(c) { return Math.round(c / 10); }
-  function perte(c) { return -Math.round((c - 40) / 5); }
+  var BAREME = { 50: [6, -1], 70: [8, -4], 90: [9, -8], 100: [10, -20] };
+  function gain(c) { return BAREME[c][0]; }
+  function perte(c) { return BAREME[c][1]; }
 
   function bluff(q) {
     var liste = el("div", { "class": "choix deux", role: "group", "aria-label": "Ton verdict" });
@@ -317,7 +322,7 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
 
   function frise(q) {
     var placees = [];
-    var slots = el("div", { "class": "frise-slots", "aria-label": "Ton ordre" });
+    var slots = el("div", { "class": "frise-slots", role: "group", "aria-label": "Ton ordre" });
     var pioche = el("div", { "class": "pioche" });
     var erreur = el("p", { "class": "erreur", text: "Place les trois événements avant de valider.", hidden: "" });
     function dessiner() {
@@ -338,7 +343,7 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
       });
       pioche.appendChild(b);
     });
-    var valider = el("button", { "class": "cta", type: "button", text: "Valider l'ordre" });
+    var valider = el("button", { "class": "cta", type: "button", text: "Valider l’ordre" });
     var bloc = el("div", { style: "display:grid;gap:24px" }, [
       el("div", { "class": "kicker" }, [el("span", { "class": "label", text: q.kicker }), el("span", { "class": "meta", text: DUREE + " s" })]),
       el("h1", { text: q.enonce }), slots, pioche, valider, erreur
@@ -350,9 +355,11 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
       slots.innerHTML = "";
       q.ordre.forEach(function (nom, i) {
         var ok = placees[i] === nom;
-        slots.appendChild(el("div", { style: ok ? "" : "color:var(--ink-2)" }, [el("span", { text: String(i + 1) }), el("span", { style: "font-family:var(--serif);font-size:20px;font-weight:400;color:inherit", text: nom + ", " + q.dates[nom] })]));
+        var ligne = el("span", { style: "font-family:var(--serif);font-size:20px;font-weight:400;color:var(--ink)", text: nom + ", " + q.dates[nom] });
+        if (!ok) ligne.appendChild(el("small", { text: "Tu avais placé ici : " + (placees[i] || "rien") }));
+        slots.appendChild(el("div", {}, [el("span", { text: String(i + 1) }), ligne]));
       });
-      bloc.appendChild(bilan(q, juste, juste ? 10 : 0, (tempsEcoule ? "Temps écoulé. " : "") + (juste ? "Bon ordre." : "Le bon ordre est ci-dessus.")));
+      bloc.appendChild(bilan(q, juste, juste ? 10 : 0, (tempsEcoule ? "Temps écoulé. " : "") + q.correction));
     }
     valider.addEventListener("click", function () {
       if (placees.length < 3) { erreur.hidden = false; return; }
@@ -366,19 +373,20 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
   function resultat() {
     fini = true;
     arreterChrono();
+    barre.parentNode.hidden = true;
     folio.textContent = "Bilan";
     var verdict = justes === 3 ? "Trois sur trois. Je vais devoir relire mes fiches."
       : justes === 2 ? "Deux sur trois. Honorable, sans plus. Demain, je durcis le ton."
-      : justes === 1 ? "Une sur trois. On reprend la frise à zéro, toi et moi ?"
-      : "Zéro. J'ai rarement gagné aussi facilement.";
+      : justes === 1 ? "Une sur trois. On reprend la frise à zéro, toi et moi ?"
+      : "Zéro. J’ai rarement gagné aussi facilement.";
     var copie = el("p", { "class": "meta", text: "" });
     var defier = el("button", { "class": "cta ligne", type: "button", text: "Défier un ami sur cette série" });
     defier.addEventListener("click", function () {
       var lien = "koios.app/duel/7K2Q";
-      var fait = function () { copie.textContent = "Lien d'essai copié : " + lien + ". Colle-le dans WhatsApp."; };
+      var fait = function () { copie.textContent = "Lien d’essai copié : " + lien + ". Colle-le dans WhatsApp."; };
       try {
-        navigator.clipboard.writeText(lien).then(fait, function () { copie.textContent = "Copie impossible ici. Le lien d'essai : " + lien; });
-      } catch (e) { copie.textContent = "Copie impossible ici. Le lien d'essai : " + lien; }
+        navigator.clipboard.writeText(lien).then(fait, function () { copie.textContent = "Copie impossible ici. Le lien d’essai : " + lien; });
+      } catch (e) { copie.textContent = "Copie impossible ici. Le lien d’essai : " + lien; }
     });
     var rejouer = el("button", { "class": "cta", type: "button", text: "Rejouer la série" });
     rejouer.addEventListener("click", function () { index = 0; justes = 0; total = 0; fini = false; majTotal(); afficher(); });
@@ -389,13 +397,14 @@ h1 { margin: 0; font-weight: 400; font-size: 28px; line-height: 1.2; letter-spac
         el("span", { "class": "meta", text: pts(total) + " · Histoire et géographie · Compagnon, 65 questions" })
       ]),
       rival(verdict, justes >= 2),
-      el("div", { "class": "actions" }, [defier, copie, rejouer, el("a", { "class": "cta ligne", href: "index.html", text: "Retour à l'accueil" })])
+      el("div", { "class": "actions" }, [defier, copie, rejouer, el("a", { "class": "cta ligne", href: "index.html", text: "Retour à l’accueil" })])
     ]);
   }
 
   function afficher() {
     scene.innerHTML = "";
     if (index >= QUESTIONS.length) { scene.appendChild(resultat()); window.scrollTo(0, 0); return; }
+    barre.parentNode.hidden = false;
     folio.textContent = deux(index + 1) + " / " + deux(QUESTIONS.length);
     var q = QUESTIONS[index];
     scene.appendChild(q.type === "qcm" ? qcm(q) : q.type === "bluff" ? bluff(q) : frise(q));

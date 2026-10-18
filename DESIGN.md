@@ -30,7 +30,7 @@ Sources : voir `docs/cahier-des-charges.md` et le Doc de référence.
 
 - Mode clair par défaut ; le sombre suit le réglage du téléphone.
 - Hors partie, la couleur d'un domaine ne vit que sur son code (HG, SN, AC, GJ), un filet ou une progression, jamais en fond.
-- En partie, la couleur du domaine s'affirme : bonne réponse, minuteur, filet de correction.
+- En partie, la couleur du domaine s'affirme sur le minuteur et le filet de correction.
 - 5 domaines colorés au plus. Les sujets libres sont à l'encre.
 
 ## Typographie
@@ -39,7 +39,8 @@ Sources : voir `docs/cahier-des-charges.md` et le Doc de référence.
 - **Libre Franklin** : libellés, codes de domaine, chiffres, boutons.
 - Deux graisses par famille au plus : Newsreader 400 et 500, Libre Franklin 400 et 600.
 - Échelle : 12 (libellés en capitales, interlettrage 0,08 em) · 14 (méta) · 17 (texte) · 20-21 (réponses, listes) · 28-30 (questions, titres) · 72 (score).
-- Lignes de 45 à 75 caractères ; `text-wrap: balance` sur les titres ; espaces insécables avant les signes doubles et dans les groupes courts (« 7 jours »).
+- Lignes de 45 à 75 caractères ; `text-wrap: balance` sur les titres.
+- Typographie française : espace fine insécable (U+202F) avant ; ? ! % et avant », insécable (U+00A0) avant : et après « ; apostrophe ’ ; trait d'union insécable (U+2011) dans les inversions courtes (« s'ouvrent‑ils »).
 
 ## Mise en page
 
@@ -48,7 +49,8 @@ Sources : voir `docs/cahier-des-charges.md` et le Doc de référence.
 - Listes en lignes séparées par des filets fins ; aucune carte, aucun coin arrondi.
 - Boutons rectangulaires : plein à l'encre pour l'action principale (un par écran), contour d'encre de 1,5 px pour les autres. Hauteur 48 à 52 px.
 - Codes de domaine façon numéro de salle : deux capitales en Libre Franklin, couleur du domaine.
-- Le Rival : un trait d'encre vertical surmonté d'un point, qui s'incline selon son humeur. Jamais une mascotte. Forme définitive à valider.
+- Le Rival : un « î » d'encre, trait vertical de 3 px coiffé de l'accent circonflexe de Koîos, qui s'incline selon son humeur. Jamais encadré (il deviendrait le pictogramme « information »), jamais une mascotte. Forme à valider par Greg.
+- Sélection d'une réponse : filet d'encre de 3 px au-dessus de la ligne. Bonne réponse : aplat d'encre (jamais la couleur du domaine, le rouge se lit « erreur »).
 - Barre de navigation en bas : libellés seuls, sans icônes ; l'écran courant est marqué par un filet d'encre au-dessus.
 
 ## Interdits (le relecteur vérifie chaque écran)
