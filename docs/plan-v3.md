@@ -90,3 +90,7 @@ Constat : la formation de gemmologie vérifiée n'a que 5 leçons très courtes,
 - **D. Bibliothèque** : recherche de formations existantes (GET parcours?q=) avant d'en créer ; jamais de régénération d'un sujet déjà créé ; page Bibliothèque ; chaque « Aller plus loin » enrichit la formation pour tous.
 - **E. Sources** : repliées dans un bandeau « Sources (n) » en bas de chaque leçon, ouvert au toucher.
 - **F. Pose une question** (après) : champ dans la leçon, réponse de l'IA à partir de la leçon et des extraits, contrôlée par la 2e IA, quota par jour.
+
+## Lot 3b : livré (19 octobre 2026)
+
+Formation à plusieurs (groupes, 12 membres, page `#/groupe/<id>`, bouton « Suivre à plusieurs » sur la page d'une formation, « Mes groupes » dans Amis) et jeu en direct (parties de 12 joueurs au plus, code de 6 caractères, `#/partie/<code>`, interrogation toutes les 2 secondes, 20 s par question puis 5 s de résultat). Détail des routes dans `docs/api-v2.md`. Pas de son, pas de WebSocket, pas d'XP en direct.

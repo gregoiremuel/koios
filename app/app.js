@@ -1866,7 +1866,7 @@
       montrer(el("div", { "class": "page " + teinteSujet(titre) }, [
         el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/amis" }, [icone("retour"), "Amis"]), el("span"), puceXP()]),
         p ? couverture(p) : null,
-        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Formation à plusieurs" }), el("h1", { text: g.nom }), el("p", { "class": "meta", text: titre + " · " + pluriel(g.membres, "membre", "membres") + " sur " + g.max })]),
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Formation à plusieurs" }), el("h1", { text: g.nom }), el("p", { "class": "meta", text: (g.nom === titre ? "" : titre + " · ") + pluriel(g.membres, "membre", "membres") + " sur " + g.max })]),
         actions,
         el("section", { "class": "pile" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "Leçons faites" })]), liste]),
         quitter
@@ -1898,7 +1898,7 @@
     bouton.addEventListener("click", function () {
       var c = champ.value.replace(/\s+/g, "").toUpperCase();
       if (!CODE_PARTIE.test(c)) { alerte.textContent = "Un code compte 6 caractères" + N + ": des lettres (sans O ni I) et des chiffres (sans 0 ni 1)."; alerte.hidden = false; champ.focus(); return; }
-      location.hash = "#/partie/" + c;
+      location.hash = "#/partie/" + c + "/rejoindre";
     });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
     champ.addEventListener("input", function () { alerte.hidden = true; });
@@ -1924,7 +1924,7 @@
   /* Partie en direct : tout le monde répond en même temps. Pas de WebSocket : l'écran interroge le serveur toutes les 2 s
      (4 s si l'onglet est caché) et s'arrête dès qu'on quitte la page (jeton de navigation). Le compte à rebours est local,
      recalé à chaque réponse du serveur, qui reste seul juge du temps. */
-  function vuePartie(code) {
+  function vuePartie(code, auto) {
     code = String(code || "").replace(/\s+/g, "").toUpperCase();
     if (!CODE_PARTIE.test(code)) { montrer(erreurPage("Ce code n’est pas valide" + N + ": il compte 6 caractères.", "Code invalide"), "amis"); return; }
     var vive = vivante();
@@ -1967,6 +1967,14 @@
     }
     function recevoir(n) {
       p = n; fin = performance.now() + n.restant;
+      // Code saisi dans Amis : l'intention est claire, on rejoint tout de suite (un lien ouvert, lui, demande d'abord).
+      if (auto && !n.moi.joueur) {
+        auto = false;
+        if (n.etat === "attente" && n.joueurs.length < n.max && enLigne()) {
+          api("POST", "partie", { action: "rejoindre", id: code }).then(function () { interroger(); }, function () { rendre(); });
+          return;
+        }
+      }
       if (n.restant > 600) demande = false;
       var k = n.etat + ":" + n.indice + ":" + (n.moi.joueur ? 1 : 0);
       if (k !== cle) { cle = k; demande = false; rendre(); } else majPartielle();
@@ -2298,7 +2306,7 @@
       case "quiz": return vueQuizGeneral(p[1], parseInt(p[2], 10), /^\d+$/.test(p[3] || "") ? parseInt(p[3], 10) : undefined);
       case "nouveau-salon": return vueNouveauSalon(p[1], parseInt(p[2], 10));
       case "groupe": return p[1] ? vueGroupe(p[1]) : vueAmis();
-      case "partie": return p[1] ? vuePartie(p[1]) : vueAmis();
+      case "partie": return p[1] ? vuePartie(p[1], p[2] === "rejoindre") : vueAmis();
       case "jouer": return vueJouer();
       case "amis": return vueAmis();
       case "profil": return vueProfil();

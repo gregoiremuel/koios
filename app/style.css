@@ -498,7 +498,7 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
 
 /* Formation à plusieurs et jeu en direct */
 .rangee.membre { grid-template-columns: 32px 1fr; align-items: start; min-height: 72px; padding: 12px 0; }
-.rang-num { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 16px; background: var(--surface); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rangee .rang-num { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 16px; background: var(--surface); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .membre-corps { display: grid; gap: 4px; min-width: 0; }
 .membre-corps b { font-size: 16px; font-weight: 600; line-height: 1.3; }
 .membre .progres { margin-top: 4px; }

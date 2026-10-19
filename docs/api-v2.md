@@ -56,3 +56,38 @@ Tables : `quiz_general(id TEXT PRIMARY KEY, sujet TEXT, bloc INTEGER, contenu TE
 3. `GET jour[?date=AAAA-MM-JJ]` (public) : `{ date, theme, question }`. Thème = liste fixe de 60, jour de l'année modulo 60. `date` n'est lue que la veille, le jour ou le lendemain (UTC). Première requête du jour : un bloc de 10 sur le thème, on garde la 1re question à choix (cache `jour:<date>`), sans quota de lecteur, 5 tentatives par jour au total. Échec ou plafond : 200 `{ date, theme: null, question: <pool vérifié via ASSETS ou null>, repli: true }`, jamais d'erreur.
 4. Duels : `POST duel` accepte `qg:<slug>:<k>` (le bloc doit exister), `titre` (1 à 60 caractères), `type` (`duel` par défaut : 5 à 20 questions, score obligatoire ; `salon` : 5 à 50 questions, score facultatif), `fin` (date ISO à venir, 31 jours au plus). `GET duel` ajoute `titre, type, fin, termine, joueurs, classement` (`[{ rang, pseudo, justes, n, points, date, moi? }]` trié par points, puis bonnes réponses, puis date). `PUT duel` : 409 après `fin` ; un tournoi ne se joue qu'une fois (409). `GET duels` : aussi les duels créés sans score ; salons et tournois ajoutent `titre, type, fin`. Les joueurs d'un salon sont illimités.
 5. `GET tournoi` (public) : `{ tournoi: { id, titre, theme, debut, fin, termine, questions, joueurs, classement (10 premiers), moi, dejaJoue } }` ou `{ tournoi: null }`. Semaine du lundi 00:00 au dimanche 23:59:59 (UTC), thème par semaine ; créé à la première requête (même génération que `jour`, 5 tentatives par jour au total). Le tournoi est un duel de type `tournoi` dont l'id vient du lundi (un seul par semaine, même en cas de requêtes simultanées) ; on le joue avec `GET`/`PUT duel`.
+
+## Formation à plusieurs (groupes) et jeu en direct (parties)
+
+Tables : `groupes(id TEXT PRIMARY KEY (8 car. a-z0-9), nom, parcours, createur, cree)`, `groupe_membres(groupe, joueur, rejoint, PRIMARY KEY(groupe, joueur))`, `parties(id TEXT PRIMARY KEY (6 car.), createur, titre, questions, etat, indice, debut_question, cree)`, `parties_joueurs(partie, joueur, points, PRIMARY KEY(partie, joueur))`, `parties_reponses(partie, joueur, indice, choix, ms, juste, PRIMARY KEY(partie, joueur, indice))`. Code : `lib/groupes.js`, `lib/parties.js`.
+
+### Groupes (`functions/api/groupe.js`)
+
+1. `POST groupe { nom, parcours }` (auth) → `{ id }`. `nom` : 2 à 40 caractères ; `parcours` : identifiant d'une formation du cache D1, ou d'une formation vérifiée (`v-xx`) du catalogue `contenu/parcours.json` (lu via ASSETS). Le créateur est inscrit. Quota : 10 groupes créés par jour et par joueur (429) ; 20 groupes suivis au plus par joueur (409). 404 si la formation n'existe pas.
+2. `POST groupe { id, rejoindre: true }` ou `POST groupe?id=…&action=rejoindre` (auth) → `{ ok, id }` (`dejaMembre: true` si déjà dedans, sans rien changer). 12 membres au plus : 409 « Ce groupe est complet ». Le plafond est vérifié dans l'ordre SQL d'écriture (`INSERT … SELECT … WHERE COUNT(*) < 12`), donc sûr même si deux joueurs arrivent ensemble.
+3. `POST groupe { id, quitter: true }` ou `?action=quitter` (auth) → `{ ok }`. Le dernier qui part supprime le groupe.
+4. `GET groupe?id=` (public) → `{ groupe: { id, nom, parcours, parcoursTitre, createur, max, complet, dejaMembre, membres, classement } }`. `classement` : `[{ rang, pseudo, lecons, xp, activite, moi? }]`, trié par leçons faites, puis XP, puis pseudo ; rang partagé à égalité parfaite. Seuls les pseudos sortent.
+5. `GET groupe` (auth) → `{ groupes: [{ id, nom, parcours, membres }] }` : mes groupes (20 au plus, du plus récent au plus ancien).
+
+**Progression : aucune nouvelle écriture.** Le groupe lit `joueurs.etat` (déjà écrit par `PUT progression`) : `etat.parcours[<formation>]` donne `fait` (leçons faites, même lecture que le classement : liste, objet ou nombre, 500 au plus), `xp` (XP gagnée sur la formation) et `date` (dernière activité). La lecture passe par `json_extract` sur ce seul sous-objet ; un état illisible vaut « rien de fait ». Comme l'app envoie sa progression avec un délai de 0,7 s, la page du groupe l'envoie une fois à l'ouverture avant de lire.
+
+### Parties en direct (`functions/api/partie.js`)
+
+Toutes les écritures sont des `POST partie { action, … }` (auth) ; lecture par `GET partie?id=`. Le code se saisit sans tenir compte de la casse.
+
+1. `creer { questions: [{ chapitre, index }], titre? }` → `{ id, code }` (`id` = `code`, 6 caractères parmi `A-H J-N P-Z 2-9` : ni O, ni 0, ni I, ni 1). 5 à 20 références validées comme `POST duel`, mais seulement `<parcours>:<k>` (palier), `<parcours>:quiz` et `qg:<bloc>` (quiz général ou tournoi), et seulement des questions à choix ou vrai ou faux (400 sinon). Quota : 20 parties par jour et par joueur. Les parties de plus de 24 h sont effacées à la création suivante. Le créateur est le premier joueur.
+2. `rejoindre { id }` : avant le début seulement (409 « déjà commencé »), 12 joueurs au plus (409 « complète »). Un joueur déjà dedans reste accepté.
+3. `demarrer { id }` : créateur seulement (403). La question 1 démarre à l'heure du serveur. 409 si déjà démarrée.
+4. `repondre { id, indice, choix }` : `choix` = numéro de la réponse (QCM) ou 0 = Vrai, 1 = Faux. Une seule réponse par question (409). Refusée hors délai : 409 « Trop tard » si la question n'est plus en cours (au-delà de 20 s, ou autre `indice`). 403 si on ne joue pas dans la partie.
+5. `GET partie?id=` → `{ partie: { id, code, titre, createur, etat, indice, total, restant, duree, max, joueurs, moi, question? } }`.
+   - `etat` : `attente` | `question` | `resultat` | `fini`. `restant` : ms avant la fin de la phase en cours (0 en attente et à la fin). `duree` : 20 000.
+   - `joueurs` : pseudos seulement. En attente : `{ pseudo, createur?, moi? }`. Pendant la question : plus `repondu`, sans points. Au résultat et à la fin : `{ rang, pseudo, points, justes, createur?, moi? }`, classé par points (rang partagé à points égaux).
+   - `moi` : `{ joueur, createur, repondu?, choix?, juste?, gain? }` ; `juste` et `gain` n'apparaissent qu'au résultat.
+   - `question` (joueurs de la partie seulement) : QCM `{ type, enonce, reponses }`, vrai ou faux `{ type, affirmation }`. **Ni la bonne réponse ni l'explication avant `resultat`** ; au résultat s'ajoutent `bonne` (numéro ; 0 = Vrai, 1 = Faux) et `explication`.
+
+**Temps.** Une question dure 20 s, puis 5 s de résultat, puis la suivante démarre toute seule ; après la dernière, `fini`. Aucune tâche de fond : `debut_question` est le début de la question `indice`, et chaque lecture calcule l'état avec l'horloge du serveur (`avancer` dans `lib/parties.js`). Quand l'état calculé diffère de l'état écrit, la lecture l'écrit avec `UPDATE … WHERE etat = ? AND indice = ? AND debut_question = ?` : un seul lecteur gagne, les autres relisent ; le résultat est le même quel que soit l'ordre. L'horloge est `Date.now()`, sauf si `env.maintenant` existe (tests seulement).
+
+**Points.** Juste = 100 + bonus de rapidité de 50 à 0 (linéaire sur 20 s, arrondi) ; faux ou pas de réponse = 0. Le total d'un joueur est recalculé depuis ses réponses (`ms`, `juste`), dans le même lot que l'écriture de la réponse : jamais compté deux fois.
+
+**Limites.** 12 joueurs, mise à jour toutes les 2 secondes (4 s si l'onglet est caché), pas de WebSocket : une lecture fait quelques requêtes D1, donc 12 joueurs coûtent environ 6 lectures par seconde. Pas d'XP gagnée en direct.
+

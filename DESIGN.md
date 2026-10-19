@@ -58,7 +58,7 @@ Le rose corail ne sert jamais à un état d'erreur. Pas de violet, de dégradé,
 - Colonne de 34 rem au plus, marges de 16 px, cibles tactiles de 44 px au moins.
 - **Bandes** : l'accueil et le profil alternent bandes blanches et bandes `--surface`, pleine largeur, séparées par un filet de 1 px. Jamais d'ombre. Sur une bande grise, les cartes et tuiles sont blanches.
 - Navigation du bas : 4 onglets (Apprendre, Jouer, Amis, Profil), icône de 22 px et libellé de 12 px. L'onglet actif est en `--encre` avec un trait de 2 px au-dessus ; les autres en `--encre-2`.
-- Apprendre : recherche, grille « bento » (voir Composants), idées de formations, formations vérifiées. Jouer : quiz de culture générale, question du jour, quiz mélangé, erreurs à revoir, mini-jeux. Amis : invitation, salons (liste et « Créer un salon »), tournoi de la semaine, duels, classement. Jouer commence par le quiz de culture générale.
+- Apprendre : recherche, grille « bento » (voir Composants), idées de formations, formations vérifiées. Jouer : quiz de culture générale, question du jour, quiz mélangé, erreurs à revoir, mini-jeux. Amis : invitation, salons (liste et « Créer un salon »), tournoi de la semaine, mes groupes, « Rejoindre une partie » (code à 6 caractères), duels, classement. Jouer commence par le quiz de culture générale.
 
 ## Composants
 
@@ -95,6 +95,13 @@ Le rose corail ne sert jamais à un état d'erreur. Pas de violet, de dégradé,
 - **Classement** : rangées de 52 px (rang, pseudo, « bonnes/total · points »), « (toi) » sur ma ligne, « … » quand le rang saute ; les 20 premiers plus ma place. **Carte du tournoi** : une seule carte (titre, temps restant, thème, bouton, classement en rangées, sans carte dedans).
 - **Réponse de quiz** : rangée pleine largeur, coins 14 px, lettre A B C D dans un cercle de 32 px, survol et appui en teinte, bord 1 px ; juste en vert pâle avec une coche qui se dessine ; fausse en rouge pâle avec un léger tremblement ; l'explication s'affiche toujours après la réponse.
 - **XP** : pastille or discrète (« Niv. 4 · 320 XP »), barre fine de 4 px. **Anneau de niveau** (profil) : 148 px, anneau `--or` de progression vers le niveau suivant, numéro en 48 px, puis trois chiffres clés séparés par des filets.
+- **Rangée de membre** (page d'un groupe) : rang dans un cercle de 32 px (`--surface`), pseudo 16 px 600 (« (toi) » sur ma ligne), puis « 4 leçons faites · 120 XP · il y a 2 h » en 14 px `--encre-2`, puis une barre de 4 px en `--or` (leçons faites sur la formation, ou sur le membre le plus avancé quand le total n'est pas connu). Pas de chevron : la rangée n'est pas un lien.
+- **Partie en direct** : écran plein, sans navigation du bas, bouton « fermer » en haut à gauche.
+  - **Code de partie** : tuile `--surface` aux coins de 16 px, libellé « Code de la partie » en capitales de 12 px, code en 48 px 700 à lettres espacées (0,16 em), lien dessous en 14 px.
+  - **Compte à rebours** : secondes en 20 px 700 à droite de « Question 3 sur 10 », barre de 4 px en `--encre` qui se vide (échelle horizontale, 250 ms linéaire ; sous `prefers-reduced-motion` elle avance par à-coups sans transition). Jamais d'or ni de rouge : l'or reste à l'XP, le rouge au faux.
+  - **Réponse choisie** (avant le résultat) : bord et lettre en `--encre`, sans vert ni rouge ; au résultat, la bonne réponse passe au vert avec la coche, ma mauvaise en rouge, puis le bloc d'explication et le classement provisoire.
+  - **Podium** : au plus trois colonnes de 112, 84 et 64 px (premier au centre, plein `--encre`, les autres `--surface`), pseudo et points au-dessus, rang en 30 px dans la colonne. Une seule animation de 250 ms (la colonne monte), aucune pluie de confettis, aucun son.
+  - **Liste des joueurs** de la salle d'attente : rangées de 52 px, les nouveaux arrivants s'ajoutent sans que la liste clignote.
 - **Icônes** : Phosphor « regular » (licence MIT, mention en tête de `icones.js`), 20 px dans le texte, 24 px dans une tuile, 32 px dans un état vide ou un cadre photo, 22 px dans la navigation. Toujours avec un rôle : repérer une catégorie, un niveau, une section, un état, une action. Jamais en décor. Flèche (« fleche ») pour les boutons qui avancent ; chevron (« chevron ») pour les rangées de liste et le coin des tuiles qui sont des liens.
 
 ## Mouvement
