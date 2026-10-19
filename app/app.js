@@ -99,7 +99,7 @@
       var x = a.parcours[id], y = (b.parcours || {})[id];
       if (!x || !y) { r.parcours[id] = x || y; return; }
       var q = {}; [x.quiz || {}, y.quiz || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { q[k] = Math.max(q[k] || 0, o[k]); }); });
-      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, date: (x.date || "") > (y.date || "") ? x.date : y.date };
+      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, jeux: Object.assign({}, x.jeux || {}, y.jeux || {}), total: x.total || y.total, date: (x.date || "") > (y.date || "") ? x.date : y.date };
     });
     var vus = {};
     (a.erreurs || []).concat(b.erreurs || []).forEach(function (e) { var k = e.palier + "#" + e.index; if (!vus[k]) { vus[k] = 1; r.erreurs.push(e); } });
@@ -170,7 +170,7 @@
   function paliersPrevus(p) { return (p.etapes || []).reduce(function (s, e) { return s + (e.paliers || []).length; }, 0); }
   function titrePalier(p, n) { var t = null; (p.etapes || []).forEach(function (e) { (e.paliers || []).forEach(function (x) { if (x.numero === n) t = x.titre; }); }); return t; }
   function fini(p) { return p.verifie && suivi(p.id).fait >= paliersPrevus(p); }
-  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || null; etat.parcours[p.id] = s; }
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || null; if (p.verifie) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
   function creerParcours(titre, bouton, alerte) {
     titre = String(titre || "").trim();
     alerte.hidden = true;
@@ -255,12 +255,18 @@
     return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("fleche")])]);
   }
   function quizEnAttente(s) { var k = Math.floor((s.fait || 0) / 5) * 5; return k > 0 && (s.quiz || {})[k] === undefined ? k : 0; }
+  function prochainJalon(s) { var j = (Math.floor((s.fait || 0) / 5) + 1) * 5; return s.total && j > s.total ? 0 : j; }
+  function termine(s) { return !!(s.total && s.fait >= s.total); }
   function detailSuivi(s) {
     if (!s.fait) return "Pas encore commencé";
-    if (quizEnAttente(s)) return "Palier " + s.fait + " · " + (quizEnAttente(s) % 10 === 0 ? "défi d’étape" : "quiz") + " disponible";
-    var r = 5 - (s.fait % 5); return "Palier " + s.fait + " · quiz dans " + pluriel(r, "palier", "paliers");
+    var q = quizEnAttente(s);
+    if (q) return "Palier " + s.fait + " · " + (q % 10 === 0 ? "défi d’étape" : "quiz") + " disponible";
+    if (termine(s)) return "Parcours terminé · " + pluriel(s.total, "palier", "paliers");
+    var j = prochainJalon(s);
+    if (!j) return "Palier " + s.fait + " sur " + s.total;
+    return "Palier " + s.fait + " · " + (j % 10 === 0 ? "défi d’étape" : "quiz") + " dans " + pluriel(j - s.fait, "palier", "paliers");
   }
-  function avanceJalon(s) { return quizEnAttente(s) ? 100 : ((s.fait || 0) % 5) / 5 * 100; }
+  function avanceJalon(s) { if (quizEnAttente(s) || termine(s)) return 100; return prochainJalon(s) ? ((s.fait || 0) % 5) / 5 * 100 : (s.fait || 0) / s.total * 100; }
   function vueMaison() {
     var miens = Object.keys(etat.parcours).map(function (id) { return { id: id, s: etat.parcours[id] }; }).filter(function (x) { return x.s.titre; }).sort(function (a, b) { return (b.s.date || "") > (a.s.date || "") ? 1 : -1; });
     var blocs = [entete(), carteRecherche()];
@@ -272,7 +278,7 @@
         el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
         el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + avanceJalon(r.s) + "%" })]),
         el("span", { "class": "meta", text: detailSuivi(r.s) }),
-        lien("#/p/" + encodeURIComponent(r.id) + (quizEnAttente(r.s) ? (quizEnAttente(r.s) % 10 === 0 ? "/defi/" : "/quiz/") + quizEnAttente(r.s) : ""), quizEnAttente(r.s) ? "Passer le " + (quizEnAttente(r.s) % 10 === 0 ? "défi d’étape" : "quiz") : (r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
+        lien("#/p/" + encodeURIComponent(r.id) + (quizEnAttente(r.s) ? (quizEnAttente(r.s) % 10 === 0 ? "/defi/" : "/quiz/") + quizEnAttente(r.s) : ""), quizEnAttente(r.s) ? "Passer le " + (quizEnAttente(r.s) % 10 === 0 ? "défi d’étape" : "quiz") : (termine(r.s) ? "Revoir le parcours" : r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
       ]));
       if (miens.length > 1) {
         var ul = el("ul", { "class": "liste" });
@@ -370,7 +376,10 @@
   /* ---------- Palier (leçon) ---------- */
   function sectionL(titre, contenu) { return contenu ? el("section", {}, [el("h2", { text: titre }), contenu]) : null; }
   function texteL(t) { if (!t) return null; var d = el("div", { "class": "texte" }); String(t).split("\n").forEach(function (x) { if (x.trim()) d.appendChild(el("p", { text: x })); }); return d; }
+  function pageVerrou(id, texte, n) { montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [el("p", { "class": "verrou" }, [icone("cadenas"), texte]), lien("#/p/" + encodeURIComponent(id) + "/" + n, "Aller au palier " + n, "btn")])]), "accueil", "Verrouillé"); }
   function vuePalier(id, n) {
+    var s0 = suivi(id);
+    if (n > (s0.fait || 0) + 1) { pageVerrou(id, "Ce palier s’ouvre après le palier " + (n - 1) + ".", (s0.fait || 0) + 1); return; }
     montrer(attente("Préparation du palier… La première fois, compte jusqu’à une minute : deux IA rédigent puis vérifient la leçon.", true), null, "Palier");
     Promise.all([chargerParcours(id), chargerPalier(id, n)]).then(function (r) {
       var p = r[0], l = r[1];
@@ -392,7 +401,7 @@
         verifBloc = el("section", { "class": "bloc-verif" }, [el("h2", { text: "Vérifie ta compréhension" })]);
         verifBloc.appendChild(rendreQuestion(l.questions[qIndex], function (juste) {
           var it = { palier: l.id, index: qIndex, titre: l.titre };
-          if (juste) { bonus = XP.verif; oublierErreur(it); } else noterErreur(it);
+          if (juste) { bonus = etat.reussies[it.palier + "#" + it.index] ? 0 : XP.verif; oublierErreur(it); } else noterErreur(it);
           S.ecrire("koios.etat", etat);
         }));
       }
@@ -400,7 +409,7 @@
       var finir = el("button", { "class": "btn", type: "button", text: deja ? "Palier suivant" : "Terminer le palier · +" + XP.palier + N + "XP" });
       finir.addEventListener("click", function () {
         var s2 = suivi(p.id);
-        if (n > s2.fait) { s2.fait = n; etat.parcours[p.id] = s2; gagner(XP.palier + bonus, p.id); toast("+" + (XP.palier + bonus) + N + "XP"); }
+        if (n > s2.fait) { if (bonus && !premiereReussite({ palier: l.id, index: qIndex })) bonus = 0; s2.fait = n; etat.parcours[p.id] = s2; gagner(XP.palier + bonus, p.id); toast("+" + (XP.palier + bonus) + N + "XP"); }
         var base = "#/p/" + encodeURIComponent(p.id);
         if (p.verifie && n >= paliersPrevus(p)) location.hash = base;
         else if (n % 10 === 0 && !(s2.quiz || {})[n]) location.hash = base + "/defi/" + n;
@@ -555,6 +564,8 @@
     return Promise.all(l).then(function (x) { return x.filter(Boolean); });
   }
   function vueQuiz(id, mode) {
+    var s0 = suivi(id), k0 = parseInt(mode, 10);
+    if (mode !== "direct" && (!(k0 > 0) || (s0.fait || 0) < k0)) { pageVerrou(id, "Ce quiz s’ouvre après le palier " + (k0 > 0 ? k0 : 5) + ".", (s0.fait || 0) + 1); return; }
     montrer(attente("Préparation du quiz…", true), null, "Quiz");
     chargerParcours(id).then(function (p) {
       var base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id);
