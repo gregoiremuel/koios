@@ -74,3 +74,9 @@ Anciens parcours IA (format `etapes`) : on les lit encore. Un seul module « Sui
 - Les quotas gratuits (GLM flash, Workers AI) limitent à quelques dizaines de leçons nouvelles par jour. Ça va pour un cercle d'amis. Pour le grand public, il faudra un budget.
 - Contrôle par une 2e IA ≠ relecture humaine. Le badge le dit : « Recoupé automatiquement ».
 - Un moyen mnémotechnique peut déformer un fait. Il passe donc par la même vérification.
+
+## Décisions de Greg du 19 octobre (soir) : lot 3 et suivants
+
+Choisi : révision espacée, badges et séries, mode « explique-moi simplement », dossier de voyage, certificat de fin de niveau, lecture à voix haute, mode hors ligne. Pas retenu pour l'instant : le Rival.
+À plusieurs : salon par lien, tournoi de la semaine, formation à plusieurs, direct en même temps. Quiz général : 10, 20, 30, 40 ou 50 questions, régénérables.
+Ordre : **3a** quiz général + question du jour sur tout sujet + salons par lien + tournoi · **3b** formation à plusieurs + direct (interrogation régulière) · **3c** révision espacée, badges et séries, « explique simplement » · **3d** dossier de voyage, certificat, voix, hors ligne.
