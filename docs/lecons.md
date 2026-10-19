@@ -16,3 +16,6 @@ Une ligne par piège rencontré, la plus récente en haut.
 - 18 octobre 2026 : le projet Cloudflare de Koîos est un **Worker** (Workers Builds, `npx wrangler deploy` sur `main`), pas un projet Pages. Vérifier le type de projet (capture de l'onglet Settings) avant d'écrire `wrangler.toml` ; tester avec `npx wrangler deploy --dry-run`.
 - 18 octobre 2026 : un message de Greg envoyé pendant un travail peut arrêter les sous-agents en cours ; vérifier leurs fichiers et les relancer si besoin.
 - 18 octobre 2026 : un script de typographie qui touche aux éléments d'une frise doit aussi corriger les clés de `valeurs` (sinon le chapitre est refusé).
+- 19 octobre 2026 : GitHub ne déclenche plus les constructions Cloudflare (une seule construction le 18 au matin) ; on publie avec `npx wrangler deploy` et la clé de Greg (domaine `api.cloudflare.com` autorisé). Pour rétablir l'automatisme : déconnecter puis reconnecter le dépôt dans Cloudflare.
+- 19 octobre 2026 : `pkill -f motif` ou `pgrep -f motif` dans une commande qui contient le motif tue son propre shell ; écrire `[s]erveur` et ne pas répéter le motif ailleurs dans la commande.
+- 19 octobre 2026 : deux écrans qui créent le compte en même temps font deux joueurs ; mémoriser la promesse de création.
