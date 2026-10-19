@@ -2,6 +2,7 @@
 // constant). Sans clé valide : 403, jamais d'indice sur la clé (ni longueur, ni présence du secret).
 //   GET  /api/admin[?parcours=<id>]  : état de la file (tâches par état, pause, dernière erreur, fournisseurs épuisés) et, avec
 //                                       `parcours`, les leçons prêtes et le total connu de cette formation.
+//   GET  /api/admin?export=<id>      : titre, programme et leçons écrites du parcours (verification, modele), pour audit.
 //   POST /api/admin {action: 'debloquer', parcours} : met en file toute la formation (leçons des modules ouverts, ouverture des
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
@@ -11,7 +12,7 @@ import {
   ErreurHttp, enveloppe, exigerBase, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import {
-  debloquer, definirJournee, definirPause, etatFile, viderFile,
+  debloquer, definirJournee, definirPause, etatFile, exporterLecons, viderFile,
 } from '../../lib/nuit.js';
 
 // 20 mauvais essais par jour et par adresse : au-delà, même la bonne clé est refusée. Les accès réussis ne comptent pas.
@@ -32,7 +33,9 @@ async function exigerAdmin(request, env) {
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
   await exigerAdmin(request, env);
-  const parcours = new URL(request.url).searchParams.get('parcours');
+  const params = new URL(request.url).searchParams;
+  if (params.has('export')) return json(await exporterLecons(env, params.get('export')));
+  const parcours = params.get('parcours');
   return json(await etatFile(env, parcours || null));
 });
 

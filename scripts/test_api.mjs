@@ -7470,6 +7470,22 @@ test('file de nuit (faux fournisseur) : 2 tâches par passage, mêmes tables, mo
   assert.equal(etat.formation.pretes, 8);
   assert.equal(etat.formation.total, 12);
   assert.equal(etat.formation.ouverts, 2);
+  // Export pour audit : 403 sans clé (même réponse), 404 inconnu, contenu correct avec la clé, aucun secret.
+  const refusExport = [await appel(adminGet, { env: envA, requete: '?export=la-tour-eiffel' }), await appel(adminGet, { env: envA, entetes: { 'x-admin-cle': 'mauvaise' }, requete: '?export=la-tour-eiffel' })];
+  for (const r of refusExport) erreurFr(r, 403, /^Accès refusé\.$/);
+  erreurFr(await appel(adminGet, { env: envA, entetes: enteteAdmin, requete: '?export=inconnu' }), 404);
+  const exp = await appel(adminGet, { env: envA, entetes: enteteAdmin, requete: '?export=la-tour-eiffel' });
+  ok200(exp);
+  assert.equal(exp.corps.id, 'la-tour-eiffel');
+  assert.equal(typeof exp.corps.titre, 'string');
+  assert.ok(exp.corps.programme && Array.isArray(exp.corps.programme.niveaux), 'programme présent');
+  assert.deepEqual(exp.corps.lecons.map((x) => x.numero), [1, 2, 3, 4, 5, 6, 7, 8]);
+  const e2 = exp.corps.lecons.find((x) => x.numero === 2);
+  assert.equal(e2.verification.statut, l2.verification.statut);
+  assert.deepEqual(e2.verification.ia, [NOM_LLAMA, NOM_MISTRAL]);
+  assert.equal(e2.modele, NOM_LLAMA);
+  assert.deepEqual(e2.contenu, l2);
+  assert.ok(!JSON.stringify(exp.corps).includes(ADMIN), 'aucune clé dans l’export');
 });
 
 test('file de nuit : échec = essai de plus, 3 essais au plus puis « echec » ; interrompue = reprise après 6 min ; pause = rien', async () => {

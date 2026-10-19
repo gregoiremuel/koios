@@ -807,6 +807,20 @@
     info.className = "meta info-nuit";
     zone.appendChild(el("p", { "class": "meta", text: pluriel(f.pretes, "leçon prête", "leçons prêtes") + " sur " + f.total + (f.ouverts < f.modules ? " · " + pluriel(f.modules - f.ouverts, "module pas encore ouvert", "modules pas encore ouverts") : "") + (f.enFile ? " · " + pluriel(f.enFile, "tâche en file", "tâches en file") : "") }));
     zone.appendChild(bouton); zone.appendChild(info); zone.appendChild(alerte);
+    /* Export pour audit : l'en-tête x-admin-cle part avec la requête (api), le fichier ne contient aucune clé. */
+    var telecharger = el("button", { "class": "btn second", type: "button", text: "Télécharger les leçons prêtes" });
+    telecharger.addEventListener("click", function () {
+      if (telecharger.disabled) return;
+      telecharger.disabled = true; alerte.hidden = true;
+      api("GET", "admin?export=" + encodeURIComponent(p.id), null, 30000).then(function (r) {
+        telecharger.disabled = false;
+        var url = URL.createObjectURL(new Blob([JSON.stringify(r, null, 2)], { type: "application/json" }));
+        var a = el("a", { href: url, download: "koios-" + p.id + ".json" });
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+      }, function (e) { telecharger.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
+    });
+    zone.appendChild(telecharger);
   }
   function vueParcours(id, onglet) {
     var vive = vivante();
