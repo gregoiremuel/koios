@@ -6,7 +6,7 @@
 import {
   ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON,
 } from '../../lib/api.js';
-import { EXERCICES_PAR_CHAPITRE, chargerQuestions, scoresPublics } from '../../lib/questions.js';
+import { EXERCICES_PAR_CHAPITRE, scoresPublics } from '../../lib/questions.js';
 import { lireIdChapitre } from '../../lib/sujets.js';
 
 const MAX_OCTETS = 4096;
@@ -23,14 +23,15 @@ function objet(v) {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
-// 5 à 20 questions {chapitre: "ia:<sujet>:<k>", index: 0 à 2}.
+// 5 à 20 questions {chapitre: "ia:<sujet>:<k>" (chapitre IA) ou "hg-01" (chapitre vérifié), index: 0 à 2}.
+const ID_VERIFIE = /^[a-z]{2}-\d{2}$/;
 function validerQuestions(brut) {
   if (!Array.isArray(brut) || brut.length < 5 || brut.length > 20) {
     throw new ErreurHttp(400, 'Un duel compte de 5 à 20 questions.');
   }
   return brut.map((q) => {
-    if (!objet(q) || !lireIdChapitre(q.chapitre) || !Number.isInteger(q.index) || q.index < 0 || q.index >= EXERCICES_PAR_CHAPITRE) {
-      throw new ErreurHttp(400, 'Question invalide : chapitre IA et numéro d’exercice attendus.');
+    if (!objet(q) || typeof q.chapitre !== 'string' || !(ID_VERIFIE.test(q.chapitre) || lireIdChapitre(q.chapitre)) || !Number.isInteger(q.index) || q.index < 0 || q.index >= EXERCICES_PAR_CHAPITRE) {
+      throw new ErreurHttp(400, 'Question invalide : chapitre et numéro d’exercice attendus.');
     }
     return { chapitre: q.chapitre, index: q.index };
   });
@@ -39,7 +40,8 @@ function validerQuestions(brut) {
 // {justes, n, points} : n est le nombre de questions du duel.
 function validerScore(brut, nQuestions) {
   const entier = (v, max) => Number.isInteger(v) && v >= 0 && v <= max;
-  if (!objet(brut) || brut.n !== nQuestions || !entier(brut.justes, nQuestions) || !entier(brut.points, 10000)) {
+  const points = Number.isInteger(brut && brut.points) && brut.points >= -1000 && brut.points <= 10000;
+  if (!objet(brut) || brut.n !== nQuestions || !entier(brut.justes, nQuestions) || !points) {
     throw new ErreurHttp(400, 'Score invalide : justes, n (le nombre de questions) et points attendus.');
   }
   return { justes: brut.justes, n: brut.n, points: brut.points };
@@ -60,12 +62,14 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
   const questions = validerQuestions(corps.questions);
   const score = validerScore(corps.score, questions.length);
 
-  // Chaque question doit exister dans le cache : un duel doit pouvoir se jouer.
-  const ids = [...new Set(questions.map((q) => q.chapitre))];
-  const { results } = await env.DB.prepare(`SELECT id FROM chapitres_ia WHERE id IN (${ids.map(() => '?').join(', ')})`)
-    .bind(...ids)
-    .all();
-  if ((results || []).length !== ids.length) throw new ErreurHttp(400, 'Question inconnue : chapitre absent de la bibliothèque.');
+  // Chaque chapitre IA doit exister dans le cache : un duel doit pouvoir se jouer (les chapitres vérifiés sont des fichiers de l'app).
+  const ids = [...new Set(questions.map((q) => q.chapitre).filter((c) => !ID_VERIFIE.test(c)))];
+  if (ids.length) {
+    const { results } = await env.DB.prepare(`SELECT id FROM chapitres_ia WHERE id IN (${ids.map(() => '?').join(', ')})`)
+      .bind(...ids)
+      .all();
+    if ((results || []).length !== ids.length) throw new ErreurHttp(400, 'Question inconnue : chapitre absent de la bibliothèque.');
+  }
 
   const maintenant = new Date().toISOString();
   const scores = [{ joueur: joueur.id, pseudo: joueur.pseudo, ...score, date: maintenant }];
@@ -97,7 +101,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     duel: {
       id: ligne.id,
       createur: ligne.createur || 'Un joueur',
-      questions: await chargerQuestions(env, couples),
+      questions: couples, // références {chapitre, index} ; l'app retrouve les questions
       scores: scoresPublics(lireJSONColonne(ligne.scores, [])),
     },
   });

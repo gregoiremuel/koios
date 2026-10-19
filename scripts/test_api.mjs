@@ -1616,7 +1616,7 @@ test('duel POST : 401, 400 sur questions ou score invalides, 413, rien enregistr
     [{ questions: q().map((x, i) => (i === 0 ? { ...x, index: -1 } : x)), score }, 'index négatif'],
     [{ questions: q().map((x, i) => (i === 0 ? { ...x, index: 0.5 } : x)), score }, 'index décimal'],
     [{ questions: q().map((x, i) => (i === 0 ? { ...x, index: '0' } : x)), score }, 'index en texte'],
-    [{ questions: q().map((x, i) => (i === 0 ? { ...x, chapitre: 'hg-01' } : x)), score }, 'chapitre statique'],
+    [{ questions: q().map((x, i) => (i === 0 ? { ...x, chapitre: 'hg-1' } : x)), score }, 'chapitre statique mal formé'],
     [{ questions: q().map((x, i) => (i === 0 ? { ...x, chapitre: 12 } : x)), score }, 'chapitre non texte'],
     [{ questions: q().map((x, i) => (i === 0 ? 'ia:s1:1' : x)), score }, 'question en texte'],
     [{ questions: q().map((x, i) => (i === 0 ? { ...x, chapitre: 'ia:s1:9' } : x)), score }, 'chapitre inconnu'],
@@ -1627,7 +1627,7 @@ test('duel POST : 401, 400 sur questions ou score invalides, 413, rien enregistr
     [{ questions: q(), score: { ...score, justes: -1 } }, 'justes négatif'],
     [{ questions: q(), score: { ...score, justes: 1.5 } }, 'justes décimal'],
     [{ questions: q(), score: { ...score, justes: '3' } }, 'justes en texte'],
-    [{ questions: q(), score: { ...score, points: -1 } }, 'points négatifs'],
+    [{ questions: q(), score: { ...score, points: -1001 } }, 'points négatifs'],
     [{ questions: q(), score: { ...score, points: 10001 } }, 'points hors plafond'],
     [{ questions: q(), score: { ...score, points: NaN } }, 'points NaN'],
     [{ questions: q(), score: { justes: 3, n: 5 } }, 'points absents'],
@@ -1663,9 +1663,7 @@ test('duel POST : crée un duel (id de 8 caractères), GET le rend jouable sans 
   assert.equal(d.createur, 'Alice');
   assert.equal(d.questions.length, 5);
   assert.deepEqual(d.questions.map((x) => [x.chapitre, x.index]), questionsDuel().map((x) => [x.chapitre, x.index]));
-  assert.deepEqual(Object.keys(d.questions[0]), ['chapitre', 'titre', 'sujetTitre', 'index', 'exercice']);
-  assert.deepEqual(d.questions.map((x) => x.exercice.type), ['qcm', 'bluff', 'qcm', 'frise', 'bluff']);
-  assert.equal(d.questions[0].titre, 'Titre 1');
+  assert.deepEqual(d.questions, questionsDuel(), 'références {chapitre, index}, résolues par l’app');
   assert.deepEqual(d.scores.length, 1);
   assert.deepEqual(Object.keys(d.scores[0]), ['pseudo', 'justes', 'n', 'points', 'date']);
   assert.deepEqual({ ...d.scores[0], date: typeof d.scores[0].date }, { pseudo: 'Alice', justes: 3, n: 5, points: 80, date: 'string' });
@@ -1709,7 +1707,7 @@ test('duel PUT : ajoute ou remplace le score du lecteur, 401, 400, 404', async (
     { id: 'court', score: { justes: 1, n: 5, points: 10 } },
     { id, score: { justes: 1, n: 4, points: 10 } },
     { id, score: { justes: 6, n: 5, points: 10 } },
-    { id, score: { justes: 1, n: 5, points: -1 } },
+    { id, score: { justes: 1, n: 5, points: -1001 } },
     { id, score: 'rien' },
     { id },
   ]) erreurFr(await put(b, corps), 400);

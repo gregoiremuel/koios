@@ -1035,7 +1035,7 @@
         });
       });
       montrer(el("div", { "class": "page sans-nav" }, [retour("#/jouer", "Jouer"),
-        el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: "Duel" }), el("h1", { text: duel.createur + " te lance un duel" })]),
+        el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: "Duel" }), el("h1", { text: profil && duel.createur === profil.pseudo ? "Ton duel" : duel.createur + " te lance un duel" })]),
         marge("malin", taquin() ? "Mêmes questions, même barème. Que le meilleur gagne, et que l’autre révise." : "Mêmes questions pour tous les joueurs du duel."),
         dejaJoue ? el("p", { "class": "astuce" }, [icone("juste"), el("span", { text: "Tu as déjà joué ce duel." })]) : (enLigne() ? lancer : el("p", { "class": "alerte", text: "Les duels demandent la base en ligne. Réessaie dans un moment." })),
         el("section", { "class": "carte" }, [el("h2", { text: "Tableau du duel" }), tableauDuel(duel)])
