@@ -13,7 +13,7 @@ Chaque lot : bâtisseur (Sonnet) construit, testeur lance les tests, relecteur (
 
 Données. On garde la table `parcours`. `contenu.programme` remplace `contenu.etapes` :
 `{ niveaux: [{ numero, titre, modules: [{ numero, titre, objectif, lecons: [{ numero, titre }] | null }] }] }`.
-- À la création : GLM écrit le programme d'ensemble. 4 niveaux, 4 à 8 modules par niveau, un titre et un objectif d'une ligne par module. Pas encore les leçons.
+- À la création : GLM écrit le programme d'ensemble. 4 niveaux, 3 à 8 modules par niveau, un titre et un objectif d'une ligne par module. Pas encore les leçons.
 - À l'ouverture d'un module : GLM écrit ses 5 à 10 titres de leçons, puis on les enregistre.
 - Le niveau Bases commence toujours par les définitions et les repères essentiels.
 - Numéro global d'une leçon = son rang dans tout le programme. La route `palier?parcours=&n=` garde ce numéro global, donc XP, verrous et quiz tous les 5 continuent de marcher.
