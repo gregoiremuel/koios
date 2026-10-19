@@ -10,6 +10,12 @@
 //     Sparte, page générique pour tout autre sujet ;
 //   - Pexels et Unsplash : simulés aussi, mais sans clé par défaut (l'image du parcours vient alors de Wikipédia).
 //     KOIOS_LOCAL_PHOTOS=pexels ou unsplash donne une clé factice et fait passer l'image par ce service.
+//   - Wikimedia Commons : simulé (aucune clé nécessaire) avec des fichiers qu'il faut écarter (licence non libre, image
+//     trop petite) avant la bonne ; une requête contenant « zzz » ou « ambiance » n'y trouve rien (repli sur Unsplash
+//     si KOIOS_LOCAL_PHOTOS=unsplash) ;
+//   - images : le navigateur ne peut pas joindre Wikimédia, Unsplash ni Pexels. Dans les réponses JSON (API et fichiers de
+//     contenu/), leurs adresses d'images sont remplacées par des aplats gris neutres servis par ce serveur
+//     (/images-simulees/<ton>.svg) : on voit la mise en page, jamais une fausse photo.
 // Un palier sur quatre porte une phrase « non confirmée » que le faux vérificateur retire : son statut est « partiel ».
 // Une leçon sur six porte un moyen mnémotechnique non confirmé : il est retiré (mnemo null).
 // Les contenus simulés servent à voir l'écran, pas à apprendre. Aucun secret : les clés sont des valeurs calculées.
@@ -214,16 +220,46 @@ function pexels(u, init) {
 
 function unsplash(u, init) {
   if (!entete(init, 'authorization').startsWith('Client-ID ')) return json({ errors: ['clé absente'] }, 401);
+  if (/^\/photos\/[^/]+\/download$/.test(u.pathname)) { // appel de download_location exigé par les règles d'Unsplash
+    console.log('Unsplash (simulé) : download_location appelé pour', u.pathname.split('/')[2]);
+    return json({ url: 'https://images.unsplash.com/photo-simulee' });
+  }
   if (/zzz/i.test(u.searchParams.get('query') || '')) return json({ total: 0, results: [] });
   return json({
     total: 1,
     results: [{
       id: 'simule',
+      width: 4000,
+      height: 2667,
       urls: { regular: 'https://images.unsplash.com/photo-simulee?w=1080&fit=max' },
-      links: { html: 'https://unsplash.com/photos/photo-simulee' },
-      user: { name: 'Photographe simulé' },
+      links: { html: 'https://unsplash.com/photos/photo-simulee', download_location: 'https://api.unsplash.com/photos/simule/download?ixid=simule' },
+      user: { name: 'Photographe simulé', links: { html: 'https://unsplash.com/@photographe-simule' } },
     }],
   });
+}
+
+// Wikimedia Commons : exige un User-Agent (comme Wikimédia) ; renvoie d'abord deux fichiers à écarter (licence NC, 640 px de large),
+// puis un fichier libre. Tout est inventé : aucun fichier réel.
+function commons(u, init) {
+  if (!entete(init, 'user-agent').startsWith('Koios/')) return json({ error: { info: 'User-Agent manquant' } }, 403);
+  const recherche = u.searchParams.get('gsrsearch') || '';
+  if (/zzz|ambiance/i.test(recherche)) return json({ batchcomplete: '' });
+  const fichier = (index, nom, largeur, licence, auteur) => ({
+    pageid: 9000 + index, ns: 6, title: 'File:' + nom, index,
+    imageinfo: [{
+      thumburl: `https://upload.wikimedia.org/wikipedia/commons/thumb/s/s${index}/${nom}/1200px-${nom}`,
+      thumbwidth: Math.min(1200, largeur), thumbheight: Math.round(Math.min(1200, largeur) * 2 / 3),
+      url: `https://upload.wikimedia.org/wikipedia/commons/s/s${index}/${nom}`,
+      descriptionurl: 'https://commons.wikimedia.org/wiki/File:' + nom,
+      width: largeur, height: Math.round(largeur * 2 / 3), mime: 'image/jpeg',
+      extmetadata: { LicenseShortName: { value: licence }, Artist: { value: auteur }, NonFree: { value: 'false' } },
+    }],
+  });
+  return json({ batchcomplete: '', query: { pages: {
+    9001: fichier(1, 'Simule_non_libre.jpg', 3000, 'CC BY-NC 4.0', 'Auteur simulé A'),
+    9002: fichier(2, 'Simule_petit.jpg', 640, 'CC BY-SA 4.0', 'Auteur simulé B'),
+    9003: fichier(3, 'Simule_libre.jpg', 3000, 'CC BY-SA 4.0', '<a href="//commons.wikimedia.org/wiki/User:Auteur_simule">Auteur simulé</a>'),
+  } } });
 }
 
 // Wikipédia FR et EN : recherche, lecture d'une page, lien interlangue.
@@ -261,6 +297,7 @@ globalThis.fetch = async (url, init) => {
   if (u.hostname === 'api.z.ai') return glm(init);
   if (u.hostname === 'api.pexels.com') return pexels(u, init);
   if (u.hostname === 'api.unsplash.com') return unsplash(u, init);
+  if (u.hostname === 'commons.wikimedia.org') return commons(u, init);
   return fetchReseau(url, init);
 };
 
@@ -271,6 +308,21 @@ const photos = process.env.KOIOS_LOCAL_PHOTOS;
 if (photos === 'pexels') env.PEXELS_KEY = cleFactice('pexels');
 if (photos === 'unsplash') env.UNSPLASH_KEY = cleFactice('unsplash');
 const ctx = { waitUntil() {} };
+
+// Aplats gris neutres pour les images simulées : quatre tons, choisis selon l'adresse d'origine. Aucun motif, aucun texte.
+const TONS = ['e4e6e9', 'd8dbdf', 'ced2d7', 'dfe2e5'];
+const HOTES_IMAGES = /https:\/\/(?:upload\.wikimedia\.org|images\.unsplash\.com|images\.pexels\.com|commons\.wikimedia\.org\/wiki\/Special:FilePath)\/[^"\\]*/g;
+function imagesLocales(texte) {
+  return texte.replace(HOTES_IMAGES, (adresse) => {
+    let h = 0;
+    for (const c of adresse) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    return `/images-simulees/${h % TONS.length}.svg`;
+  });
+}
+function aplat(n) {
+  const ton = TONS[Number(n) % TONS.length] || TONS[0];
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800"><rect width="1200" height="800" fill="#${ton}"/></svg>`;
+}
 const MAX_CORPS = 1024 * 1024;
 
 async function corpsDe(req) {
@@ -299,9 +351,15 @@ const serveur = createServer(async (req, res) => {
       headers: entetes,
       body: corps && corps.length ? corps : undefined,
     });
-    const reponse = await worker.fetch(request, env, ctx);
-    res.writeHead(reponse.status, Object.fromEntries(reponse.headers));
-    res.end(Buffer.from(await reponse.arrayBuffer()));
+    const aplatDemande = /^\/images-simulees\/(\d)\.svg$/.exec(new URL(request.url).pathname);
+    const reponse = aplatDemande
+      ? new Response(aplat(aplatDemande[1]), { headers: { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' } })
+      : await worker.fetch(request, env, ctx);
+    const enTetes = Object.fromEntries(reponse.headers);
+    let octets = Buffer.from(await reponse.arrayBuffer());
+    if (/json/.test(enTetes['content-type'] || '')) octets = Buffer.from(imagesLocales(octets.toString('utf8')), 'utf8');
+    res.writeHead(reponse.status, enTetes);
+    res.end(octets);
     console.log(`${req.method} ${req.url} -> ${reponse.status}`);
   } catch (e) {
     console.error(`${req.method} ${req.url} -> 500`, e && e.message);
@@ -320,5 +378,5 @@ serveur.on('error', (e) => {
   process.exit(1);
 });
 serveur.listen(port, () => {
-  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Pexels et Unsplash simulés)`);
+  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Commons, Pexels et Unsplash simulés ; images = aplats gris)`);
 });

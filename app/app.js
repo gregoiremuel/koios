@@ -48,18 +48,74 @@
   var minuterieToast;
   function toast(t) { toastEl.textContent = t; toastEl.hidden = false; clearTimeout(minuterieToast); minuterieToast = setTimeout(function () { toastEl.hidden = true; }, 3000); }
   function lien(href, texte, cls) { return el("a", { "class": cls || "lien", href: href, text: texte }); }
-  function image(img, cls) {
+  function typo(t) { return String(t || "").replace(/ :/g, N + ":"); }
+  function lienExt(href, texte) { return el("a", { href: href, target: "_blank", rel: "noopener", text: texte }); }
+  /* Crédit d'une photo. Unsplash exige un lien vers le photographe et un lien vers Unsplash ; les autres sources, un lien vers la page du fichier. */
+  function legende(img) {
+    if (!img || !img.credit) return null;
+    if (img.source === "unsplash" && img.auteur && img.lienAuteur && img.lienSource) return el("figcaption", {}, ["Photo" + N + ": ", lienExt(img.lienAuteur, img.auteur), " sur ", lienExt(img.lienSource, "Unsplash")]);
+    return el("figcaption", {}, [img.lien ? lienExt(img.lien, typo(img.credit)) : typo(img.credit)]);
+  }
+  /* Photo avec son crédit ; cls = « couverture » (16:9) ou « lecon-img » (3:2) ; alt = le sujet. Elle disparaît si elle ne charge pas. */
+  function photo(img, cls, alt) {
     if (!img || !img.src) return null;
-    var i = el("img", { src: img.src, alt: img.alt || "", loading: "lazy" });
-    var legende = img.credit ? el("figcaption", {}, [img.lien ? el("a", { href: img.lien, target: "_blank", rel: "noopener", text: img.credit }) : img.credit]) : null;
-    var f = el("figure", { "class": cls || null }, [i, legende]);
-    i.addEventListener("error", function () { f.remove(); });
+    var i = el("img", { src: img.src, alt: alt || "", loading: "lazy", decoding: "async" });
+    var f = el("figure", { "class": "photo " + cls }, [i, legende(img)]);
+    i.addEventListener("error", function () { var parent = f.parentNode; f.remove(); if (parent && parent.classList.contains("emplacement") && !parent.children.length) parent.hidden = true; });
     return f;
   }
-  function vignette(img, titre) {
-    if (img && img.src) { var i = el("img", { "class": "vignette", src: img.src, alt: "", loading: "lazy" }); i.addEventListener("error", function () { i.replaceWith(el("span", { "class": "vignette", text: (titre || "?").charAt(0) })); }); return i; }
-    return el("span", { "class": "vignette", "aria-hidden": "true", text: (titre || "?").replace(/^(L’|La |Le |Les )/, "").charAt(0).toUpperCase() });
+  /* Photos trouvées par /api/image (« auto », « commons » ou « unsplash »), gardées en mémoire pour la session ; null si rien ne vient. */
+  var imagesMem = {};
+  function trouverImage(requete, source) {
+    var q = String(requete || "").replace(/\s+/g, " ").trim().slice(0, 80), k = source + ":" + q.toLowerCase();
+    if (q.length < 2) return Promise.resolve(null);
+    if (!imagesMem[k]) {
+      imagesMem[k] = pretServeur.then(function () { return serveur.base ? api("GET", "image?q=" + encodeURIComponent(q) + "&source=" + source, null, 14000) : null; })
+        .then(function (j) { return j && j.image && j.image.src ? j.image : null; }, function () { delete imagesMem[k]; return null; });
+    }
+    return imagesMem[k];
   }
+  /* Catégorie d'un sujet, d'après son titre (sans accents ni casse) : le nom de l'icône. Premier motif qui correspond ; « livre » sinon. */
+  var CATEGORIES = [
+    ["diamant", /\b(gemm|joaill|bijou|pierre|mineral|diamant|rubis|saphir|emeraude|corindon|beryl|orfevr|cristal|lapidaire)/],
+    ["musique", /\b(musi|opera|symphon|chanson|compositeur|orchestre|piano|guitar|concert|jazz\b|rap\b|rock\b|beethoven|mozart|bach\b|ravel|debussy|bolero)/],
+    ["clap", /\b(cinema|film|realisat|acteur|actrice|hollywood|kubrick|hitchcock|scenari)/],
+    ["litterature", /\b(litterature|poesie|poeme|poete|roman\b|romans\b|romancier|ecrivain|theatre|moliere|hugo\b|conte\b|contes\b|nouvelle\b|bibliotheque|auteur|fable)/],
+    ["cerveau", /\b(philosoph|stoic|ethique|morale|metaphysi|logique|existential|platon|socrate|aristote|nietzsche|psycholog|cognitiv|pensee|conscience)/],
+    ["pinceau", /\b(arts?\b|peintur|peintre|architectur|sculpt|cathedral|gothi|impressionn|musee|dessin|photograph|design\b|baroque|renaissance)/],
+    ["ballon", /\b(sport|football|foot\b|tennis|rugby|olympi|cyclisme|tour de france|basket|natation|marathon|athletisme|judo|ski\b|formule 1|handball|golf\b|boxe)/],
+    ["marmite", /\b(cuisine|gastronom|recette|vins?\b|fromage|patisserie|boulang|chef\b|cafe\b|chocolat|aliment|culinaire)/],
+    ["puce", /\b(technolog|informatique|ordinateur|internet|logiciel|programm|numerique|intelligence artificielle|robot|algorithm|cyber|blockchain|electronique|smartphone|web\b)/],
+    ["courbe", /\b(econom|finance|bourse|entreprise|monnaie|banque|inflation|commerce|capitalis|invest|fiscal|comptab|marketing)/],
+    ["langues", /\b(langue|langage|linguistique|grammaire|vocabulaire|anglais|espagnol|allemand|italien|latin\b|etymolog|alphabet|traduction|orthographe|dialecte)/],
+    ["atome", /\b(science|physique|chimie|biologie|mathematique|maths?\b|astronom|astrophys|systeme solaire|planete|etoile|adn\b|genetique|medecine|quantique|atome|cellule|energie|geologie|evolution|cosmos|galaxie|neurone|virus|bacterie)/],
+    ["histoire", /\b(histoire|antiquite|moyen age|medieval|revolution|empire|guerre|dynastie|royaume|civilisation|archeolog|siecle|pharaon|egypte|rom(e|ain)|grece|grec\b|grecque|athen|sparte|napoleon|gaule|croisade|colonis|prehistoire|monarchie|republique)/],
+    ["montagne", /\b(montagne|volcan|alpes?\b|himalaya|everest|sommet|mont blanc|glacier|massif)/],
+    ["feuille", /\b(nature|animal|animaux|oiseau|insecte|plante|foret|arbre|ocean|mer\b|marin|riviere|ecolog|climat|biodiversite|faune|flore|espece|desert|jungle|savane|reptile|poisson|mammifere|ecosysteme)/],
+    ["carte", /\b(region|departement|ville\b|villes\b|village|quartier|vendee|provence|bretagne|normandie|alsace|corse|paris\b|lyon\b|marseille|bordeaux|toulouse|nantes|lille|strasbourg)/],
+    ["globe", /\b(geograph|pays\b|continent|capitale|europe|afrique|asie\b|amerique|oceanie|france\b|monde\b|ile\b|iles\b|fleuve|frontiere|territoire|tourisme|voyage)/]
+  ];
+  function categorie(titre) {
+    var t = sansAccent(titre);
+    for (var k = 0; k < CATEGORIES.length; k++) if (CATEGORIES[k][1].test(t)) return CATEGORIES[k][0];
+    return "livre";
+  }
+  /* Tuile d'icône (48 px) : catégorie d'un sujet, ou rôle d'une rangée. */
+  function tuile(nom) { return el("span", { "class": "tuile", "aria-hidden": "true" }, [icone(nom)]); }
+  /* Vignette d'une liste : photo (48 px, décorative) si l'image est connue, sinon la tuile de la catégorie du sujet. */
+  function vignette(img, titre) {
+    var t = tuile(categorie(titre));
+    if (!(img && img.src)) return t;
+    var i = el("img", { "class": "vignette", src: img.src, alt: "", loading: "lazy", decoding: "async" });
+    i.addEventListener("error", function () { i.replaceWith(tuile(categorie(titre))); });
+    return i;
+  }
+  var LOGO = "<svg viewBox='0 0 64 64' width='24' height='24' aria-hidden='true' focusable='false'><rect width='64' height='64' rx='14' style='fill:var(--encre)'/><text x='32' y='44' text-anchor='middle' font-weight='700' font-size='36' style='fill:#fff;font-family:var(--ui)'>K</text><rect x='20' y='49' width='24' height='3' rx='1.5' style='fill:var(--or)'/></svg>";
+  function marque(sansLien) { var contenu = [el("span", { "class": "logo", html: LOGO }), "Koîos"]; return sansLien ? el("span", { "class": "marque" }, contenu) : el("a", { "class": "marque", href: "#/" }, contenu); }
+  /* Bouton ou lien qui fait avancer : flèche à droite. */
+  function lienAvance(href, texte, cls) { return el("a", { "class": cls || "btn", href: href }, [el("span", { text: texte }), icone("chevron")]); }
+  /* État vide : icône de 32 px, une phrase, un bouton utile. */
+  function etatVide(nomIcone, texte, action) { return el("div", { "class": "vide" }, [icone(nomIcone), el("p", { text: texte }), action]); }
   function partager(titre, texte, url, repli) {
     if (navigator.share) { navigator.share({ title: titre, text: texte, url: url }).catch(function () {}); return; }
     var echec = function () { repli("Copie impossible ici. Lien" + N + ": " + url); };
@@ -174,7 +230,7 @@
   function parProgramme(p) { return !!(p.programme && p.programme.niveaux); }
   function formationComplete(p) { return parProgramme(p) && (p.etapes || []).length >= (p.modulesTotal || 0); } // tous les modules sont ouverts
   function fini(p) { return (p.verifie || formationComplete(p)) && suivi(p.id).fait >= paliersPrevus(p); }
-  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || s.image || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
   function modulesFaits(p, fait) { return (p.etapes || []).filter(function (e) { var l = e.paliers || []; return l.length && l[l.length - 1].numero <= fait; }).length; }
   function creerParcours(titre, bouton, alerte) {
     titre = String(titre || "").trim();
@@ -212,7 +268,7 @@
     montrer.deja = true;
   }
   function puceXP() { var n = niveau(etat.xp || 0); return el("a", { "class": "xp", href: "#/profil", "aria-label": "Niveau " + n.niveau + ", " + (etat.xp || 0) + " XP" }, [icone("diplome"), "Niv. " + n.niveau + " · " + (etat.xp || 0) + N + "XP"]); }
-  function entete() { return el("header", { "class": "haut" }, [el("a", { "class": "marque", href: "#/", text: "Koîos" }), puceXP()]); }
+  function entete() { return el("header", { "class": "haut" }, [marque(), puceXP()]); }
   function attente(texte, plein) { return el("div", { "class": "page" + (plein ? " plein" : "") }, [entete(), el("p", { "class": "attente", role: "status", text: texte })]); }
   function erreurPage(texte, titre) { return el("div", { "class": "page" }, [entete(), el("div", { "class": "carte" }, [el("h1", { text: titre || "Page introuvable" }), el("p", { text: texte }), lien("#/", "Retour à l’accueil", "btn")])]); }
   function badge(v) {
@@ -226,7 +282,7 @@
   function vueAccueil() {
     var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", autocomplete: "nickname", placeholder: "Ton prénom ou un pseudo" });
     var alerte = el("p", { "class": "alerte", hidden: "" });
-    var go = el("button", { "class": "btn", type: "button", text: "Commencer" });
+    var go = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Commencer" }), icone("fleche")]);
     go.addEventListener("click", function () {
       var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24);
       if (!p) { alerte.textContent = "Écris d’abord ton prénom ou un pseudo."; alerte.hidden = false; champ.focus(); return; }
@@ -238,7 +294,7 @@
     });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
     montrer(el("div", { "class": "page plein" }, [
-      el("header", { "class": "haut" }, [el("span", { "class": "marque", text: "Koîos" })]),
+      el("header", { "class": "haut" }, [marque(true)]),
       el("div", { "class": "pile" }, [el("h1", { text: "Apprends n’importe quel sujet, palier par palier." }),
         el("p", { "class": "meta", style: "font-size:17px", text: "Des leçons courtes et sourcées, des définitions, des frises et des chiffres. Tous les 5 paliers, un quiz ; ensuite des mini‑jeux et des duels entre amis." })]),
       el("div", { "class": "pile" }, [el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte, lien("#/aide", "Comment ça marche", "lien discret")])
@@ -253,11 +309,11 @@
     bouton.addEventListener("click", function () { creerParcours(champ.value, bouton, alerte); });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
     var puces = el("div", { "class": "puces" });
-    SUGGESTIONS.forEach(function (t) { var b = el("button", { "class": "puce", type: "button", text: t }); b.addEventListener("click", function () { champ.value = t; creerParcours(t, bouton, alerte); }); puces.appendChild(b); });
+    SUGGESTIONS.forEach(function (t) { var b = el("button", { "class": "puce", type: "button" }, [icone(categorie(t)), t]); b.addEventListener("click", function () { champ.value = t; creerParcours(t, bouton, alerte); }); puces.appendChild(b); });
     return el("section", { "class": "pile", "aria-labelledby": "titre-recherche" }, [el("h1", { id: "titre-recherche", text: "Que veux‑tu apprendre" + F + "?" }), el("div", { "class": "recherche" }, [champ, bouton]), alerte, puces, lien("#/aide", "Comment ça marche", "lien discret")]);
   }
   function rangeeParcours(id, titre, img, detail, droite) {
-    return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("fleche")])]);
+    return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("chevron")])]);
   }
   function quizEnAttente(s) { var k = Math.floor((s.fait || 0) / 5) * 5; return k > 0 && (s.quiz || {})[k] === undefined ? k : 0; }
   function prochainJalon(s) { var j = (Math.floor((s.fait || 0) / 5) + 1) * 5; return s.total && j > s.total ? 0 : j; }
@@ -279,17 +335,21 @@
       var r = miens[0];
       blocs.push(el("section", { "class": "carte reprendre", "aria-labelledby": "titre-reprendre" }, [
         el("span", { "class": "sur", text: "Reprendre" }),
-        r.s.image && r.s.image.src ? el("img", { "class": "photo-r", src: r.s.image.src, alt: "", loading: "lazy" }) : null,
+        r.s.image && r.s.image.src ? el("img", { "class": "photo-r", src: r.s.image.src, alt: "", loading: "lazy", decoding: "async" }) : null,
         el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
         el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + avanceJalon(r.s) + "%" })]),
         el("span", { "class": "meta", text: detailSuivi(r.s) }),
-        lien("#/p/" + encodeURIComponent(r.id) + (quizEnAttente(r.s) ? (quizEnAttente(r.s) % 10 === 0 ? "/defi/" : "/quiz/") + quizEnAttente(r.s) : ""), quizEnAttente(r.s) ? "Passer le " + (quizEnAttente(r.s) % 10 === 0 ? "défi d’étape" : "quiz") : (termine(r.s) ? "Revoir le parcours" : r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
+        (termine(r.s) && !quizEnAttente(r.s) ? lien : lienAvance)("#/p/" + encodeURIComponent(r.id) + (quizEnAttente(r.s) ? (quizEnAttente(r.s) % 10 === 0 ? "/defi/" : "/quiz/") + quizEnAttente(r.s) : ""), quizEnAttente(r.s) ? "Passer le " + (quizEnAttente(r.s) % 10 === 0 ? "défi d’étape" : "quiz") : (termine(r.s) ? "Revoir le parcours" : r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
       ]));
       if (miens.length > 1) {
         var ul = el("ul", { "class": "liste" });
         miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, x.s.image, detailSuivi(x.s))); });
         blocs.push(el("section", { "class": "pile serree" }, [el("h2", { text: "Tes sujets" }), ul]));
       }
+    } else {
+      var ecrire = el("button", { "class": "btn second petit", type: "button", text: "Écrire un sujet" });
+      ecrire.addEventListener("click", function () { var c = document.getElementById("sujet"); if (c) { c.scrollIntoView({ block: "center" }); c.focus(); } });
+      blocs.push(el("section", { "class": "pile serree", "aria-labelledby": "titre-sujets" }, [el("h2", { id: "titre-sujets", text: "Tes sujets" }), etatVide("livres", "Tu n’as pas encore de sujet. Écris-en un, ou ouvre un parcours vérifié.", ecrire)]));
     }
     var verifs = el("ul", { "class": "liste" });
     blocs.push(el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Parcours vérifiés" }), el("span", { "class": "meta", text: "2 sources par notion" })]), verifs]));
@@ -298,12 +358,27 @@
       jourFait ? el("p", { "class": "meta", text: jourFait === "juste" ? "Réussie aujourd’hui. La suivante arrive demain." : "Manquée aujourd’hui. La suivante arrive demain." }) : lien("#/jeu/jour", "Répondre", "btn second")]));
     montrer(el("div", { "class": "page" }, blocs), "accueil", "Accueil");
     chargerListeVerifies().then(function (l) {
-      l.forEach(function (p) { var s = suivi(p.id); verifs.appendChild(rangeeParcours(p.id, p.titre, null, s.fait ? "Palier " + s.fait + " sur " + p.paliers : pluriel(p.paliers, "palier", "paliers"), el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]))); });
+      l.forEach(function (p) {
+        var s = suivi(p.id), li = rangeeParcours(p.id, p.titre, s.image, s.fait ? "Palier " + s.fait + " sur " + p.paliers : pluriel(p.paliers, "palier", "paliers"), el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]));
+        verifs.appendChild(li);
+        if (!(s.image && s.image.src) && p.motImage) trouverImage(p.motImage, "auto").then(function (im) { var t = li.querySelector(".tuile"); if (im && t && li.isConnected) t.replaceWith(vignette(im, p.titre)); });
+      });
       if (window.poserIcones) window.poserIcones(verifs);
     }, function () {});
   }
 
   /* ---------- Parcours ---------- */
+  function memoriserImage(id, im) { var s = etat.parcours[id]; if (s && !(s.image && s.image.src)) { s.image = { src: im.src, credit: im.credit, lien: im.lien }; S.ecrire("koios.etat", etat); } }
+  /* Couverture 16:9 : l'image du parcours, sinon une photo cherchée sur Commons puis Unsplash (cadre gris le temps de la recherche, retiré si rien ne vient). */
+  function couverture(p) {
+    if (p.image && p.image.src) return photo(p.image, "couverture", p.titre);
+    var attendre = el("figure", { "class": "photo couverture", "aria-hidden": "true" }, [el("div", { "class": "cadre" })]);
+    trouverImage(p.motImage || p.titre, "auto").then(function (im) {
+      var f = im ? photo(im, "couverture", p.titre) : null;
+      if (f) { attendre.replaceWith(f); memoriserImage(p.id, im); } else attendre.remove();
+    });
+    return attendre;
+  }
   function vueParcours(id, onglet) {
     montrer(attente("Ouverture du parcours…"), "accueil", "Parcours");
     chargerParcours(id).then(function (p) {
@@ -325,11 +400,11 @@
       var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1), prog = parProgramme(p), mf = prog ? modulesFaits(p, s.fait) : 0;
       montrer(el("div", { "class": "page" }, [
         el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/" }, [icone("retour"), "Accueil"]), el("span"), puceXP()]),
-        image(p.image, "tete"),
+        couverture(p),
         el("div", { "class": "pile serree" }, [el("span", {}, [badge({ statut: p.verifie ? "verifie" : "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
         el("div", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "meta", text: (s.fait ? pluriel(s.fait, "palier terminé", "paliers terminés") : "Pas encore commencé") + (prog && s.fait ? " · " + mf + " sur " + pluriel(p.modulesTotal, "module", "modules") : "") }), el("span", { "class": "meta gain", text: (s.xp || 0) + N + "XP" })]),
           el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + (prog ? Math.round(mf / Math.max(p.modulesTotal, 1) * 100) : p.verifie ? Math.round(s.fait / Math.max(prevus, 1) * 100) : ((s.fait % 10) * 10)) + "%" })])]),
-        fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), prog ? "Formation terminée. Rejoue les quiz et les défis pour consolider." : "Parcours terminé. Rejoue les quiz et les défis pour consolider."]) : lien("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · palier " + suivant : "Commencer le palier 1", "btn"),
+        fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), prog ? "Formation terminée. Rejoue les quiz et les défis pour consolider." : "Parcours terminé. Rejoue les quiz et les défis pour consolider."]) : lienAvance("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · palier " + suivant : "Commencer le palier 1", "btn"),
         tabs, zone
       ]), "accueil", p.titre);
       remplir(onglet || "parcours");
@@ -340,12 +415,12 @@
     var t = titrePalier(p, n) || (n <= s.fait + 1 ? "Palier " + n : "Palier à venir");
     var etatP = n <= s.fait ? "fait" : (n === s.fait + 1 ? "actuel" : "");
     var ouvert = n <= s.fait + 1;
-    var contenu = [el("span", { "class": "pastille", text: n <= s.fait ? null : String(n), "aria-hidden": "true" }, [n <= s.fait ? icone("juste") : null]), el("span", {}, [el("b", { text: t }), el("span", { "class": "etat", text: n <= s.fait ? "Terminé" : (ouvert ? "À faire" : "Verrouillé") })]), ouvert ? icone("fleche") : icone("cadenas")];
+    var contenu = [el("span", { "class": "pastille", text: n <= s.fait ? null : String(n), "aria-hidden": "true" }, [n <= s.fait ? icone("juste") : null]), el("span", {}, [el("b", { text: t }), el("span", { "class": "etat", text: n <= s.fait ? "Terminé" : (ouvert ? "À faire" : "Verrouillé") })]), ouvert ? icone("chevron") : icone("cadenas")];
     ul.appendChild(el("li", { "class": etatP }, [ouvert ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + n, "aria-label": "Palier " + n + N + ": " + t }, contenu) : el("span", { "class": "bloque" }, contenu)]));
     if (n % 5 === 0) {
       var k = n, nom = n % 10 === 0 ? "Défi d’étape" : "Quiz", score = (s.quiz || {})[k];
       var dispo = s.fait >= k;
-      var c2 = [el("span", { "class": "pastille", "aria-hidden": "true" }, [icone(score !== undefined ? "juste" : (n % 10 === 0 ? "trophee" : "liste"))]), el("span", {}, [el("b", { text: nom + " · paliers " + (k - (n % 10 === 0 ? 9 : 4)) + " à " + k }), el("span", { "class": "etat", text: score !== undefined ? "Meilleur score" + N + ": " + score + F + "%" : (dispo ? "Disponible" : "S’ouvre au palier " + k) })]), dispo ? icone("fleche") : icone("cadenas")];
+      var c2 = [el("span", { "class": "pastille", "aria-hidden": "true" }, [icone(score !== undefined ? "juste" : (n % 10 === 0 ? "trophee" : "liste"))]), el("span", {}, [el("b", { text: nom + " · paliers " + (k - (n % 10 === 0 ? 9 : 4)) + " à " + k }), el("span", { "class": "etat", text: score !== undefined ? "Meilleur score" + N + ": " + score + F + "%" : (dispo ? "Disponible" : "S’ouvre au palier " + k) })]), dispo ? icone("chevron") : icone("cadenas")];
       ul.appendChild(el("li", { "class": "jalon" + (score !== undefined ? " fait" : "") }, [dispo ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + (n % 10 === 0 ? "defi" : "quiz") + "/" + k }, c2) : el("span", { "class": "bloque" }, c2)]));
     }
   }
@@ -384,7 +459,7 @@
           var chemin = el("ol", { "class": "chemin" });
           l.forEach(function (x) { ajouterPalier(chemin, p, s, x.numero); });
           ul.appendChild(el("li", {}, [el("details", { "class": "plier ligne module", open: m.numero === courant ? "" : null }, [
-            el("summary", {}, [el("span", {}, [el("b", { text: "Module " + m.numero + " · " + m.titre }), el("span", { "class": "meta", text: resume })]), icone("fleche")]),
+            el("summary", {}, [el("span", {}, [el("b", { text: "Module " + m.numero + " · " + m.titre }), el("span", { "class": "meta", text: resume })]), icone("chevron")]),
             el("p", { "class": "meta", text: m.objectif }), chemin])]));
         } else {
           var suite = m.numero === prochain && s.fait >= prevus;
@@ -410,7 +485,7 @@
     if (s.fait < 5) return el("p", { "class": "verrou" }, [icone("cadenas"), "Mini‑jeux et duels s’ouvrent au palier 5. Encore " + pluriel(5 - s.fait, "palier", "paliers") + "."]);
     var ul = el("ul", { "class": "liste" });
     [["vraifaux", "Vrai ou faux express", "Huit affirmations, réponds vite."], ["paires", "Associe les notions", "Relie chaque terme à sa définition."], ["ordre", "Remets dans l’ordre", "Classe les dates de tes paliers."], ["duel", "Duel avec un ami", "Dix questions, les mêmes pour vous deux."]].forEach(function (j) {
-      ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(p.id) + "/jeu/" + j[0] }, [el("span", { "class": "vignette" }, [icone(j[0] === "duel" ? "epee" : j[0] === "paires" ? "liste" : j[0] === "ordre" ? "sablier" : "ampoule")]), el("span", {}, [el("b", { text: j[1] }), el("span", { "class": "meta", text: j[2] })]), icone("fleche")])]));
+      ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(p.id) + "/jeu/" + j[0] }, [tuile(j[0] === "duel" ? "epee" : j[0] === "paires" ? "liste" : j[0] === "ordre" ? "sablier" : "ampoule"), el("span", {}, [el("b", { text: j[1] }), el("span", { "class": "meta", text: j[2] })]), icone("chevron")])]));
     });
     return ul;
   }
@@ -456,7 +531,7 @@
   }
   function ongletGlossaire(p, s) {
     var bloc = el("div", { "class": "pile" });
-    var vide = function () { return el("p", { "class": "verrou" }, [icone("carnet"), "Les mots définis dans tes leçons apparaîtront ici."]); };
+    var vide = function () { return etatVide("carnet", "Les mots définis dans tes leçons apparaîtront ici.", fini(p) ? null : lienAvance("#/p/" + encodeURIComponent(p.id) + "/" + (s.fait + 1), s.fait ? "Continuer · palier " + (s.fait + 1) : "Commencer le palier 1", "btn second petit")); };
     if (!(s.fait >= 1)) { bloc.appendChild(vide()); return bloc; }
     var attenteG = el("p", { "class": "attente", role: "status", text: "Chargement du glossaire…" });
     bloc.appendChild(attenteG);
@@ -643,7 +718,7 @@
       for (var k = 1; k <= nbPoints; k++) points.appendChild(el("i", { "class": e0 + k < n ? "fait" : (e0 + k === n ? "ok" : null) }));
       var article;
       montrer(el("div", { "class": "page plein" }, [
-        el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer le palier" }, [icone("faux")]), points, puceXP()]),
+        el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer le palier" }, [icone("fermer")]), points, puceXP()]),
         image(l.image),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre + " · palier " + n }), filAriane(l, p.id), el("h1", { text: l.titre }), el("span", {}, [badge(v)])]),
         article = el("article", { "class": "lecon" }, [
@@ -749,7 +824,7 @@
     items.forEach(function () { points.appendChild(el("i")); });
     var scene = el("main", { "class": "pile" });
     var compteur = el("span", { "class": "meta" });
-    var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("faux")]), points, compteur]), scene]);
+    var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("fermer")]), points, compteur]), scene]);
     function afficher() {
       scene.innerHTML = ""; window.scrollTo(0, 0);
       compteur.textContent = Math.min(k + 1, items.length) + " / " + items.length;
@@ -775,7 +850,7 @@
       var revoir = el("div", { "class": "pile" });
       rates.forEach(function (it) {
         var q = it.question;
-        revoir.appendChild(el("details", { "class": "plier ligne" }, [el("summary", {}, [el("span", {}, [el("b", { text: it.titre || "Question" }), el("span", { "class": "meta", text: (q.enonce || q.affirmation || "").slice(0, 90) })]), icone("fleche")]), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
+        revoir.appendChild(el("details", { "class": "plier ligne" }, [el("summary", {}, [el("span", {}, [el("b", { text: it.titre || "Question" }), el("span", { "class": "meta", text: (q.enonce || q.affirmation || "").slice(0, 90) })]), icone("chevron")]), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
       });
       scene.appendChild(el("span", { "class": "sur", text: opt.titre + " · résultat" }));
       scene.appendChild(el("h1", { text: pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
@@ -825,7 +900,7 @@
         montrer(quiz(items, { titre: titre, retour: base, xp: defi ? XP.defi : XP.quiz, parcours: p.id, fin: function (res, zone) {
           if (mode !== "direct") { var s2 = suivi(p.id); s2.quiz = s2.quiz || {}; s2.quiz[k] = Math.max(s2.quiz[k] || 0, res.pct); etat.parcours[p.id] = s2; sauver(); }
           var prochain = mode !== "direct" && !((p.verifie || formationComplete(p)) && k >= paliersPrevus(p)) ? k + 1 : null;
-          if (prochain) zone.appendChild(lien(base + "/" + prochain, "Continuer · palier " + prochain, "btn"));
+          if (prochain) zone.appendChild(lienAvance(base + "/" + prochain, "Continuer · palier " + prochain, "btn"));
           zone.appendChild(lien(base + "/jeu/duel", "Défier un ami sur ce sujet", prochain ? "btn second" : "btn"));
           zone.appendChild(lien(base, "Retour au parcours"));
         } }), null, titre);
@@ -876,7 +951,7 @@
       if (trouves === defs.length) { var sj = suivi(p.id); sj.jeux = sj.jeux || {}; var g = sj.jeux.paires ? 0 : Math.max(0, defs.length * 2 * XP.jeu - (essais - defs.length) * XP.jeu); sj.jeux.paires = 1; etat.parcours[p.id] = sj; if (g) gagner(g, p.id); else sauver(); fin.appendChild(el("p", { "class": "score" }, [el("strong", { text: trouves + "/" + defs.length }), el("span", { "class": "meta gain", text: "+" + g + N + "XP · " + pluriel(essais, "essai", "essais") })])); fin.appendChild(lien(base + "/jeu/paires", "Rejouer", "btn")); fin.appendChild(lien(base + "/defis", "Autres défis")); }
     }); colD.appendChild(b); });
     zone.appendChild(colG); zone.appendChild(colD);
-    return el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: base + "/defis", "aria-label": "Quitter" }, [icone("faux")]), el("span"), puceXP()]), el("span", { "class": "sur", text: p.titre }), el("h1", { text: "Associe les notions" }), info, zone, fin]);
+    return el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: base + "/defis", "aria-label": "Quitter" }, [icone("fermer")]), el("span"), puceXP()]), el("span", { "class": "sur", text: p.titre }), el("h1", { text: "Associe les notions" }), info, zone, fin]);
   }
   function creerDuel(items, res, zone, p) {
     var info = el("p", { "class": "meta", role: "status", text: "Enregistrement du duel…" });
@@ -987,8 +1062,8 @@
     var jourFait = etat.jours[aujourdhui()];
     montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Jouer" }),
       el("ul", { "class": "liste" }, [
-        el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [el("span", { "class": "vignette" }, [icone("ampoule")]), el("span", {}, [el("b", { text: "Question du jour" }), el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") })]), jourFait ? icone("juste") : icone("fleche")])]),
-        el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/melange" }, [el("span", { "class": "vignette" }, [icone("liste")]), el("span", {}, [el("b", { text: "Quiz mélangé" }), el("span", { "class": "meta", text: "10 questions, tous sujets confondus" })]), icone("fleche")])])
+        el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [tuile("ampoule"), el("span", {}, [el("b", { text: "Question du jour" }), el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") })]), jourFait ? icone("juste") : icone("chevron")])]),
+        el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/melange" }, [tuile("liste"), el("span", {}, [el("b", { text: "Quiz mélangé" }), el("span", { "class": "meta", text: "10 questions, tous sujets confondus" })]), icone("chevron")])])
       ]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Duels" }), el("p", { "class": "meta", text: "Lance un duel depuis l’onglet Défis d’un sujet, ou depuis le quiz mélangé." }), duels]),
       el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement, inviter, info])
@@ -1003,7 +1078,7 @@
       }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); });
       if (enLigne()) api("GET", "duels").then(function (j) {
         var ul = el("ul", { "class": "liste" });
-        (j.duels || []).slice(0, 6).forEach(function (d) { ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/duel/" + d.id, style: "grid-template-columns:1fr auto;min-height:56px" }, [el("span", {}, [el("b", { text: "Duel de " + d.createur }), el("span", { "class": "meta", text: pluriel((d.scores || []).length, "joueur", "joueurs") })]), icone("fleche")])])); });
+        (j.duels || []).slice(0, 6).forEach(function (d) { ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/duel/" + d.id, style: "grid-template-columns:1fr auto;min-height:56px" }, [el("span", {}, [el("b", { text: "Duel de " + d.createur }), el("span", { "class": "meta", text: pluriel((d.scores || []).length, "joueur", "joueurs") })]), icone("chevron")])])); });
         if ((j.duels || []).length) { duels.appendChild(ul); if (window.poserIcones) window.poserIcones(duels); }
       }, function () {});
     });
@@ -1042,10 +1117,10 @@
       el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Profil" }), el("h1", { text: profil.pseudo })]),
       el("div", { "class": "carte" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Niveau " + n.niveau }), el("span", { "class": "meta gain", text: (etat.xp || 0) + N + "XP" })]), el("div", { "class": "progres" }, [el("i", { style: "width:" + Math.round(((etat.xp || 0) - n.base) / (n.suivant - n.base) * 100) + "%" })]), el("span", { "class": "meta", text: (n.suivant - (etat.xp || 0)) + N + "XP avant le niveau " + (n.niveau + 1) })]),
       el("div", { "class": "chiffres-profil" }, [el("div", {}, [el("span", { "class": "meta", text: "Paliers" }), el("strong", { text: String(paliers) })]), el("div", {}, [el("span", { "class": "meta", text: "Sujets" }), el("strong", { text: String(sujets) })]), el("div", {}, [el("span", { "class": "meta", text: "Série" }), el("strong", { text: String(serieJours()) })]), el("div", {}, [el("span", { "class": "meta", text: "Erreurs à revoir" }), el("strong", { text: String(etat.erreurs.length) })])]),
-      etat.erreurs.length ? lien("#/jeu/erreurs", "Revoir mes erreurs", "btn") : null,
-      el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [el("span", { "class": "vignette" }, [icone("aide")]), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("fleche")])])]),
+      etat.erreurs.length ? lienAvance("#/jeu/erreurs", "Revoir mes erreurs", "btn") : etatVide("juste", "Aucune erreur à revoir pour l’instant.", lien("#/jeu/melange", "Faire un quiz mélangé", "btn second petit")),
+      el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [tuile("aide"), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("chevron")])])]),
       el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
-      el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Unsplash et Wikimédia · icônes Phosphor (MIT)" })
+      el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Wikimédia Commons et Unsplash · icônes Phosphor (MIT)" })
     ]), "profil", "Profil");
     majSync(); pretServeur.then(majSync);
   }
@@ -1053,14 +1128,14 @@
   /* ---------- Comment ça marche ---------- */
   function rubriqueAide(nomIcone, titre, enfants) {
     return el("details", { "class": "plier ligne" }, [
-      el("summary", {}, [el("span", { "class": "aide-titre" }, [icone(nomIcone), el("h2", { text: titre })]), icone("fleche")]),
+      el("summary", {}, [el("span", { "class": "aide-titre" }, [icone(nomIcone), el("h2", { text: titre })]), icone("chevron")]),
       el("div", { "class": "aide-corps" }, enfants)
     ]);
   }
   function listeAide(items) { var ul = el("ul", { "class": "aide-liste" }); items.forEach(function (i) { ul.appendChild(el("li", {}, [].concat(i))); }); return ul; }
   function gainAide(n) { return el("span", { "class": "gain", text: "+" + n + N + "XP" }); }
   function vueAide() {
-    var haut = profil ? entete() : el("div", { "class": "pile serree" }, [el("header", { "class": "haut" }, [el("span", { "class": "marque", text: "Koîos" })]), el("a", { "class": "retour-texte", href: "#/accueil" }, [icone("retour"), "Retour"])]);
+    var haut = profil ? entete() : el("div", { "class": "pile serree" }, [el("header", { "class": "haut" }, [marque(true)]), el("a", { "class": "retour-texte", href: "#/accueil" }, [icone("retour"), "Retour"])]);
     var rubriques = el("div", { "class": "aide-rubriques" }, [
       rubriqueAide("livres", "Une formation", [
         el("p", { text: "Tape un sujet. L’app écrit un programme en 4 niveaux" + N + ": Bases, Intermédiaire, Avancé, Expert." }),
@@ -1089,7 +1164,7 @@
         el("p", { text: "Les autres formations sont rédigées par une IA (GLM) à partir d’extraits de Wikipédia en français et en anglais. Une deuxième IA, d’un autre fournisseur, contrôle chaque affirmation contre ces extraits. Ce qui n’est pas confirmé est retiré." }),
         listeAide([["Badge " + guill("Recoupé automatiquement") + N + ": la deuxième IA a tout confirmé."], ["Badge " + guill("Recoupé en partie") + N + ": des affirmations ont été retirées."]]),
         el("p", { text: "Il n’y a pas de relecture humaine pour ces formations. Garde un œil critique et consulte les sources en bas de chaque leçon." }),
-        el("p", { text: "Les photos viennent d’Unsplash ou de Wikimédia, avec leur crédit." })
+        el("p", { text: "Les photos viennent de Wikimédia Commons ou d’Unsplash, avec leur crédit et leur licence." })
       ]),
       rubriqueAide("cercle", "Avec tes amis", [
         el("p", { text: "L’onglet Jouer réunit ce qui se fait à plusieurs." }),

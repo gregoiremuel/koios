@@ -22,7 +22,8 @@ import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, redacteurs, verificateurs,
 } from '../lib/fournisseurs.js';
 import {
-  CREDIT_WIKIMEDIA, imageDeTete, imagePexels, imageUnsplash, requeteImage,
+  CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, imageDeTete, imagePexels, imageUnsplash,
+  licenceLibre, requeteImage, texteDeHtml,
 } from '../lib/images.js';
 import {
   EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, MESSAGE_FIN, MOTS_INTERDITS,
@@ -47,6 +48,7 @@ import { onRequestGet as duelsGet } from '../functions/api/duels.js';
 import { onRequestGet as parcoursGet, onRequestPost as parcoursPost } from '../functions/api/parcours.js';
 import { onRequestGet as palierGet } from '../functions/api/palier.js';
 import { onRequestGet as glossaireGet } from '../functions/api/glossaire.js';
+import { onRequestGet as imageGet } from '../functions/api/image.js';
 import { onRequestGet as quizGet } from '../functions/api/quiz.js';
 import { onRequestPost as quizDirectPost } from '../functions/api/quiz-direct.js';
 import { fauxD1 } from './faux_d1.mjs';
@@ -670,7 +672,7 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
 // Fournisseurs externes simulés (GLM, Pexels, Unsplash) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, pexels: null, unsplash: null };
+const ext = { appels: [], glm: null, pexels: null, unsplash: null, commons: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -699,6 +701,7 @@ function reinitExt() {
   ext.glm = null;
   ext.pexels = null;
   ext.unsplash = null;
+  ext.commons = null;
   horloge.t = 0;
 }
 
@@ -720,7 +723,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'api.pexels.com': 'pexels', 'api.unsplash.com': 'unsplash' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'api.pexels.com': 'pexels', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -2147,6 +2150,8 @@ const photoUnsplash = (extra = {}) => ({
   id: 'u1',
   alt_description: 'a tower',
   urls: { regular: 'https://images.unsplash.com/photo-1?w=1080', small: 'https://images.unsplash.com/photo-1?w=400' },
+  width: 4000,
+  height: 3000,
   links: { html: 'https://unsplash.com/photos/u1' },
   user: { name: 'Paul Martin', links: { html: 'https://unsplash.com/@paul' } },
   ...extra,
@@ -2186,15 +2191,21 @@ test('images : Pexels (adresse, clé, requête en anglais, crédit et lien)', as
   reinitExt();
 });
 
-test('images : Unsplash (adresse, Client-ID, content_filter, crédit avec lien utm)', async () => {
+test('images : Unsplash (adresse, Client-ID, content_filter, crédit avec liens vers le photographe et Unsplash, utm)', async () => {
   reinitExt();
   ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
   const image = await imageUnsplash({ UNSPLASH_KEY: 'cle-unsplash' }, 'Eiffel Tower Paris', 'La tour Eiffel');
   assert.deepEqual(image, {
     src: 'https://images.unsplash.com/photo-1?w=1080',
     alt: 'Photo illustrant « La tour Eiffel »',
+    largeur: 1080,
+    hauteur: 810,
     credit: 'Photo : Paul Martin sur Unsplash',
     lien: 'https://unsplash.com/photos/u1?utm_source=koios&utm_medium=referral',
+    source: 'unsplash',
+    auteur: 'Paul Martin',
+    lienAuteur: 'https://unsplash.com/@paul?utm_source=koios&utm_medium=referral',
+    lienSource: 'https://unsplash.com/?utm_source=koios&utm_medium=referral',
   });
   const a = ext.appels[0];
   assert.equal(a.url.origin + a.url.pathname, 'https://api.unsplash.com/search/photos');
@@ -2202,18 +2213,307 @@ test('images : Unsplash (adresse, Client-ID, content_filter, crédit avec lien u
     query: 'Eiffel Tower Paris', per_page: '3', orientation: 'landscape', content_filter: 'high',
   });
   assert.equal(new Headers(a.init.headers).get('authorization'), 'Client-ID cle-unsplash');
-  // Adresses hors Unsplash refusées ; lien déjà paramétré : « & ».
+  // Adresses hors Unsplash refusées ; lien déjà paramétré : « & » ; photo sans lien vers le photographe écartée.
   ext.unsplash = () => reponseWiki({ results: [
     photoUnsplash({ urls: { regular: 'https://exemple.test/x.jpg' } }),
     photoUnsplash({ links: { html: 'http://unsplash.com/photos/u2' } }),
+    photoUnsplash({ user: { name: 'Sans profil', links: {} } }),
     photoUnsplash({ links: { html: 'https://unsplash.com/photos/u3?ixid=abc' } }),
   ] });
-  assert.equal((await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T')).lien, 'https://unsplash.com/photos/u3?ixid=abc&utm_source=koios&utm_medium=referral');
+  const u3 = await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T');
+  assert.equal(u3.lien, 'https://unsplash.com/photos/u3?ixid=abc&utm_source=koios&utm_medium=referral');
+  assert.equal(u3.auteur, 'Paul Martin');
   ext.appels.length = 0;
   assert.equal(await imageUnsplash({}, 'Eiffel', 'T'), null);
   assert.equal(ext.appels.length, 0);
   ext.unsplash = () => new Response('non', { status: 500 });
   assert.equal(await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T'), null);
+  reinitExt();
+});
+
+test('images : Unsplash — links.download_location est appelé quand une photo est retenue (jamais pour une photo écartée)', async () => {
+  reinitExt();
+  const dl = 'https://api.unsplash.com/photos/u1/download?ixid=abc';
+  ext.unsplash = (u) => (u.pathname.endsWith('/download') ? reponseWiki({ url: 'https://images.unsplash.com/photo-1' }) : reponseWiki({ results: [
+    photoUnsplash({ urls: { regular: 'https://exemple.test/x.jpg' }, links: { html: 'https://unsplash.com/photos/ecartee', download_location: 'https://api.unsplash.com/photos/ecartee/download' } }),
+    photoUnsplash({ links: { html: 'https://unsplash.com/photos/u1', download_location: dl } }),
+  ] }));
+  const image = await imageUnsplash({ UNSPLASH_KEY: 'cle-unsplash' }, 'Eiffel Tower', 'T');
+  assert.equal(image.credit, 'Photo : Paul Martin sur Unsplash');
+  assert.deepEqual(ext.appels.map((x) => x.url.pathname), ['/search/photos', '/photos/u1/download'], 'un seul appel de téléchargement, pour la photo retenue');
+  assert.equal(ext.appels[1].url.search, '?ixid=abc');
+  assert.equal(new Headers(ext.appels[1].init.headers).get('authorization'), 'Client-ID cle-unsplash');
+  // Avec waitUntil : l'appel est confié à Workers, la réponse n'attend pas.
+  ext.appels.length = 0;
+  const promesses = [];
+  assert.ok(await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T', { waitUntil: (p) => promesses.push(p) }));
+  assert.equal(promesses.length, 1);
+  await Promise.all(promesses);
+  assert.equal(ext.appels.length, 2);
+  // Adresse de téléchargement hors Unsplash : ignorée, la photo reste utilisable.
+  ext.appels.length = 0;
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash({ links: { html: 'https://unsplash.com/photos/u1', download_location: 'https://exemple.test/download' } })] });
+  assert.ok(await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T'));
+  assert.equal(ext.appels.length, 1);
+  // Une panne de l'appel de téléchargement ne retire pas la photo.
+  ext.unsplash = (u) => (u.pathname.endsWith('/download') ? new Response('panne', { status: 500 }) : reponseWiki({ results: [photoUnsplash({ links: { html: 'https://unsplash.com/photos/u1', download_location: dl } })] }));
+  assert.ok(await imageUnsplash({ UNSPLASH_KEY: 'k' }, 'Eiffel', 'T'));
+  reinitExt();
+});
+
+// --- Wikimedia Commons ---
+
+const fichierCommons = (index, { meta = {}, info = {}, page = {} } = {}) => ({
+  pageid: 100 + index,
+  ns: 6,
+  title: `File:Photo_${index}.jpg`,
+  index,
+  imageinfo: [{
+    thumburl: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/a${index}/Photo_${index}.jpg/1200px-Photo_${index}.jpg`,
+    thumbwidth: 1200,
+    thumbheight: 800,
+    url: `https://upload.wikimedia.org/wikipedia/commons/a/a${index}/Photo_${index}.jpg`,
+    descriptionurl: `https://commons.wikimedia.org/wiki/File:Photo_${index}.jpg`,
+    width: 3000,
+    height: 2000,
+    mime: 'image/jpeg',
+    extmetadata: { LicenseShortName: { value: 'CC BY-SA 4.0' }, Artist: { value: 'Jeanne Dupont' }, ...meta },
+    ...info,
+  }],
+  ...page,
+});
+// Commons renvoie les pages dans un objet indexé par identifiant : l'ordre vient du champ index.
+const reponseCommons = (...fichiers) => reponseWiki({ batchcomplete: '', query: { pages: Object.fromEntries(fichiers.map((f) => [f.pageid, f])) } });
+const sansResultat = () => reponseWiki({ batchcomplete: '' });
+
+test('images : licenceLibre — domaine public, CC0, CC BY et CC BY-SA seulement', () => {
+  for (const ok of ['Public domain', 'CC0', 'CC0 1.0', 'CC BY 2.0', 'CC BY 4.0', 'CC BY-SA 4.0', 'CC BY-SA 3.0', 'CC BY-SA 2.5', 'CC BY-SA 3.0 de', 'CC BY-SA', 'cc by-sa 4.0']) {
+    assert.equal(licenceLibre(ok), true, ok);
+  }
+  for (const non of ['CC BY-NC 4.0', 'CC BY-ND 2.0', 'CC BY-NC-SA 3.0', 'CC BY-NC-ND 4.0', 'CC BY-ND', 'CC BY-NC', 'GFDL', 'Copyrighted free use', 'Fair use', 'Attribution', '', null, undefined, 42]) {
+    assert.equal(licenceLibre(non), false, String(non));
+  }
+});
+
+test('images : texteDeHtml — balises retirées, entités décodées, espaces réduits', () => {
+  assert.equal(texteDeHtml('<a href="//commons.wikimedia.org/wiki/User:Jeanne" title="User:Jeanne">Jeanne</a>'), 'Jeanne');
+  assert.equal(texteDeHtml('<bdi>Jeanne &amp; Paul&#160;D&#233;pont</bdi>\n\n<span>(Own work)</span>'), 'Jeanne & Paul Dépont (Own work)');
+  assert.equal(texteDeHtml('&lt;script&gt;x&lt;/script&gt;'), 'scriptx/script', 'un texte qui ressemble à du HTML n’en redevient pas');
+  assert.equal(texteDeHtml('&#0;&#x110000;ok'), 'ok');
+  assert.equal(texteDeHtml(undefined), null);
+  assert.equal(texteDeHtml(12), null);
+});
+
+test('images : Commons — requête, User-Agent, licence non libre écartée, petite image écartée, crédit nettoyé du HTML', async () => {
+  reinitExt();
+  ext.commons = () => reponseCommons(
+    fichierCommons(3, { meta: { Artist: { value: '<a href="//commons.wikimedia.org/wiki/User:Marie">Marie &amp; Paul <i>L&#233;vy</i></a>' } } }),
+    fichierCommons(1, { meta: { LicenseShortName: { value: 'CC BY-NC 4.0' } } }), // licence non libre
+    fichierCommons(2, { info: { width: 799, height: 532 } }), // trop petite
+    fichierCommons(4, { meta: { NonFree: { value: 'true' } } }), // marquée non libre malgré la licence
+  );
+  const r = await chercherCommons('Eiffel Tower', 'La tour Eiffel');
+  assert.equal(r.incertain, false);
+  assert.deepEqual(r.image, {
+    src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Photo_3.jpg/1200px-Photo_3.jpg',
+    alt: 'Photo illustrant « La tour Eiffel »',
+    largeur: 1200,
+    hauteur: 800,
+    credit: 'Marie & Paul Lévy · CC BY-SA 4.0 · Wikimédia Commons',
+    lien: 'https://commons.wikimedia.org/wiki/File:Photo_3.jpg',
+    source: 'commons',
+  }, 'le 3 est le premier valable : 1 (licence), 2 (799 px) sont écartés');
+  const a = ext.appels[0];
+  assert.equal(a.url.origin + a.url.pathname, 'https://commons.wikimedia.org/w/api.php');
+  const p = Object.fromEntries(a.url.searchParams);
+  assert.equal(p.action, 'query');
+  assert.equal(p.format, 'json');
+  assert.equal(p.generator, 'search');
+  assert.equal(p.gsrnamespace, '6');
+  assert.equal(p.gsrsearch, 'Eiffel Tower filetype:bitmap');
+  assert.equal(p.prop, 'imageinfo');
+  assert.equal(p.iiprop.split('|').sort().join('|'), 'extmetadata|mime|size|url');
+  assert.equal(p.iiurlwidth, '1200');
+  assert.equal(new Headers(a.init.headers).get('user-agent'), USER_AGENT_COMMONS);
+  assert.equal(USER_AGENT_COMMONS, 'Koios/2 (https://koios.gregoire-muel.workers.dev)');
+  assert.ok(a.init.signal instanceof AbortSignal);
+  // Pas d'opérateur de recherche venu du visiteur.
+  ext.appels.length = 0;
+  await chercherCommons('tour "insource:x" -Eiffel incategory:Paris', 'T');
+  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch'), 'tour insource x Eiffel incategory Paris filetype:bitmap');
+  reinitExt();
+});
+
+test('images : Commons — largeur d’au moins 800 px, types d’image, JPEG avant PNG, adresses Wikimedia, auteur', async () => {
+  reinitExt();
+  const un = (...f) => { ext.commons = () => reponseCommons(...f); return chercherCommons('Eiffel', 'T'); };
+  assert.ok((await un(fichierCommons(1, { info: { width: 800, height: 533 } }))).image, '800 px suffisent');
+  assert.equal((await un(fichierCommons(1, { info: { width: 799 } }))).image, null);
+  assert.equal((await un(fichierCommons(1, { info: { width: undefined } }))).image, null, 'largeur inconnue : écartée');
+  assert.equal((await un(fichierCommons(1, { info: { mime: 'image/gif' } }))).image, null);
+  assert.equal((await un(fichierCommons(1, { info: { mime: 'image/svg+xml' } }))).image, null);
+  // Les JPEG passent avant les PNG, quel que soit le rang ; sans JPEG, le PNG est pris.
+  const png = fichierCommons(1, { info: { mime: 'image/png' } });
+  const jpg = fichierCommons(2);
+  assert.equal((await un(png, jpg)).image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_2.jpg');
+  assert.equal((await un(png)).image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_1.jpg');
+  // Adresses hors Wikimedia refusées.
+  const sansMiniature = (await un(fichierCommons(1, { info: { thumburl: 'https://exemple.test/x.jpg', width: 1500, height: 1000 } }))).image;
+  assert.equal(sansMiniature.src, 'https://upload.wikimedia.org/wikipedia/commons/a/a1/Photo_1.jpg', 'sans miniature valable : l’original, s’il n’est pas énorme');
+  assert.deepEqual([sansMiniature.largeur, sansMiniature.hauteur], [1500, 1000]);
+  assert.equal((await un(fichierCommons(1, { info: { thumburl: 'https://exemple.test/x.jpg', width: 6000 } }))).image, null, 'ni miniature valable ni original raisonnable');
+  assert.equal((await un(fichierCommons(1, { info: { descriptionurl: 'https://exemple.test/page' } }))).image, null);
+  assert.equal((await un(fichierCommons(1, { info: { descriptionurl: 'http://commons.wikimedia.org/wiki/File:X.jpg' } }))).image, null);
+  // Domaine public et CC0 : pas d'auteur exigé. CC BY et CC BY-SA : auteur obligatoire.
+  const sansAuteur = (licence) => fichierCommons(1, { meta: { LicenseShortName: { value: licence }, Artist: { value: '<a href="x"> </a>' } } });
+  assert.equal((await un(sansAuteur('Public domain'))).image.credit, 'Public domain · Wikimédia Commons');
+  assert.equal((await un(sansAuteur('CC0'))).image.credit, 'CC0 · Wikimédia Commons');
+  assert.equal((await un(sansAuteur('CC BY 4.0'))).image, null);
+  assert.equal((await un(sansAuteur('CC BY-SA 3.0'))).image, null);
+  // Auteur de plus de 80 caractères : coupé à 80, avec « … ».
+  const long = (await un(fichierCommons(1, { meta: { Artist: { value: '<b>' + 'Auteur '.repeat(20) + '</b>' } } }))).image.credit;
+  assert.equal(long.split(' · ')[0].length, 80);
+  assert.ok(long.startsWith('Auteur Auteur') && long.split(' · ')[0].endsWith('…'));
+  // Réponse en tableau (formatversion=2) : même résultat ; pages absentes, panne, JSON illisible : incertain seulement en cas de panne.
+  ext.commons = () => reponseWiki({ query: { pages: [fichierCommons(2), fichierCommons(1)] } });
+  assert.equal((await chercherCommons('Eiffel', 'T')).image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_1.jpg', 'le champ index fixe l’ordre');
+  ext.commons = sansResultat;
+  assert.deepEqual(await chercherCommons('Eiffel', 'T'), { image: null, incertain: false });
+  for (const rep of [() => new Response('non', { status: 429 }), () => new Response('<html>', { status: 200 })]) {
+    ext.commons = rep;
+    assert.deepEqual(await chercherCommons('Eiffel', 'T'), { image: null, incertain: true });
+  }
+  ext.commons = () => { throw new Error('réseau coupé'); };
+  assert.deepEqual(await chercherCommons('Eiffel', 'T'), { image: null, incertain: true });
+  ext.appels.length = 0;
+  assert.deepEqual(await chercherCommons('   ', 'T'), { image: null, incertain: false });
+  assert.equal(ext.appels.length, 0);
+  reinitExt();
+});
+
+const GET_IMAGE = (q, source) => `?q=${encodeURIComponent(q)}${source ? '&source=' + source : ''}`;
+const ENV_IMAGE = () => ({ DB: db, UNSPLASH_KEY: 'cle-unsplash' });
+
+test('image GET : source auto = Commons d’abord, Unsplash seulement sans résultat libre ; même forme de réponse', async () => {
+  reinitExt();
+  db.base.exec('DELETE FROM images');
+  db.base.exec('DELETE FROM quotas');
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const r = await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Eiffel Tower') });
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['image']);
+  assert.deepEqual(Object.keys(r.corps.image), ['src', 'alt', 'largeur', 'hauteur', 'credit', 'lien', 'source']);
+  assert.equal(r.corps.image.source, 'commons');
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['commons'], 'Unsplash n’est pas appelé quand Commons répond');
+  // Aucune image libre sur Commons (licence NC) : repli Unsplash, avec les liens exigés et l'appel de téléchargement.
+  reinitExt();
+  ext.commons = () => reponseCommons(fichierCommons(1, { meta: { LicenseShortName: { value: 'CC BY-NC 2.0' } } }));
+  ext.unsplash = (u) => (u.pathname.endsWith('/download') ? reponseWiki({}) : reponseWiki({ results: [photoUnsplash({ links: { html: 'https://unsplash.com/photos/u1', download_location: 'https://api.unsplash.com/photos/u1/download?ixid=z' } })] }));
+  const repli = await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Ambiance nordique') });
+  ok200(repli);
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur + x.url.pathname), ['commons/w/api.php', 'unsplash/search/photos', 'unsplash/photos/u1/download']);
+  assert.equal(repli.corps.image.source, 'unsplash');
+  assert.equal(repli.corps.image.credit, 'Photo : Paul Martin sur Unsplash');
+  assert.equal(repli.corps.image.lienAuteur, 'https://unsplash.com/@paul?utm_source=koios&utm_medium=referral');
+  assert.equal(repli.corps.image.lienSource, 'https://unsplash.com/?utm_source=koios&utm_medium=referral');
+  assert.equal(repli.corps.image.largeur, 1080);
+  // Ni Commons ni Unsplash : null (mis en cache). Sans clé Unsplash : Commons seul.
+  reinitExt();
+  ext.commons = sansResultat;
+  ext.unsplash = () => reponseWiki({ results: [] });
+  assert.deepEqual((await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Zzz introuvable') })).corps, { image: null });
+  reinitExt();
+  ext.commons = sansResultat;
+  assert.deepEqual((await appel(imageGet, { env: { DB: db }, requete: GET_IMAGE('Sans clé unsplash') })).corps, { image: null });
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['commons']);
+  reinitExt();
+});
+
+test('image GET : source commons ou unsplash seule, défaut auto, source inconnue refusée, requête trop courte refusée', async () => {
+  reinitExt();
+  db.base.exec('DELETE FROM images');
+  db.base.exec('DELETE FROM quotas');
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const c = await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Eiffel', 'commons') });
+  assert.equal(c.corps.image.source, 'commons');
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['commons']);
+  reinitExt();
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const u = await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Eiffel', 'unsplash') });
+  assert.equal(u.corps.image.source, 'unsplash');
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['unsplash'], 'Commons n’est pas appelé');
+  erreurFr(await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Eiffel', 'pexels') }), 400);
+  erreurFr(await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('Eiffel', 'COMMONS') }), 400);
+  erreurFr(await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('x') }), 400);
+  erreurFr(await appel(imageGet, { env: ENV_IMAGE(), requete: '' }), 400);
+  // La requête est coupée à 80 caractères.
+  reinitExt();
+  ext.commons = sansResultat;
+  ext.unsplash = () => reponseWiki({ results: [] });
+  await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('mot '.repeat(40)) });
+  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch').replace(' filetype:bitmap', '').length <= 80, true);
+  reinitExt();
+});
+
+test('image GET : cache par source et par requête (absence comprise), pas de cache en cas de panne, quota de 400 recherches', async () => {
+  reinitExt();
+  db.base.exec('DELETE FROM images');
+  db.base.exec('DELETE FROM quotas');
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const lire = (q, source) => appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE(q, source) });
+  const premiere = await lire('Eiffel Tower', 'commons');
+  assert.equal(ext.appels.length, 1);
+  assert.deepEqual((await lire('eiffel tower', 'commons')).corps, premiere.corps, 'même requête (casse ignorée) : lue en cache');
+  assert.equal(ext.appels.length, 1, 'aucun nouvel appel');
+  // Même texte, autre source : autre entrée de cache, autre appel.
+  assert.equal((await lire('Eiffel Tower', 'unsplash')).corps.image.source, 'unsplash');
+  assert.equal((await lire('Eiffel Tower')).corps.image.source, 'commons', 'auto a sa propre entrée');
+  assert.equal((await lire('Eiffel Tower', 'auto')).corps.image.source, 'commons');
+  assert.deepEqual(lignes('SELECT requete FROM images ORDER BY requete').map((x) => x.requete), ['auto:eiffel tower', 'commons:eiffel tower', 'unsplash:eiffel tower']);
+  const avant = ext.appels.length;
+  await lire('Eiffel Tower', 'unsplash');
+  await lire('Eiffel Tower');
+  assert.equal(ext.appels.length, avant, 'chaque source relit son entrée');
+  // L'absence de résultat est mise en cache ; une panne du fournisseur ne l'est pas.
+  ext.commons = sansResultat;
+  assert.deepEqual((await lire('Sujet introuvable', 'commons')).corps, { image: null });
+  const n = ext.appels.length;
+  await lire('Sujet introuvable', 'commons');
+  assert.equal(ext.appels.length, n);
+  assert.equal(lignes('SELECT contenu FROM images WHERE requete = ?', 'commons:sujet introuvable')[0].contenu, 'null');
+  ext.commons = () => new Response('trop de requêtes', { status: 429 });
+  assert.deepEqual((await lire('Sujet en panne', 'commons')).corps, { image: null });
+  assert.equal(lignes('SELECT requete FROM images WHERE requete = ?', 'commons:sujet en panne').length, 0, 'pas de cache après une panne');
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  assert.equal((await lire('Sujet en panne', 'commons')).corps.image.source, 'commons', 'la panne passée n’empêche pas la bonne réponse');
+  // Quota : 400 recherches nouvelles par jour ; au-delà, null sans appel ; le cache reste lisible.
+  db.base.exec("DELETE FROM quotas WHERE cle = 'image:total'");
+  db.base.prepare("INSERT INTO quotas (cle, n, jour) VALUES ('image:total', 399, ?)").run(aujourdhui());
+  ext.appels.length = 0;
+  assert.equal((await lire('Quota un', 'commons')).corps.image.source, 'commons');
+  assert.deepEqual((await lire('Quota deux', 'commons')).corps, { image: null });
+  assert.equal(ext.appels.length, 1, 'le 401e appel n’atteint pas Commons');
+  assert.equal((await lire('Quota un', 'commons')).corps.image.source, 'commons', 'lecture en cache malgré le quota');
+  assert.deepEqual(lignes('SELECT requete FROM images WHERE requete = ?', 'commons:quota deux'), [], 'le refus de quota n’est pas mis en cache');
+  db.base.exec('DELETE FROM quotas');
+  reinitExt();
+});
+
+test('image GET : chercherImage — auto signale une panne seulement si rien n’a été trouvé', async () => {
+  reinitExt();
+  ext.commons = () => new Response('panne', { status: 500 });
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const secours = await chercherImage({ UNSPLASH_KEY: 'k' }, 'auto', 'Eiffel');
+  assert.equal(secours.image.source, 'unsplash');
+  assert.equal(secours.incertain, false, 'Unsplash a répondu : l’image est sûre');
+  ext.unsplash = () => reponseWiki({ results: [] });
+  assert.deepEqual(await chercherImage({ UNSPLASH_KEY: 'k' }, 'auto', 'Eiffel'), { image: null, incertain: true }, 'Commons en panne et rien chez Unsplash : on ne retient pas l’absence');
+  ext.commons = sansResultat;
+  assert.deepEqual(await chercherImage({ UNSPLASH_KEY: 'k' }, 'auto', 'Eiffel'), { image: null, incertain: false });
   reinitExt();
 });
 
@@ -4345,7 +4645,7 @@ test('aucun secret dans le code', async () => {
     '../functions/api/chapitre-ia.js', '../functions/api/melange.js', '../functions/api/duel.js', '../functions/api/duels.js',
     '../lib/fournisseurs.js', '../lib/images.js', '../lib/paliers.js', '../functions/api/parcours.js',
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
-    '../scripts/serveur_local.mjs', '../wrangler.toml'];
+    '../functions/api/image.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);
