@@ -27,13 +27,16 @@ import * as tournoi from './functions/api/tournoi.js';
 import * as groupe from './functions/api/groupe.js';
 import * as partie from './functions/api/partie.js';
 import * as variante from './functions/api/variante.js';
+import * as admin from './functions/api/admin.js';
+import * as cleIa from './functions/api/cle-ia.js';
+import { traiterFile } from './lib/nuit.js';
 
 const ROUTES = {
   diagnostic,
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
   parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire, fiche,
-  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, variante,
+  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, variante, admin, 'cle-ia': cleIa,
 };
 
 function erreur(statut, message) {
@@ -57,5 +60,13 @@ export default {
     }
     if (url.pathname.startsWith('/api/')) return erreur(404, 'Adresse inconnue.');
     return env.ASSETS.fetch(request);
+  },
+
+  // Cron (wrangler.toml, toutes les 5 minutes) : un petit morceau de la génération de nuit (lib/nuit.js).
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(traiterFile(env).then(
+      (bilan) => console.log('File de nuit :', JSON.stringify(bilan)),
+      (e) => console.error('File de nuit : échec', e && e.message),
+    ));
   },
 };

@@ -278,7 +278,9 @@ export function programmeSimule(demande) {
   const module = (t) => {
     const k = titres.indexOf(t);
     const prerequis = k === 0 ? [] : k % 4 === 3 && k > 1 ? [titres[k - 1], titres[k - 2]] : [titres[k - 1]];
-    return { titre: t, objectif: objectif(t), prerequis };
+    // Une leçon sur 5 environ est marquée « essentiel » (les deux premiers modules de chaque niveau au moins : le serveur complète).
+    const essentiel = k % 5 === 0 || k % 5 === 2;
+    return { titre: t, objectif: objectif(t), prerequis, ...(essentiel ? { essentiel: true } : {}) };
   };
   return {
     resume: f.resume,
@@ -375,6 +377,8 @@ export function leconSimulee(demande) {
   if (numero % 5 === 0) cartes.push({ recto: `Question de carte simulée sur « ${coupeTitre(f.titre, 30)} » ?`, verso: `Une réponse que les extraits ne confirment pas.${rumeur(true)}` });
   return {
     ...palier,
+    objectif: coupeTitre(`À la fin, tu sauras expliquer « ${terme} » et en donner un exemple tiré de la leçon ${numero}.`, 200),
+    rappel: numero > 1 ? `Dans la leçon précédente, tu as vu les repères du sujet. Cette leçon ajoute la notion « ${terme} ».` : null,
     avant: rappels,
     exemple: `Pour comprendre « ${terme} », on peut imaginer une situation simple du quotidien. Cet exemple est écrit à la main par le serveur local.${rumeur(numero % 7 === 0)}`,
     aRetenir: choix(f.enBref, numero, 3),

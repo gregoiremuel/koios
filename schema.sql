@@ -175,3 +175,17 @@ CREATE TABLE IF NOT EXISTS variantes (
   contenu TEXT,
   cree TEXT
 );
+
+-- Génération de nuit (admin) : file des modules à ouvrir et des leçons à écrire. Un passage du cron (toutes les
+-- 5 minutes) prend au plus 2 tâches ; 3 essais au plus, puis « echec ».
+CREATE TABLE IF NOT EXISTS file_attente (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parcours TEXT,
+  type TEXT,
+  numero INTEGER,
+  etat TEXT DEFAULT 'attente',
+  essais INTEGER DEFAULT 0,
+  erreur TEXT,
+  maj TEXT,
+  UNIQUE (parcours, type, numero)
+);

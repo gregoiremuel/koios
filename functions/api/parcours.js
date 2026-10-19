@@ -4,9 +4,11 @@
 // pour tous les lecteurs. Un parcours qui existe déjà est renvoyé sans rien générer ni consommer de quota.
 // POST /api/parcours {id, prolonger: true} : « Aller plus loin », 3 à 5 modules d'un niveau « Maîtrise n » ajoutés au
 // programme, pour tous les lecteurs (5 par jour et par lecteur, 40 par jour au total).
+// En-tête facultatif x-cle-ia: <fournisseur>:<clé> : la clé personnelle du lecteur écrit la formation (jamais enregistrée, jamais renvoyée) ;
+// la formation va dans la même table, partagée par tous.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, decoderParcours, demarrerChrono, genererParcours, genererProlongement, nbModules, nbPaliers,
@@ -16,6 +18,14 @@ import { slug } from '../../lib/sujets.js';
 const COLONNES = 'id, titre, contenu';
 
 const RECHERCHE_MAX = 30;
+
+// Niveau le plus avancé déjà ouvert (celui du dernier module ouvert) : {numero, titre}, ou null sans programme.
+function niveauAtteint(c) {
+  if (!c.programme || !c.etapes.length) return null;
+  const dernier = c.etapes[c.etapes.length - 1];
+  const n = c.programme.niveaux.find((x) => x.numero === dernier.niveau);
+  return n ? { numero: n.numero, titre: n.titre } : null;
+}
 
 // Bibliothèque : formations dont le titre contient tous les mots de la recherche (comparés sans accents ni casse,
 // sur l'identifiant, qui est le titre en minuscules sans accents ; les mots n'ont ni % ni _). Les plus suivies d'abord.
@@ -46,6 +56,8 @@ async function rechercher(env, brut) {
         paliers: nbPaliers(c.etapes),
         lecons: r.lecons,
         modules: c.modulesTotal,
+        ouverts: c.etapes.length,
+        niveauAtteint: niveauAtteint(c),
         niveaux: c.programme ? c.programme.niveaux.map((n) => ({ numero: n.numero, titre: n.titre })) : [],
       });
     } catch {
@@ -104,13 +116,25 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
 
   if (!p.has('id')) {
     const { results } = await env.DB.prepare(
-      'SELECT id, titre, contenu, vues FROM parcours ORDER BY vues DESC, cree DESC, id LIMIT 60',
+      `SELECT p.id, p.titre, p.contenu, p.vues,
+              (SELECT COUNT(*) FROM paliers l WHERE l.parcours = p.id) AS lecons
+         FROM parcours p ORDER BY p.vues DESC, p.cree DESC, p.id LIMIT 60`,
     ).all();
     const parcours = [];
     for (const r of results || []) {
       try {
         const c = decoderParcours(r);
-        parcours.push({ id: r.id, titre: r.titre, image: c.image, vues: r.vues, paliers: nbPaliers(c.etapes) });
+        parcours.push({
+          id: r.id,
+          titre: r.titre,
+          image: c.image,
+          vues: r.vues,
+          paliers: nbPaliers(c.etapes),
+          lecons: r.lecons,
+          modules: c.modulesTotal,
+          ouverts: c.etapes.length,
+          niveauAtteint: niveauAtteint(c),
+        });
       } catch {
         // contenu illisible : ce parcours est écarté de la liste
       }
@@ -128,8 +152,9 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   return json({ parcours: decoderParcours(ligne) });
 });
 
-export const onRequestPost = enveloppe(async ({ request, env }) => {
-  await exigerBase(env);
+export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
+  await exigerBase(envServeur);
+  const env = envAvecCle(request, envServeur);
   const joueur = await auth(request, env);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   const corps = await lireJSON(request, 2048);

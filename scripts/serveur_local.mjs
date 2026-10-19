@@ -208,6 +208,35 @@ async function glm(init) {
   return json({ choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(objet) } }] });
 }
 
+// Gemini (clé personnelle) : même faux modèle. Une clé qui contient « refuse » est refusée, pour voir le message d'erreur.
+async function gemini(init) {
+  if (/refuse/.test(entete(init, 'x-goog-api-key'))) return json({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. Please pass a valid API key.' } }, 400);
+  const c = JSON.parse(String((init && init.body) || '{}'));
+  const demande = (c.contents || []).map((x) => x.parts.map((p) => p.text).join('')).join('\n');
+  await attente(250);
+  let objet;
+  try {
+    objet = reponseDe(c.systemInstruction ? c.systemInstruction.parts[0].text : '', demande);
+  } catch (e) {
+    return json({ error: { message: e.message } }, 400);
+  }
+  return json({ candidates: [{ content: { parts: [{ text: JSON.stringify(objet) }] } }] });
+}
+
+// Claude (clé personnelle) : API Messages simulée, même règle pour « refuse ».
+async function claude(init) {
+  if (/refuse/.test(entete(init, 'x-api-key'))) return json({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } }, 401);
+  const c = JSON.parse(String((init && init.body) || '{}'));
+  await attente(250);
+  let objet;
+  try {
+    objet = reponseDe(c.system || '', (c.messages || []).map((m) => m.content).join('\n'));
+  } catch (e) {
+    return json({ error: { message: e.message } }, 400);
+  }
+  return json({ content: [{ type: 'text', text: JSON.stringify(objet) }] });
+}
+
 // Unsplash : une photo simulée sur les hôtes attendus par lib/images.js (les fichiers n'existent pas).
 function unsplash(u, init) {
   if (!entete(init, 'authorization').startsWith('Client-ID ')) return json({ errors: ['clé absente'] }, 401);
@@ -288,6 +317,8 @@ globalThis.fetch = async (url, init) => {
   const u = new URL(String(url));
   if (u.hostname === 'fr.wikipedia.org' || u.hostname === 'en.wikipedia.org') return wikipedia(u);
   if (u.hostname === 'api.z.ai') return glm(init);
+  if (u.hostname === 'generativelanguage.googleapis.com') return gemini(init);
+  if (u.hostname === 'api.anthropic.com') return claude(init);
   if (u.hostname === 'api.unsplash.com') return unsplash(u, init);
   if (u.hostname === 'commons.wikimedia.org') return commons(u, init);
   return fetchReseau(url, init);
@@ -295,10 +326,11 @@ globalThis.fetch = async (url, init) => {
 
 // --- Serveur HTTP ----------------------------------------------------------
 
-const env = { DB: fauxD1(), AI: IA, ASSETS, GLM_API_KEY: cleFactice('glm') };
+const env = { DB: fauxD1(), AI: IA, ASSETS, GLM_API_KEY: cleFactice('glm'), ADMIN_KEY: cleFactice('admin') };
 const photos = process.env.KOIOS_LOCAL_PHOTOS;
 if (photos === 'unsplash') env.UNSPLASH_KEY = cleFactice('unsplash');
 const ctx = { waitUntil() {} };
+const ctxNuit = { waitUntil: (p) => p };
 
 // Aplats gris neutres pour les images simulées : quatre tons, choisis selon l'adresse d'origine. Aucun motif, aucun texte.
 const TONS = ['c4c9cf', 'b3b9c1', 'a4abb4', 'd0d4d9'];
@@ -369,5 +401,8 @@ serveur.on('error', (e) => {
   process.exit(1);
 });
 serveur.listen(port, () => {
+  // Génération de nuit : le cron de Cloudflare est simulé (un passage par minute) ; la clé admin locale est calculée au lancement.
+  setInterval(() => { worker.scheduled({}, env, ctxNuit).catch(() => {}); }, 60000).unref();
+  console.log(`Clé admin locale : ${env.ADMIN_KEY} (Profil > Espace admin)`);
   console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Commons et Unsplash simulés ; images = aplats gris)`);
 });

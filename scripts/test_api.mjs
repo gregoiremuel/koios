@@ -7,7 +7,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { TABLES, initBase, quota, sha256Hex } from '../lib/api.js';
+import {
+  ErreurHttp, TABLES, enveloppe, initBase, quota, sha256Hex,
+} from '../lib/api.js';
 import { EXEMPLE, MODELES, PROMPT_SYSTEME, extraireObjet, validerChapitre } from '../lib/libre.js';
 import {
   EXEMPLE_CHAPITRE, EXEMPLE_PLAN, PROMPT_CHAPITRE, PROMPT_PLAN, assemblerChapitre, slug, validerChapitreIA,
@@ -21,7 +23,12 @@ import { generateur, tirer, tirerParmi } from '../lib/questions.js';
 import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, oublierEpuisements, redacteurs, verificateurs,
   GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini,
+  CLAUDE_MODELE, CLAUDE_URL, GEMINI_MODELES, corpsClaude, estIgnore, fournisseurPerso, marquerEpuise, tousEpuises,
 } from '../lib/fournisseurs.js';
+import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
+import { debloquer, definirPause, etatFile, traiterFile } from '../lib/nuit.js';
+import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/admin.js';
+import { onRequestPost as cleIaPost } from '../functions/api/cle-ia.js';
 import {
   CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, motsSignificatifs, pertinence, imageDeTete, imageDesPages, imageUnsplash, imageWikipedia,
   licenceLibre, requeteImage, texteDeHtml,
@@ -125,7 +132,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -202,7 +209,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets', 'variantes']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets', 'variantes']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
@@ -706,7 +713,7 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
 // Fournisseurs externes simulés (GLM, Unsplash, Commons) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null };
+const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null, claude: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -738,6 +745,7 @@ function reinitExt() {
   ext.gemini = null;
   ext.grok = null;
   ext.groq = null;
+  ext.claude = null;
   oublierEpuisements();
   horloge.t = 0;
 }
@@ -760,7 +768,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'open.bigmodel.cn': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.anthropic.com': 'claude', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -2088,7 +2096,7 @@ const MODULES_EXEMPLE = EXEMPLE_PROGRAMME.niveaux.flatMap((n) => n.modules); // 
 const NB_MODULES = MODULES_EXEMPLE.length;
 const TITRE_MODULE_1 = typographierTexte(MODULES_EXEMPLE[0].titre); // « Qu’est-ce que la tour Eiffel ? », espace fine avant « ? »
 const CLES_PARCOURS = ['id', 'titre', 'resume', 'image', 'etapes', 'sources', 'programme', 'modulesTotal'];
-const CLES_LECON = ['id', 'parcours', 'numero', 'etape', 'niveau', 'module', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'questions', 'sources', 'verification'];
+const CLES_LECON = ['id', 'parcours', 'numero', 'etape', 'niveau', 'module', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions', 'sources', 'verification'];
 const CLES_PALIER = ['id', 'parcours', 'numero', 'etape', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'questions', 'sources', 'verification'];
 
 // --- Fournisseurs ---
@@ -2235,13 +2243,13 @@ test('Gemini : adresse, en-tête x-goog-api-key, system -> systemInstruction, JS
   assert.equal(extraireObjet(await gem.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), null);
   // Modèle refusé (404) ou quota du modèle (429) : modèle suivant, retenu ensuite.
   reinitExt();
-  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('no', { status: 404 }) : /2\.0-flash/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":3}'));
+  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('no', { status: 404 }) : /flash-latest/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":3}'));
   const [g2] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
   assert.deepEqual(extraireObjet(await g2.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 3 });
   assert.equal(ext.appels.length, 3);
   assert.equal(estEpuise('gemini'), false, 'un modèle de repli a répondu');
-  assert.equal(g2.couple().modele, 'gemini-flash-latest');
-  assert.equal(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI })[0].nom, 'gemini-flash-latest', 'couple retenu pour l’isolat');
+  assert.equal(g2.couple().modele, 'gemini-2.0-flash');
+  assert.equal(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI })[0].nom, 'gemini-2.0-flash', 'couple retenu pour l’isolat');
   reinitExt();
 });
 
@@ -3269,7 +3277,7 @@ test('validerRedaction en mode leçon : aRetenir obligatoire (2 à 4 phrases), m
   const lecon = (fn) => { const b = leconBrute(); fn(b); return validerRedaction(b, { lecon: true }); };
   const r = validerRedaction(leconBrute(), { lecon: true });
   assert.ok(r.valeur, r.raison);
-  assert.deepEqual(Object.keys(r.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'questions']);
+  assert.deepEqual(Object.keys(r.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions']);
   assert.deepEqual(r.valeur.aRetenir, EXEMPLE_LECON.aRetenir);
   assert.deepEqual(r.valeur.avant, EXEMPLE_LECON.avant);
   assert.equal(r.valeur.exemple, EXEMPLE_LECON.exemple);
@@ -3367,7 +3375,7 @@ test('evaluer en mode leçon : un « à retenir » non confirmé est retiré, un
   assert.equal(sansMnemo.brouillon.mnemo, null);
   assert.deepEqual(sansMnemo.brouillon.aRetenir, EXEMPLE_LECON.aRetenir);
   assert.equal(sansMnemo.retirees, 1);
-  assert.deepEqual(Object.keys(sansMnemo.brouillon), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'questions']);
+  assert.deepEqual(Object.keys(sansMnemo.brouillon), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions']);
   const tout = ev([18, 19, 20, 21]);
   assert.deepEqual([tout.brouillon.aRetenir, tout.brouillon.mnemo, tout.retirees, tout.viable], [[], null, 4, true]);
   // Rappels, exemple et cartes viennent après les questions (29 premières affirmations inchangées) : 30 et 31 = rappels,
@@ -3439,7 +3447,7 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   assert.deepEqual(p.programme.niveaux.map((n) => n.numero), [1, 2, 3, 4]);
   assert.deepEqual(p.programme.niveaux.map((n) => n.titre.replace('\u00a0', ' ')), EXEMPLE_PROGRAMME.niveaux.map((n) => n.titre), 'espace insécable avant « : »');
   assert.deepEqual(Object.keys(p.programme.niveaux[0]), ['numero', 'titre', 'modules']);
-  assert.deepEqual(Object.keys(p.programme.niveaux[0].modules[0]), ['numero', 'titre', 'objectif', 'prerequis']);
+  assert.deepEqual(Object.keys(p.programme.niveaux[0].modules[0]), ['numero', 'titre', 'objectif', 'prerequis', 'essentiel']);
   assert.deepEqual(p.programme.niveaux.flatMap((n) => n.modules.map((m) => m.numero)), nombres(1, NB_MODULES));
   assert.deepEqual(p.programme.niveaux[1].modules[0], { numero: 7, ...EXEMPLE_PROGRAMME.niveaux[1].modules[0] });
   assert.deepEqual(p.programme.niveaux[0].modules[1].prerequis, [TITRE_MODULE_1], 'prérequis typographiés comme les titres');
@@ -3700,7 +3708,7 @@ test('parcours GET : un parcours (une vue de plus), 400 sans id, 404 inconnu ; l
   ok200(liste);
   assert.deepEqual(Object.keys(liste.corps), ['parcours']);
   assert.equal(liste.corps.parcours.length, 60);
-  assert.deepEqual(Object.keys(liste.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers']);
+  assert.deepEqual(Object.keys(liste.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
   const ordre = attendus.sort((a, b) => b.vues - a.vues || (a.cree < b.cree ? 1 : a.cree > b.cree ? -1 : 0) || (a.id < b.id ? -1 : 1)).slice(0, 60);
   assert.deepEqual(liste.corps.parcours.map((x) => x.id), ordre.map((x) => x.id));
   const vues = liste.corps.parcours.map((x) => x.vues);
@@ -4439,7 +4447,7 @@ test('parcours à programme : GET renvoie programme et modulesTotal ; l’ancien
   assert.deepEqual(a.etapes[1], { numero: 2, titre: 'Étape 2', paliers: nombres(11, 20).map((numero) => ({ numero, titre: `Palier ${numero} de Ancien` })) });
   // Liste : inchangée (même clés), nombre de leçons connues.
   const liste = (await appel(parcoursGet)).corps.parcours;
-  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers']);
+  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
   assert.deepEqual(liste.map((x) => [x.id, x.paliers]), [['prog', 10], ['ancien', 20]]);
   // Ancien format : une leçon hors plan écrit encore une étape de 10 paliers, sans fin (aucune « formation terminée »).
   const sc = scenario({ ...partiesStandard(), etape: [etape2Brute()] });
@@ -4645,7 +4653,7 @@ const avecDelaisCourts = async (fn) => {
 test('leçon en deux moitiés : A (sections, avant, exemple, définitions…) et B (frise, chiffres, notions, cartes, questions)', async () => {
   const brut = leconBrute();
   const a = validerMoitieA(brut).valeur;
-  assert.deepEqual(Object.keys(a).sort(), ['aRetenir', 'avant', 'definitions', 'exemple', 'histoire', 'mnemo', 'sections']);
+  assert.deepEqual(Object.keys(a).sort(), ['aRetenir', 'avant', 'definitions', 'exemple', 'histoire', 'mnemo', 'objectif', 'rappel', 'sections']);
   const b = validerMoitieB(brut).valeur;
   assert.deepEqual(Object.keys(b).sort(), ['cartes', 'chiffres', 'frise', 'notions', 'questions']);
   assert.equal(b.questions.length, 4);
@@ -5086,7 +5094,7 @@ test('parcours GET ?q= : recherche dans les titres sans accents ni casse, 30 ré
   ok200(r);
   assert.deepEqual(Object.keys(r.corps), ['parcours']);
   assert.deepEqual(r.corps.parcours.map((x) => x.id), ['gemmologie-et-joaillerie', 'la-gemmologie'], 'les plus suivies d’abord');
-  assert.deepEqual(Object.keys(r.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'niveaux']);
+  assert.deepEqual(Object.keys(r.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint', 'niveaux']);
   const [g, l] = r.corps.parcours;
   assert.deepEqual([g.titre, g.vues, g.paliers, g.lecons, g.modules, g.niveaux.length], ['Gemmologie et joaillerie', 40, 6, 1, 21, 4]);
   assert.deepEqual([l.paliers, l.lecons, l.modules], [10, 3, 21]);
@@ -5113,7 +5121,7 @@ test('parcours GET ?q= : recherche dans les titres sans accents ni casse, 30 ré
   // Une recherche ne compte pas de vue ; sans q, la liste habituelle est inchangée.
   assert.deepEqual(lignes('SELECT SUM(vues) AS v FROM parcours'), [{ v: 7 + 40 + 99 + 3 }]);
   const liste = (await appel(parcoursGet)).corps.parcours;
-  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers']);
+  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
   assert.equal(liste.length, 4);
 });
 
@@ -7061,6 +7069,564 @@ test('variante POST : 15 par jour et par lecteur, 150 par jour au total (le cach
   assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'variante:joueur:" + k2.id + "'")[0].n, 1);
 });
 
+// =============================================================================
+// Lot 5 : Gemini rapide, clé personnelle, génération de nuit, bibliothèque, qualité des leçons
+// =============================================================================
+
+// Adaptateurs : un scénario (messages au format chat) répond comme Gemini ou comme l'API Messages de Claude.
+const messagesDeGemini = (corps) => [
+  { role: 'system', content: corps.systemInstruction ? corps.systemInstruction.parts[0].text : '' },
+  ...corps.contents.map((x) => ({ role: x.role === 'model' ? 'assistant' : 'user', content: x.parts[0].text })),
+];
+const textesDeScenario = async (sc, u, messages) => {
+  const r = sc.glm(u, { body: JSON.stringify({ model: u.pathname, messages }) });
+  if (r.status !== 200) return { r };
+  return { texte: (await r.json()).choices[0].message.content };
+};
+const geminiVers = (sc) => async (u, init) => {
+  const { r, texte } = await textesDeScenario(sc, u, messagesDeGemini(JSON.parse(init.body)));
+  return r || reponseGemini(texte);
+};
+const claudeVers = (sc) => async (u, init) => {
+  const c = JSON.parse(init.body);
+  const { r, texte } = await textesDeScenario(sc, u, [{ role: 'system', content: c.system || '' }, ...c.messages]);
+  return r || reponseWiki({ content: [{ type: 'text', text: texte }] });
+};
+const CLE_PERSO = 'AIzaSy-cle-perso-de-test-0123456789';
+const CLE_CLAUDE = 'sk-ant-api03-cle-claude-de-test-0123';
+// Tout le contenu de la base, en texte : la clé personnelle ne doit y figurer nulle part.
+const toutesLesTables = () => lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+  .map((t) => JSON.stringify(lignes(`SELECT * FROM ${t.name}`))).join('\n');
+// Capte tout ce que le code écrit dans la console pendant `fn`.
+async function captant(fn) {
+  const journal = [];
+  const anciens = [console.warn, console.error, console.log];
+  console.warn = console.error = console.log = (...a) => journal.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' '));
+  try { return { valeur: await fn(), journal }; } finally { [console.warn, console.error, console.log] = anciens; }
+}
+
+// --- A. Gemini rapide, diagnostic lisible --------------------------------------
+
+test('Gemini (lot 5) : modèles dans l’ordre 2.5, flash-latest, 2.0 ; réflexion coupée sur toute la série flash', async () => {
+  assert.deepEqual(GEMINI_MODELES, ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash']);
+  const cfg = (modele, extra = {}) => corpsGemini(MSG, { maxTokens: 5, temperature: 0, modele, ...extra }).generationConfig.thinkingConfig;
+  assert.deepEqual(cfg('gemini-2.5-flash'), { thinkingBudget: 0 });
+  assert.deepEqual(cfg('gemini-flash-latest'), { thinkingLevel: 'minimal' });
+  assert.deepEqual(cfg('gemini-3-flash-preview'), { thinkingLevel: 'minimal' });
+  assert.equal(cfg('gemini-2.0-flash'), undefined);
+  assert.equal(cfg('gemini-flash-latest', { sansReflexion: true }), undefined, 'repli : même corps sans thinkingConfig');
+});
+
+test('Gemini : un 400 dû à thinkingConfig est retenté sur le même modèle SANS ce champ, avant de passer au suivant', async () => {
+  reinitExt();
+  ext.gemini = (u, init) => (JSON.parse(init.body).generationConfig.thinkingConfig
+    ? new Response('{"error":{"message":"Unknown name thinkingConfig"}}', { status: 400 }) : reponseGemini('{"ok":6}'));
+  const [g] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
+  assert.deepEqual(extraireObjet(await g.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 6 });
+  assert.deepEqual(ext.appels.map((a) => a.url.pathname.split('/').pop()), ['gemini-2.5-flash:generateContent', 'gemini-2.5-flash:generateContent']);
+  assert.ok(JSON.parse(ext.appels[0].init.body).generationConfig.thinkingConfig);
+  assert.equal(JSON.parse(ext.appels[1].init.body).generationConfig.thinkingConfig, undefined);
+  assert.deepEqual(g.erreursModeles.map((x) => [x.modele, x.statut, !!x.sansReflexion]), [['gemini-2.5-flash', 400, false]]);
+  reinitExt();
+});
+
+test('diagnostic : Gemini liste l’erreur de CHAQUE modèle candidat ; Grok 401 partout = « cle-invalide », ignoré 1 h', async () => {
+  reinitExt();
+  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('{"error":{"message":"model overloaded ' + CLE_GEMINI + '"}}', { status: 404 })
+    : /flash-latest/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":true}'));
+  ext.grok = () => new Response('bad ' + CLE_GROK, { status: 401 });
+  ext.groq = () => new Response('bad', { status: 401 });
+  const env = { ...TOUTES, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } };
+  ext.glm = () => reponseOpenAI('{"ok":true}');
+  const r = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  ok200(r);
+  const [gem, , grk] = r.corps.resultats;
+  assert.equal(gem.etat, 'ok');
+  assert.deepEqual(gem.erreursModeles.map((x) => [x.modele, x.code]), [['gemini-2.5-flash', 404], ['gemini-flash-latest', 429]]);
+  assert.match(gem.erreursModeles[0].message, /overloaded/);
+  assert.equal(grk.etat, 'cle-invalide');
+  assert.match(grk.erreur, /clé invalide/);
+  assert.deepEqual(r.corps.ignores, ['Grok']);
+  const texte = JSON.stringify(r.corps);
+  for (const c of [CLE_GEMINI, CLE_GROK, CLE_GLM]) assert.ok(!texte.includes(c), 'aucune clé dans le diagnostic');
+  // Ignoré : plus dans les chaînes de rédaction ni de vérification pendant 1 h, puis il revient.
+  assert.equal(estIgnore('grok'), true);
+  const toutes = { AI: {}, GEMINI_API_KEY: CLE_GEMINI, GROK_API_KEY: CLE_GROK, GLM_API_KEY: CLE_GLM };
+  assert.deepEqual(redacteurs(toutes).map((f) => f.famille), ['gemini', 'glm', 'workers-ai']);
+  assert.ok(!verificateurs(toutes, redacteurs(toutes)[0]).some((f) => f.famille === 'grok'));
+  horloge.t += 60 * 60 * 1000 + 1000;
+  assert.equal(estIgnore('grok'), false);
+  assert.ok(redacteurs(toutes).some((f) => f.famille === 'grok'));
+  reinitExt();
+});
+
+// --- B. Clé personnelle -----------------------------------------------------------
+
+test('clé perso : lecture de l’en-tête x-cle-ia (fournisseurs gemini, glm, claude), masquage, jamais dans un message', async () => {
+  const req = (v) => new Request('https://koios.test/api/x', { headers: v === undefined ? {} : { 'x-cle-ia': v } });
+  assert.equal(lireClePerso(req()), null);
+  assert.deepEqual(lireClePerso(req('gemini:' + CLE_PERSO)), { fournisseur: 'gemini', cle: CLE_PERSO });
+  assert.deepEqual(lireClePerso(req('glm:abc123.def456ghi')), { fournisseur: 'glm', cle: 'abc123.def456ghi' });
+  assert.equal(lireClePerso(req('claude:' + CLE_CLAUDE)).fournisseur, 'claude');
+  for (const mauvais of ['grok:abcdefghijkl', 'gemini:', 'gemini:court', 'sans-deux-points', 'gemini:' + 'a'.repeat(500), 'gemini:cle avec espace!!']) {
+    assert.throws(() => lireClePerso(req(mauvais)), (e) => e.statut === 400 && !e.message.includes('abcdefghijkl') && !e.message.includes('court'));
+  }
+  const r = req('gemini:' + CLE_PERSO);
+  const m = masquer('Erreur avec ' + CLE_PERSO + ' et gemini:' + CLE_PERSO, r);
+  assert.ok(!m.includes(CLE_PERSO));
+  assert.equal(masquer('rien à masquer', r), 'rien à masquer');
+  // Le fournisseur perso garde sa clé hors des propriétés énumérables.
+  const f = fournisseurPerso({ clePerso: { fournisseur: 'gemini', cle: CLE_PERSO } });
+  assert.ok(!JSON.stringify(f).includes(CLE_PERSO));
+  assert.equal(f.secret, CLE_PERSO);
+  assert.equal(fournisseurPerso({}), null);
+});
+
+test('clé perso Gemini : rédige en premier, vérification par la famille du serveur ; clé jamais renvoyée, enregistrée ni journalisée', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  ext.gemini = geminiVers(sc);
+  ext.glm = sc.glm;
+  const { valeur: r, journal } = await captant(() => appel(palierGet, {
+    env: envDe(sc, AVEC_GLM), jeton: j.jeton, entetes: { 'x-cle-ia': 'gemini:' + CLE_PERSO }, requete: '?parcours=la-tour-eiffel&n=1',
+  }));
+  ok200(r);
+  const gem = ext.appels.filter((a) => a.fournisseur === 'gemini');
+  assert.equal(gem.length, 2, 'les deux moitiés de la leçon');
+  for (const a of gem) assert.equal(new Headers(a.init.headers).get('x-goog-api-key'), CLE_PERSO);
+  const glmAppels = ext.appels.filter((a) => a.fournisseur === 'glm');
+  assert.equal(glmAppels.length, 1, 'la vérification vient du serveur, d’une autre famille');
+  assert.equal(sc.par('verif').length, 1);
+  assert.equal(new Headers(glmAppels[0].init.headers).get('authorization'), 'Bearer ' + CLE_GLM, 'la clé perso ne part jamais vers un autre fournisseur');
+  assert.deepEqual(r.corps.palier.verification.ia, ['gemini-2.5-flash', 'glm-4.7-flash']);
+  assert.equal(r.corps.palier.verification.statut, 'recoupe');
+  // Jamais renvoyée, jamais en base, jamais dans le journal.
+  assert.ok(!JSON.stringify(r.corps).includes(CLE_PERSO), 'pas dans la réponse');
+  assert.ok(!toutesLesTables().includes(CLE_PERSO), 'pas en base');
+  assert.ok(!journal.join('\n').includes(CLE_PERSO), 'pas dans le journal');
+  assert.ok(!JSON.stringify(ext.appels.map((a) => [String(a.url), a.init.body])).includes(CLE_PERSO), 'ni dans une adresse ni dans un corps de requête');
+});
+
+test('clé perso : une erreur du fournisseur qui recopie la clé ne la laisse sortir ni dans la réponse ni dans le journal (repli sur le serveur)', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  ext.gemini = () => new Response('{"error":{"message":"panne interne pour ' + CLE_PERSO + '"}}', { status: 500 });
+  ext.glm = sc.glm;
+  const { valeur: r, journal } = await captant(() => appel(palierGet, {
+    env: envDe(sc, AVEC_GLM), jeton: j.jeton, entetes: { 'x-cle-ia': 'gemini:' + CLE_PERSO }, requete: '?parcours=la-tour-eiffel&n=2',
+  }));
+  ok200(r);
+  assert.ok(ext.appels.some((a) => a.fournisseur === 'glm'), 'panne (5xx) : la chaîne du serveur prend le relais');
+  const sortie = JSON.stringify(r.corps) + journal.join('\n') + toutesLesTables();
+  assert.ok(!sortie.includes(CLE_PERSO));
+  assert.ok(journal.join('\n').includes('***'), 'le message de panne est journalisé, clé masquée');
+  // Même une erreur qui recopie la clé est masquée par l'enveloppe.
+  const faux = await appel(({ request }) => enveloppe(async () => { throw new ErreurHttp(418, 'Rien pour gemini:' + CLE_PERSO + ' ni ' + CLE_PERSO); })({ request }), { entetes: { 'x-cle-ia': 'gemini:' + CLE_PERSO } });
+  assert.equal(faux.statut, 418);
+  assert.ok(!JSON.stringify(faux.corps).includes(CLE_PERSO));
+});
+
+test('clé perso refusée (400 « API key not valid », 401, 403) : « Ta clé est refusée par Gemini. », sans retomber sur les clés du serveur', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  for (const [statut, corps] of [[400, '{"error":{"status":"INVALID_ARGUMENT","message":"API key not valid. Please pass a valid API key.","details":[{"reason":"API_KEY_INVALID"}]}}'], [403, 'PERMISSION_DENIED'], [401, 'unauthorized']]) {
+    reinitExt();
+    ext.gemini = () => new Response(corps, { status: statut });
+    ext.glm = sc.glm;
+    const r = await appel(palierGet, { env: envDe(sc, AVEC_GLM), jeton: j.jeton, entetes: { 'x-cle-ia': 'gemini:' + CLE_PERSO }, requete: '?parcours=la-tour-eiffel&n=3' });
+    erreurFr(r, 403, /^Ta clé est refusée par Gemini\./);
+    assert.ok(!JSON.stringify(r.corps).includes(CLE_PERSO));
+    assert.equal(ext.appels.filter((a) => a.fournisseur === 'glm').length, 0, 'aucun repli silencieux sur GLM');
+    assert.equal(lignes("SELECT id FROM paliers WHERE id = 'la-tour-eiffel:3'").length, 0, 'rien n’est publié');
+  }
+  // GLM et Claude : 401 = clé refusée.
+  reinitExt();
+  ext.glm = () => new Response('{"error":"bad key"}', { status: 401 });
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'glm:abcdefgh.ijklmnop' }, requete: '?parcours=la-tour-eiffel&n=3' }), 403, /refusée par GLM/);
+  reinitExt();
+  ext.claude = () => new Response('{"type":"error","error":{"type":"authentication_error"}}', { status: 401 });
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'claude:' + CLE_CLAUDE }, requete: '?parcours=la-tour-eiffel&n=3' }), 403, /refusée par Claude/);
+  // Quota du lecteur (429) : pas un refus de clé, et le serveur n'est pas marqué épuisé.
+  reinitExt();
+  ext.gemini = () => new Response('quota', { status: 429 });
+  const f = fournisseurPerso({ clePerso: { fournisseur: 'gemini', cle: CLE_PERSO } });
+  await assert.rejects(() => f.appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.epuise === true && !e.cleRefusee);
+  assert.equal(estEpuise('gemini'), false, 'le quota de ta clé n’est pas celui du serveur');
+  reinitExt();
+});
+
+test('Claude (clé perso) : API Messages, en-têtes, system séparé, modèle claude-haiku-5-5 ; sans autre famille disponible : badge « seule »', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  ext.claude = claudeVers(sc);
+  marquerEpuise('workers-ai'); // plus aucune autre famille disponible
+  const { valeur: r } = await captant(() => appel(palierGet, {
+    env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'claude:' + CLE_CLAUDE }, requete: '?parcours=la-tour-eiffel&n=4',
+  }));
+  ok200(r);
+  const a = ext.appels.find((x) => x.fournisseur === 'claude');
+  assert.equal(String(a.url), CLAUDE_URL);
+  const h = new Headers(a.init.headers);
+  assert.equal(h.get('x-api-key'), CLE_CLAUDE);
+  assert.equal(h.get('anthropic-version'), '2023-06-01');
+  const corps = JSON.parse(a.init.body);
+  assert.equal(corps.model, CLAUDE_MODELE);
+  assert.equal(CLAUDE_MODELE, 'claude-haiku-5-5');
+  assert.equal(typeof corps.system, 'string');
+  assert.ok(corps.messages.every((m) => m.role === 'user' || m.role === 'assistant'), 'pas de message system dans messages');
+  assert.deepEqual(corpsClaude(MSG, { maxTokens: 9, temperature: 0 }).messages.map((m) => m.role), ['user', 'assistant', 'user']);
+  // Pas d'autre famille : publiée, mais avec « Une seule IA » (aucun appel de vérification, rien d'annoncé comme recoupé).
+  assert.equal(sc.par('verif').length, 0);
+  assert.equal(r.corps.palier.verification.statut, 'seule');
+  assert.deepEqual(r.corps.palier.verification.ia, [CLAUDE_MODELE]);
+  assert.equal(r.corps.palier.verification.retirees, 0);
+  assert.ok(r.corps.palier.questions.length >= 3);
+  assert.ok(!JSON.stringify(r.corps).includes(CLE_CLAUDE) && !toutesLesTables().includes(CLE_CLAUDE));
+  reinitExt();
+});
+
+test('POST /api/cle-ia : essai minuscule de la clé, refus clair, connexion requise, rien renvoyé', async () => {
+  reinitExt();
+  const j = await creerJoueur('Camille');
+  const env2 = { DB: db };
+  const h = (v) => ({ 'x-cle-ia': v });
+  erreurFr(await appel(cleIaPost, { env: env2, methode: 'POST', entetes: h('gemini:' + CLE_PERSO), corps: {} }), 401);
+  erreurFr(await appel(cleIaPost, { env: env2, methode: 'POST', jeton: j.jeton, corps: {} }), 400, /Colle d’abord ta clé/);
+  erreurFr(await appel(cleIaPost, { env: env2, methode: 'POST', jeton: j.jeton, entetes: h('mauvais'), corps: {} }), 400);
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  const ok = await appel(cleIaPost, { env: env2, methode: 'POST', jeton: j.jeton, entetes: h('gemini:' + CLE_PERSO), corps: {} });
+  ok200(ok);
+  assert.deepEqual(ok.corps, { ok: true, fournisseur: 'gemini' });
+  assert.equal(JSON.parse(ext.appels[0].init.body).generationConfig.maxOutputTokens, 20, 'appel minuscule');
+  ext.gemini = () => new Response('API key not valid', { status: 400 });
+  erreurFr(await appel(cleIaPost, { env: env2, methode: 'POST', jeton: j.jeton, entetes: h('gemini:' + CLE_PERSO), corps: {} }), 403, /^Ta clé est refusée par Gemini\.$/);
+  ext.gemini = () => new Response('oups ' + CLE_PERSO, { status: 500 });
+  const panne = await appel(cleIaPost, { env: env2, methode: 'POST', jeton: j.jeton, entetes: h('gemini:' + CLE_PERSO), corps: {} });
+  erreurFr(panne, 502);
+  assert.ok(!JSON.stringify(panne.corps).includes(CLE_PERSO));
+  reinitExt();
+});
+
+test('contenu créé avec une clé perso : visible dans la bibliothèque et lisible par un autre lecteur sans aucune IA', async () => {
+  toutVoir();
+  const a = await creerJoueur('Autrice');
+  const b = await creerJoueur('Lecteur');
+  const sc = scenario(partiesStandard());
+  ext.gemini = geminiVers(sc);
+  ext.glm = sc.glm;
+  const envA = envDe(sc, AVEC_GLM);
+  const cle = { 'x-cle-ia': 'gemini:' + CLE_PERSO };
+  // A crée la formation avec sa clé : programme et plan du module 1 sont écrits par Gemini (sa clé).
+  const cree = await appel(parcoursPost, { env: envA, methode: 'POST', jeton: a.jeton, entetes: cle, corps: { titre: 'La tour Eiffel' } });
+  ok200(cree);
+  assert.ok(ext.appels.filter((x) => x.fournisseur === 'gemini').length >= 2, 'la clé perso rédige le programme et le module');
+  assert.equal(lignes("SELECT id, auteur FROM parcours WHERE id = 'la-tour-eiffel'")[0].auteur, a.id, 'dans la table partagée');
+  // A lit la leçon 1 avec sa clé.
+  ok200(await appel(palierGet, { env: envA, jeton: a.jeton, entetes: cle, requete: '?parcours=la-tour-eiffel&n=1' }));
+  // B (sans clé, sans IA) trouve la formation dans la bibliothèque et lit la leçon : elle est servie par le cache.
+  const sansIA = { DB: db };
+  const recherche = await appel(parcoursGet, { env: sansIA, requete: '?q=tour+eiffel' });
+  ok200(recherche);
+  const x = recherche.corps.parcours.find((p) => p.id === 'la-tour-eiffel');
+  assert.ok(x, 'visible dans la bibliothèque');
+  assert.equal(x.lecons, 1);
+  assert.equal(x.ouverts, 1);
+  assert.deepEqual(x.niveauAtteint, { numero: 1, titre: typographierTexte('Bases : les repères') });
+  const liste = await appel(parcoursGet, { env: sansIA });
+  assert.equal(liste.corps.parcours.find((p) => p.id === 'la-tour-eiffel').lecons, 1);
+  const lu = await appel(palierGet, { env: sansIA, jeton: b.jeton, requete: '?parcours=la-tour-eiffel&n=1' });
+  ok200(lu);
+  assert.equal(lu.corps.palier.id, 'la-tour-eiffel:1');
+  assert.ok(!JSON.stringify([cree.corps, lu.corps, recherche.corps, liste.corps]).includes(CLE_PERSO));
+  assert.ok(!toutesLesTables().includes(CLE_PERSO));
+  reinitExt();
+});
+
+// --- C. Génération de nuit ----------------------------------------------------------
+
+const ADMIN = 'cle-admin-de-test-0123456789';
+const enteteAdmin = { 'x-admin-cle': ADMIN };
+const envAdmin = (extra = {}) => ({ DB: db, ADMIN_KEY: ADMIN, ...extra });
+
+test('admin : 403 sans clé, avec une mauvaise clé, ou sans secret côté serveur — même réponse, aucun indice', async () => {
+  toutVoir();
+  const refus = [];
+  for (const [handler, base] of [[adminGet, {}], [adminPost, { methode: 'POST', corps: { action: 'pause' } }], [adminPost, { methode: 'POST', corps: { action: 'debloquer', parcours: 'la-tour-eiffel' } }]]) {
+    refus.push(await appel(handler, { ...base, env: envAdmin() }));
+    refus.push(await appel(handler, { ...base, env: envAdmin(), entetes: { 'x-admin-cle': 'mauvaise' } }));
+    refus.push(await appel(handler, { ...base, env: envAdmin(), entetes: { 'x-admin-cle': ADMIN + 'x' } }));
+    refus.push(await appel(handler, { ...base, env: envAdmin(), entetes: { 'x-admin-cle': ADMIN.slice(0, -1) } }));
+    refus.push(await appel(handler, { ...base, env: envAdmin({ ADMIN_KEY: undefined }), entetes: enteteAdmin }));
+    refus.push(await appel(handler, { ...base, env: envAdmin({ ADMIN_KEY: '' }), entetes: { 'x-admin-cle': '' } }));
+  }
+  for (const r of refus) erreurFr(r, 403, /^Accès refusé\.$/);
+  assert.equal(new Set(refus.map((r) => JSON.stringify(r.corps))).size, 1, 'toutes les réponses sont identiques');
+  assert.ok(!JSON.stringify(refus).includes(ADMIN));
+  assert.equal(lignes('SELECT * FROM file_attente').length, 0, 'rien n’a été mis en file');
+  assert.equal(lignes("SELECT * FROM quotas WHERE cle LIKE 'file:%'").length, 0, 'ni pause ni autre réglage modifié');
+  // Comparaison à temps constant : vraie seulement pour deux textes identiques non vides, quelle que soit la longueur.
+  assert.equal(await secretsEgaux('a', 'a'), true);
+  assert.equal(await secretsEgaux('a', 'ab'), false);
+  assert.equal(await secretsEgaux('', ''), false);
+  assert.equal(await secretsEgaux(undefined, 'a'), false);
+  // Avec la bonne clé : 200.
+  const ok = await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin });
+  ok200(ok);
+  assert.deepEqual(ok.corps.taches, { attente: 0, en_cours: 0, fait: 0, echec: 0 });
+  assert.equal(ok.corps.pause, false);
+  assert.ok(!JSON.stringify(ok.corps).includes(ADMIN));
+});
+
+test('file de nuit : « debloquer » met en file leçons puis modules, dans l’ordre, sans doublon ; pause, reprendre, vider', async () => {
+  await prepareProgramme();
+  const poster = (corps) => appel(adminPost, { env: envAdmin(), methode: 'POST', entetes: enteteAdmin, corps });
+  erreurFr(await poster({ action: 'inconnue' }), 400);
+  erreurFr(await poster({ action: 'debloquer' }), 400);
+  erreurFr(await poster({ action: 'debloquer', parcours: 'inconnu' }), 404);
+  const d = await poster({ action: 'debloquer', parcours: 'la-tour-eiffel' });
+  ok200(d);
+  // Module 1 ouvert (6 leçons) : 6 leçons à écrire, puis 20 modules à ouvrir (21 au programme).
+  const attendues = 6 + (NB_MODULES - 1);
+  assert.equal(d.corps.ajoutees, attendues);
+  assert.deepEqual(d.corps.taches, { attente: attendues, en_cours: 0, fait: 0, echec: 0 });
+  assert.deepEqual(d.corps.formation, { id: 'la-tour-eiffel', programme: true, pretes: 0, total: 6, modules: NB_MODULES, ouverts: 1, enFile: attendues });
+  const file = lignes('SELECT type, numero FROM file_attente ORDER BY id');
+  assert.deepEqual(file.slice(0, 6), [1, 2, 3, 4, 5, 6].map((numero) => ({ type: 'lecon', numero })));
+  assert.deepEqual(file.slice(6, 9), [2, 3, 4].map((numero) => ({ type: 'module', numero })), 'modules dans l’ordre des niveaux : Bases d’abord');
+  // Deuxième appel : aucun doublon.
+  assert.equal((await poster({ action: 'debloquer', parcours: 'la-tour-eiffel' })).corps.ajoutees, 0);
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM file_attente')[0].n, attendues);
+  // Pause, reprise.
+  assert.equal((await poster({ action: 'pause' })).corps.pause, true);
+  assert.equal((await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin })).corps.pause, true);
+  assert.equal((await poster({ action: 'reprendre' })).corps.pause, false);
+  // Vider : les tâches en attente disparaissent.
+  const v = await poster({ action: 'vider' });
+  ok200(v);
+  assert.equal(v.corps.retirees, attendues);
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM file_attente')[0].n, 0);
+  // Une formation sans programme ne se débloque pas.
+  const old = await creerJoueur('Ancien');
+  await creerParcoursTest(old, 'Le vieux format');
+  erreurFr(await poster({ action: 'debloquer', parcours: 'le-vieux-format' }), 400, /sans fin/);
+});
+
+test('file de nuit (faux fournisseur) : 2 tâches par passage, mêmes tables, module ouvert puis ses leçons, aucun double travail', async () => {
+  await prepareProgramme();
+  const envA = envAdmin();
+  ok200(await appel(adminPost, { env: envA, methode: 'POST', entetes: enteteAdmin, corps: { action: 'debloquer', parcours: 'la-tour-eiffel' } }));
+  // La leçon 1 est déjà écrite « à la demande » avant le passage de nuit.
+  const scJour = scenario(partiesStandard());
+  const j = await creerJoueur('Lecteur');
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, scJour));
+  assert.equal(lignes("SELECT etat FROM file_attente WHERE type = 'lecon' AND numero = 1")[0].etat, 'fait', 'la génération à la demande marque la tâche faite');
+  const avant = lignes("SELECT contenu FROM paliers WHERE id = 'la-tour-eiffel:1'")[0].contenu;
+
+  // Passage 1 : prend 2 tâches (leçons 2 et 3), écrites avec la même fonction que la demande.
+  const sc = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  brancher(sc);
+  const envNuit = { DB: db, AI: sc.ai };
+  const b1 = await traiterFile(envNuit);
+  assert.deepEqual([b1.prises, b1.faites, b1.echecs, b1.pause, b1.epuises], [2, 2, 0, false, false]);
+  assert.deepEqual(lignes("SELECT numero FROM paliers WHERE parcours = 'la-tour-eiffel' ORDER BY numero").map((x) => x.numero), [1, 2, 3]);
+  assert.equal(lignes("SELECT contenu FROM paliers WHERE id = 'la-tour-eiffel:1'")[0].contenu, avant, 'la leçon déjà écrite n’est pas écrasée');
+  const l2 = JSON.parse(lignes("SELECT contenu FROM paliers WHERE id = 'la-tour-eiffel:2'")[0].contenu);
+  assert.deepEqual(Object.keys(l2), CLES_LECON, 'même forme que la génération à la demande');
+  assert.deepEqual(l2.verification.ia, [NOM_LLAMA, NOM_MISTRAL]);
+  assert.equal(sc.par('verif').length, 2);
+  // Passages 2 et 3 : leçons 4, 5, puis 6 et le module 2.
+  assert.equal((await traiterFile(envNuit)).faites, 2);
+  const b3 = await traiterFile(envNuit);
+  assert.equal(b3.faites, 2, 'leçon 6, puis le module 2 (les leçons passent avant les modules)');
+  assert.equal(lignes("SELECT etat FROM file_attente WHERE type = 'module' AND numero = 2")[0].etat, 'fait');
+  assert.equal(sc.par('module').length, 1);
+  const lire = (await appel(parcoursGet, { env: { DB: db }, requete: '?id=la-tour-eiffel' })).corps.parcours;
+  assert.equal(lire.etapes.length, 2, 'le module 2 est ouvert dans la même table parcours');
+  assert.deepEqual(lire.etapes[1].paliers.map((p) => p.numero), [7, 8, 9, 10, 11, 12]);
+  // Les leçons du module 2 sont mises en file à son ouverture, et passent avant le module 3.
+  assert.deepEqual(lignes("SELECT numero FROM file_attente WHERE type = 'lecon' AND etat = 'attente' ORDER BY id").map((x) => x.numero), [7, 8, 9, 10, 11, 12]);
+  const b4 = await traiterFile(envNuit);
+  assert.equal(b4.faites, 2);
+  assert.deepEqual(lignes('SELECT numero FROM paliers ORDER BY numero').map((x) => x.numero), [1, 2, 3, 4, 5, 6, 7, 8]);
+  // Un lecteur voit ces leçons instantanément (cache), sans IA.
+  const lu = await appel(palierGet, { env: { DB: db }, jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=8' });
+  ok200(lu);
+  assert.equal(lu.corps.palier.numero, 8);
+  // Le bilan de l'admin.
+  const etat = (await appel(adminGet, { env: envA, entetes: enteteAdmin, requete: '?parcours=la-tour-eiffel' })).corps;
+  assert.equal(etat.taches.fait, 9, 'leçons 1 à 8 et module 2');
+  assert.equal(etat.formation.pretes, 8);
+  assert.equal(etat.formation.total, 12);
+  assert.equal(etat.formation.ouverts, 2);
+});
+
+test('file de nuit : échec = essai de plus, 3 essais au plus puis « echec » ; interrompue = reprise après 6 min ; pause = rien', async () => {
+  await prepareProgramme();
+  const envNuit = (sc) => ({ DB: db, AI: sc.ai });
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  db.base.exec("DELETE FROM file_attente WHERE NOT (type = 'lecon' AND numero = 1)"); // une seule tâche : la leçon 1
+  const panne = scenario({ ...partiesStandard(), lecon: [new Error('Workers AI en panne')] });
+  brancher(panne);
+  const etats = [];
+  for (let i = 0; i < 3; i++) {
+    const b = await traiterFile(envNuit(panne));
+    etats.push([b.prises, b.faites, b.echecs, lignes('SELECT etat, essais FROM file_attente')[0]]);
+  }
+  assert.deepEqual(etats, [
+    [1, 0, 0, { etat: 'attente', essais: 1 }],
+    [1, 0, 0, { etat: 'attente', essais: 2 }],
+    [1, 0, 1, { etat: 'echec', essais: 3 }],
+  ]);
+  assert.match(lignes('SELECT erreur FROM file_attente')[0].erreur, /Le Rival n’a pas réussi|cause/);
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM paliers')[0].n, 0, 'rien n’est publié sur un échec');
+  assert.equal((await traiterFile(envNuit(panne))).prises, 0, 'une tâche en échec n’est plus prise');
+  // Le bilan de l'admin montre l'échec et la dernière erreur.
+  const e = await etatFile(envAdmin());
+  assert.equal(e.taches.echec, 1);
+  assert.equal(e.derniereErreur.numero, 1);
+  // « debloquer » remet la tâche en échec dans la file, avec le reste de la formation.
+  assert.equal(await debloquer(envAdmin(), 'la-tour-eiffel'), 6 + (NB_MODULES - 1));
+  assert.deepEqual(lignes("SELECT etat, essais FROM file_attente WHERE type = 'lecon' AND numero = 1")[0], { etat: 'attente', essais: 0 });
+  // Tâche interrompue (« en_cours » depuis plus de 6 minutes) : reprise, l'essai compte.
+  db.base.exec('DELETE FROM file_attente');
+  db.base.exec("INSERT INTO file_attente (parcours, type, numero, etat, essais, maj) VALUES ('la-tour-eiffel', 'lecon', 1, 'en_cours', 0, '2026-01-01T00:00:00.000Z')");
+  db.base.exec("INSERT INTO file_attente (parcours, type, numero, etat, essais, maj) VALUES ('la-tour-eiffel', 'lecon', 2, 'en_cours', 0, '" + new Date().toISOString() + "')");
+  const bonne = scenario(partiesStandard());
+  brancher(bonne);
+  const b = await traiterFile(envNuit(bonne));
+  assert.equal(b.reprises, 1, 'seule la vieille tâche est reprise');
+  assert.equal(b.faites, 1);
+  assert.equal(lignes('SELECT etat FROM file_attente WHERE numero = 1')[0].etat, 'fait');
+  assert.equal(lignes('SELECT essais FROM file_attente WHERE numero = 1')[0].essais, 1, 'la reprise compte comme un essai');
+  assert.equal(lignes('SELECT etat FROM file_attente WHERE numero = 2')[0].etat, 'en_cours', 'la tâche récente n’est pas touchée');
+  // Pause : rien n'est pris, rien n'est consommé.
+  db.base.exec("UPDATE file_attente SET etat = 'attente' WHERE numero = 2");
+  await definirPause(envAdmin(), true);
+  const aucun = scenario(partiesStandard());
+  const bp = await traiterFile(envNuit(aucun));
+  assert.deepEqual([bp.pause, bp.prises, aucun.appels.length], [true, 0, 0]);
+  await definirPause(envAdmin(), false);
+  assert.equal((await traiterFile(envNuit(aucun))).faites, 1);
+});
+
+test('file de nuit : tous les fournisseurs du serveur épuisés = rien consommé, tâches laissées en attente, essais intacts', async () => {
+  await prepareProgramme();
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  const sc = scenario(partiesStandard());
+  const envNuit = { DB: db, AI: sc.ai };
+  // 1) Déjà connus épuisés : le passage ne tente rien.
+  marquerEpuise('workers-ai');
+  assert.equal(tousEpuises(envNuit), true);
+  const b = await traiterFile(envNuit);
+  assert.deepEqual([b.epuises, b.prises, sc.appels.length], [true, 0, 0]);
+  assert.equal(lignes("SELECT COUNT(*) AS n FROM file_attente WHERE etat = 'attente'")[0].n, 6 + NB_MODULES - 1);
+  assert.equal((await etatFile(envAdmin())).epuises.includes('Workers AI'), true, 'l’admin voit les fournisseurs épuisés');
+  // 2) Épuisés pendant le passage (4006 de Workers AI) : l'essai ne compte pas.
+  oublierEpuisements();
+  const quota = scenario({ ...partiesStandard(), lecon: [new Error('4006: you have used up your daily free allocation of 10,000 neurons')] });
+  const b2 = await traiterFile({ DB: db, AI: quota.ai });
+  assert.equal(b2.epuises, true);
+  assert.equal(b2.reportees, 1);
+  assert.deepEqual(lignes("SELECT etat, essais FROM file_attente WHERE type = 'lecon' AND numero = 1")[0], { etat: 'attente', essais: 0 });
+  assert.equal(lignes("SELECT COUNT(*) AS n FROM file_attente WHERE etat = 'en_cours'")[0].n, 0);
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM paliers')[0].n, 0);
+  oublierEpuisements();
+});
+
+test('file de nuit : les tâches utilisent les clés du serveur', async () => {
+  await prepareProgramme();
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  db.base.exec("DELETE FROM file_attente WHERE NOT (type = 'lecon' AND numero = 2)");
+  const sc = scenario(partiesStandard());
+  ext.gemini = geminiVers(sc);
+  ext.glm = sc.glm;
+  const b = await traiterFile({ DB: db, AI: sc.ai, GEMINI_API_KEY: CLE_GEMINI, GLM_API_KEY: CLE_GLM });
+  assert.equal(b.faites, 1);
+  assert.equal(new Headers(ext.appels.find((a) => a.fournisseur === 'gemini').init.headers).get('x-goog-api-key'), CLE_GEMINI);
+  reinitExt();
+});
+
+// --- D. Bibliothèque et profondeur ---------------------------------------------------
+
+test('programme : « essentiel » facultatif, environ 40 %, au moins 2 par niveau ; anciens programmes inchangés', async () => {
+  const p = validerProgramme(programmeBrut()).valeur;
+  const marques = p.niveaux.map((n) => n.modules.filter((m) => m.essentiel === true).length);
+  assert.ok(marques.every((n) => n >= 2), 'au moins 2 par niveau : ' + marques);
+  const total = marques.reduce((a, b) => a + b, 0);
+  assert.ok(total / NB_MODULES >= 0.3 && total / NB_MODULES <= 0.55, 'environ 40 % : ' + total);
+  assert.ok(p.niveaux.every((n) => n.modules.every((m) => m.essentiel === undefined || m.essentiel === true)), 'jamais essentiel: false');
+  assert.deepEqual(modulesDe(p).map((m) => m.numero), Array.from({ length: NB_MODULES }, (_, i) => i + 1), 'les numéros globaux ne changent pas');
+  // L'IA a marqué un seul module : chaque niveau en compte 2 au moins (les premiers du niveau complètent).
+  const peu = programmeBrut();
+  for (const n of peu.niveaux) for (const m of n.modules) delete m.essentiel;
+  peu.niveaux[0].modules[2].essentiel = true;
+  const v = validerProgramme(peu).valeur;
+  assert.deepEqual(v.niveaux.map((n) => n.modules.filter((m) => m.essentiel).length), [2, 2, 2, 2]);
+  assert.deepEqual(v.niveaux[0].modules.map((m) => !!m.essentiel), [true, false, true, false, false, false], 'le marquage de l’IA est gardé, les premiers complètent');
+  // Un ancien programme (aucun marquage) reste tel quel.
+  const ancien = programmeBrut();
+  for (const n of ancien.niveaux) for (const m of n.modules) delete m.essentiel;
+  const a = validerProgramme(ancien).valeur;
+  assert.ok(a.niveaux.every((n) => n.modules.every((m) => !('essentiel' in m))));
+  // « Aller plus loin » : les modules ajoutés ne sont jamais marqués (Complet seulement).
+  const prolonge = prolongementBrut();
+  prolonge.modules[0].essentiel = true;
+  assert.ok(validerProlongement(prolonge, { programme: p }).valeur.niveau.modules.every((m) => !('essentiel' in m)));
+  assert.match(PROMPT_PROGRAMME, /"essentiel": true sur environ 40 % des modules \(au moins 2 par niveau\)/);
+  assert.match(PROMPT_PROGRAMME_COURT, /essentiel/);
+});
+
+// --- E. Qualité des leçons ------------------------------------------------------------
+
+test('leçon : objectif mesurable et rappel facultatifs (jamais bloquants), non vérifiés comme des faits ; questions de compréhension et d’application', async () => {
+  const a = validerMoitieA(leconBrute());
+  assert.equal(a.valeur.objectif, EXEMPLE_LECON.objectif);
+  assert.equal(a.valeur.rappel, EXEMPLE_LECON.rappel);
+  assert.match(EXEMPLE_LECON.objectif, /^À la fin, tu sauras/);
+  // Invalides ou absents : la leçon n'échoue jamais.
+  for (const mauvais of [undefined, null, 5, 'court', 'x'.repeat(301), 'Bienvenue : à la fin, tu sauras tout sur cette tour incontournable.']) {
+    const brut = leconBrute();
+    brut.objectif = mauvais;
+    brut.rappel = mauvais;
+    const r = validerMoitieA(brut);
+    assert.ok(r.valeur, String(mauvais));
+    assert.equal(r.valeur.objectif, null);
+    assert.equal(r.valeur.rappel, null);
+  }
+  const sans = leconBrute();
+  delete sans.objectif;
+  delete sans.rappel;
+  assert.ok(validerMoitieA(sans).valeur && validerRedaction(sans, { lecon: true }).valeur);
+  assert.equal(validerMoitieA(leconBrute(), { court: true }).valeur.objectif, null, 'la version courte ne les demande pas');
+  // Les prompts les demandent (moitié A), sans allonger les limites de jetons.
+  for (const prompt of [PROMPT_LECON, PROMPT_LECON_A]) {
+    assert.match(prompt, /objectif : une phrase[^\n]*À la fin, tu sauras/);
+    assert.match(prompt, /rappel : 1 à 2 phrases[^\n]*vues juste avant/);
+  }
+  assert.ok(!PROMPT_LECON_A_COURT.includes('objectif :'));
+  assert.ok(!PROMPT_LECON_B.includes('objectif :'));
+  for (const prompt of [PROMPT_LECON, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PALIER]) assert.match(prompt, /compréhension/);
+  for (const prompt of [PROMPT_LECON, PROMPT_LECON_B]) assert.match(prompt, /d’application/);
+  // Ils ne sont pas des affirmations de fait à vérifier : le nombre d'affirmations d'une leçon ne change pas.
+  assert.equal(aplatir(validerRedaction(leconBrute(), { lecon: true }).valeur).flatMap((u) => u.textes).length, TOTAL_LECON);
+});
+
+test('leçon écrite : objectif et rappel sont conservés par la vérification et publiés avec la leçon', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  assert.equal(r.corps.palier.objectif.replace(/[  ]/g, ' '), EXEMPLE_LECON.objectif);
+  assert.equal(r.corps.palier.rappel.replace(/[  ]/g, ' '), EXEMPLE_LECON.rappel);
+  // Même quand une affirmation est retirée par le vérificateur.
+  const sc2 = scenario({ ...partiesStandard(), verif: [verifNumeros(1)] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.ok(r2.corps.palier.objectif && r2.corps.palier.rappel);
+  assert.equal(r2.corps.palier.verification.statut, 'partiel');
+});
+
+
 // --- Robustesse ------------------------------------------------------------
 
 test('une panne de la base donne un JSON français 503, pas une page d’erreur', async () => {
@@ -7081,7 +7647,8 @@ test('aucun secret dans le code', async () => {
     '../lib/fournisseurs.js', '../lib/images.js', '../lib/paliers.js', '../functions/api/parcours.js',
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
     '../functions/api/image.js', '../functions/api/quiz-general.js', '../functions/api/jour.js', '../functions/api/tournoi.js',
-    '../lib/general.js', '../lib/groupes.js', '../lib/parties.js', '../functions/api/groupe.js', '../functions/api/partie.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
+    '../lib/general.js', '../lib/groupes.js', '../lib/parties.js', '../functions/api/groupe.js', '../functions/api/partie.js', '../scripts/serveur_local.mjs', '../wrangler.toml',
+    '../lib/generation.js', '../lib/nuit.js', '../functions/api/admin.js', '../functions/api/cle-ia.js', '../functions/api/diagnostic.js'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);

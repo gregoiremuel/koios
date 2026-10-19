@@ -6,7 +6,7 @@
 // Réponse : {variante: {id, parcours, n, mode, sections: {enBref, comment, pourquoi, ouQuand}, verification}}.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, quota,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, MODES_VARIANTE, PALIER_MAX, demarrerChrono, genererVariante,
@@ -14,8 +14,9 @@ import {
 
 const VERIFIE = /^v-[a-z]{2}$/;
 
-export const onRequestPost = enveloppe(async ({ request, env }) => {
-  await exigerBase(env);
+export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
+  await exigerBase(envServeur);
+  const env = envAvecCle(request, envServeur); // clé IA personnelle facultative (en-tête x-cle-ia)
   const joueur = await auth(request, env);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   const corps = await lireJSON(request, 2048);

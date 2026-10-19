@@ -2,63 +2,18 @@
 // En cache : public, aucun quota. Sinon : connexion, quota, sources Wikipédia, rédaction, vérification par une
 // 2e IA, mise en cache. Si k dépasse le plan, le plan de l'étape suivante est écrit d'abord : 10 paliers (ancien
 // format, sans fin) ou les leçons du module suivant du programme (5 à 10 ; 404 quand le programme est terminé).
-import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, quota,
 } from '../../lib/api.js';
 import {
-  ETAPE_TAILLE, ID_PARCOURS, MESSAGE_FIN, PALIER_MAX, TERMES_MAX, decoderParcours, demarrerChrono, genererEtapeSuivante,
-  genererModuleSuivant, genererPalier, idPalier, nbPaliers,
+  ETAPE_TAILLE, ID_PARCOURS, MESSAGE_FIN, PALIER_MAX, decoderParcours, demarrerChrono, idPalier, nbPaliers,
 } from '../../lib/paliers.js';
+import { COLONNES, ecrireLecon, ouvrirEtapeSuivante } from '../../lib/generation.js';
 
-const COLONNES = 'id, titre, contenu';
-
-// Noms des termes déjà définis dans les leçons précédentes du parcours (les plus récentes d'abord, 200 au plus).
-async function termesDefinis(env, parcours, k) {
-  const { results } = await env.DB.prepare(
-    'SELECT contenu FROM paliers WHERE parcours = ? AND numero < ? ORDER BY numero DESC LIMIT 80',
-  )
-    .bind(parcours, k)
-    .all();
-  const termes = [];
-  const vus = new Set();
-  for (const r of results || []) {
-    let definitions = [];
-    try {
-      definitions = JSON.parse(r.contenu).definitions;
-    } catch {
-      // palier illisible : ignoré
-    }
-    for (const d of Array.isArray(definitions) ? definitions : []) {
-      const terme = d && typeof d.terme === 'string' ? d.terme.trim() : '';
-      if (terme && !vus.has(terme.toLowerCase())) {
-        vus.add(terme.toLowerCase());
-        termes.push(terme);
-      }
-    }
-  }
-  return termes.slice(0, TERMES_MAX);
-}
-
-// Ajoute l'étape au parcours. Si un autre lecteur a écrit entre-temps, on relit : son étape (même numéro) vaut la nôtre.
-async function enregistrerEtape(env, ligne, etape) {
-  for (let essai = 0; essai < 3; essai++) {
-    const contenu = JSON.parse(ligne.contenu);
-    if (contenu.etapes.some((e) => e.numero === etape.numero)) return ligne;
-    contenu.etapes.push(etape);
-    const neuf = JSON.stringify(contenu);
-    const ecrit = await env.DB.prepare('UPDATE parcours SET contenu = ? WHERE id = ? AND contenu = ?')
-      .bind(neuf, ligne.id, ligne.contenu)
-      .run();
-    if (ecrit.meta && ecrit.meta.changes === 1) return { ...ligne, contenu: neuf };
-    ligne = await env.DB.prepare(`SELECT ${COLONNES} FROM parcours WHERE id = ?`).bind(ligne.id).first();
-    if (!ligne) throw new ErreurHttp(404, 'Parcours introuvable.');
-  }
-  throw new ErreurHttp(503, 'Le parcours est très demandé. Réessaie dans un instant.');
-}
-
-export const onRequestGet = enveloppe(async ({ request, env }) => {
-  await exigerBase(env);
+export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
+  await exigerBase(envServeur);
+  // Clé IA personnelle (en-tête x-cle-ia) : elle passe en premier pour la rédaction ; jamais enregistrée ni renvoyée.
+  const env = envAvecCle(request, envServeur);
   const p = new URL(request.url).searchParams;
   const parcoursId = p.get('parcours');
   const brutN = p.get('n');
@@ -101,28 +56,12 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   // Un seul chronomètre pour le plan éventuel, les sources, la rédaction et la vérification.
   const horloge = demarrerChrono();
   if (k > total) {
-    const etape = parcours.programme
-      ? typographier(await genererModuleSuivant(env, parcours, horloge))
-      : await genererEtapeSuivante(env, parcours, horloge);
-    ligne = await enregistrerEtape(env, ligne, etape);
+    ligne = await ouvrirEtapeSuivante(env, ligne, parcours, horloge);
     parcours = decoderParcours(ligne);
     // Le module compte moins de leçons que prévu : ce palier n'existe pas (le module reste enregistré).
     if (k > nbPaliers(parcours.etapes)) throw new ErreurHttp(404, 'Palier introuvable : lis d’abord les paliers précédents.');
   }
 
-  const termes = parcours.programme ? await termesDefinis(env, parcours.id, k) : [];
-  const palier = typographier(await genererPalier(env, { parcours, numero: k, horloge, termes }));
-
-  // Deux lecteurs peuvent lancer le même palier en même temps : le premier enregistré gagne.
-  const ecrit = await env.DB.prepare(
-    `INSERT OR IGNORE INTO paliers (id, parcours, numero, contenu, vues, cree)
-     VALUES (?, ?, ?, ?, 0, ?)`,
-  )
-    .bind(id, parcoursId, k, JSON.stringify(palier), new Date().toISOString())
-    .run();
-  if (ecrit.meta && ecrit.meta.changes === 0) {
-    const gagnant = await env.DB.prepare('SELECT contenu FROM paliers WHERE id = ?').bind(id).first();
-    if (gagnant) return json({ palier: JSON.parse(gagnant.contenu) });
-  }
-  return json({ palier });
+  // Deux lecteurs (ou la génération de nuit) peuvent lancer la même leçon en même temps : la première enregistrée gagne.
+  return json({ palier: await ecrireLecon(env, { parcours, numero: k, horloge }) });
 });

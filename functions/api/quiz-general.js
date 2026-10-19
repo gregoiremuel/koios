@@ -9,7 +9,7 @@
 // Questions au format de GET quiz : {palier: "qg:<slug>:<k>", titre, index, question}.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota,
 } from '../../lib/api.js';
 import { genererBlocQuiz, demarrerChrono, pagesFrEn, MAX_PAGES } from '../../lib/paliers.js';
 import {
@@ -27,8 +27,9 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   return json({ questions: questionsDuBloc(id, bloc.sujet, bloc.contenu.questions) });
 });
 
-export const onRequestPost = enveloppe(async ({ request, env }) => {
-  await exigerBase(env);
+export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
+  await exigerBase(envServeur);
+  const env = envAvecCle(request, envServeur); // clé IA personnelle facultative (en-tête x-cle-ia)
   const joueur = await auth(request, env);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   const corps = await lireJSON(request, 2048);
