@@ -15,5 +15,6 @@ App web (PWA) de défis de savoir entre amis, avec le Rival, une IA taquine qui 
 ## Où trouver quoi
 
 - `docs/cahier-des-charges.md` : ce qu'on construit et dans quel ordre.
+- `docs/plan-v3.md` : prochain chantier (formations par niveaux, images, 4 onglets, documents). À suivre lot par lot.
 - `DESIGN.md` : couleurs, polices, mise en page, interdits.
 - `maquettes/` : maquettes HTML validées ou à valider.
