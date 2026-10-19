@@ -228,3 +228,38 @@ details.plier.ligne p { padding-bottom: 10px; }
 .a-retenir { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
 .modules details.module { border-top: 0; }
 .etape-titre .meta { white-space: nowrap; }
+
+/* Navigation dans le cours : fil vers le sommaire, rangée du bas */
+.fil-lien { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--encre-2); font-size: 14px; text-decoration: none; }
+.fil-lien:hover { text-decoration: underline; text-underline-offset: 3px; }
+.fil-lien .i { width: 18px; height: 18px; }
+.nav-lecon { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.nav-lecon .lien:last-child { margin-left: auto; }
+.lien.discret { color: var(--encre-2); font-weight: 500; font-size: 14px; justify-self: start; }
+
+/* Glossaire : onglet de la formation */
+.gloss-liste > li { display: grid; gap: 4px; padding: 12px 0; }
+.gloss-liste b { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.gloss-liste p { font-size: 16px; line-height: 1.5; }
+.gloss-liste .lien { font-size: 14px; font-weight: 500; color: var(--encre-2); justify-self: start; }
+
+/* Mots déjà définis, dans le texte d'une leçon, et leur fiche */
+.terme { position: relative; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: inherit; cursor: pointer; text-decoration: underline dotted var(--encre-2); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.terme::after { content: ""; position: absolute; inset: -9px -3px; }
+.terme:hover { text-decoration-color: var(--encre); }
+.fiche-voile { position: fixed; inset: 0; z-index: 20; background: var(--encre); opacity: 0.4; }
+.fiche { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 34rem; max-height: 80vh; margin: 0 auto; overflow: auto; display: grid; gap: 12px; padding: 16px 16px max(16px, env(safe-area-inset-bottom, 0px)); background: var(--fond); border: 1px solid var(--ligne); border-bottom: 0; border-radius: 12px 12px 0 0; }
+.fiche-haut { align-items: flex-start; }
+.fiche h2 { padding-top: 7px; overflow-wrap: anywhere; }
+.fiche p { font-size: 17px; line-height: 1.6; }
+
+/* Comment ça marche */
+.aide-intro { font-size: 17px; line-height: 1.6; }
+.aide-rubriques { border-bottom: 1px solid var(--ligne); }
+.aide-titre { display: flex; align-items: center; gap: 12px; }
+.aide-titre .i { color: var(--encre-2); }
+.aide details.plier.ligne summary h2 { font-size: 17px; }
+.aide details.plier.ligne[open] summary .aide-titre .i { transform: none; }
+.aide-corps { display: grid; gap: 10px; padding: 0 0 16px 32px; }
+details.plier.ligne .aide-corps p { padding: 0; font-size: 16px; line-height: 1.55; }
+.aide-liste { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 16px; line-height: 1.55; }

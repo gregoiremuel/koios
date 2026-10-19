@@ -5,6 +5,7 @@
   var F = " ", N = " ";
   var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
   var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
+  var LIMITES = { formations: 10, lecons: 30 }; // par jour et par personne : voir functions/api/parcours.js et palier.js
 
   /* ---------- Mémoire locale ---------- */
   var S = {
@@ -240,7 +241,7 @@
       el("header", { "class": "haut" }, [el("span", { "class": "marque", text: "Koîos" })]),
       el("div", { "class": "pile" }, [el("h1", { text: "Apprends n’importe quel sujet, palier par palier." }),
         el("p", { "class": "meta", style: "font-size:17px", text: "Des leçons courtes et sourcées, des définitions, des frises et des chiffres. Tous les 5 paliers, un quiz ; ensuite des mini‑jeux et des duels entre amis." })]),
-      el("div", { "class": "pile" }, [el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte])
+      el("div", { "class": "pile" }, [el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte, lien("#/aide", "Comment ça marche", "lien discret")])
     ]), null, "Commencer");
   }
 
@@ -253,7 +254,7 @@
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
     var puces = el("div", { "class": "puces" });
     SUGGESTIONS.forEach(function (t) { var b = el("button", { "class": "puce", type: "button", text: t }); b.addEventListener("click", function () { champ.value = t; creerParcours(t, bouton, alerte); }); puces.appendChild(b); });
-    return el("section", { "class": "pile", "aria-labelledby": "titre-recherche" }, [el("h1", { id: "titre-recherche", text: "Que veux‑tu apprendre" + F + "?" }), el("div", { "class": "recherche" }, [champ, bouton]), alerte, puces]);
+    return el("section", { "class": "pile", "aria-labelledby": "titre-recherche" }, [el("h1", { id: "titre-recherche", text: "Que veux‑tu apprendre" + F + "?" }), el("div", { "class": "recherche" }, [champ, bouton]), alerte, puces, lien("#/aide", "Comment ça marche", "lien discret")]);
   }
   function rangeeParcours(id, titre, img, detail, droite) {
     return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("fleche")])]);
@@ -310,7 +311,7 @@
       var s = suivi(p.id), prevus = paliersPrevus(p);
       var zone = el("div", { "class": "pile", id: "panneau", role: "tabpanel" });
       var tabs = el("div", { "class": "onglets", role: "tablist", "aria-label": "Sections du parcours" });
-      var choix = [["parcours", "Paliers"], ["quiz", "Quiz"], ["defis", "Défis"]];
+      var choix = [["parcours", "Paliers"], ["quiz", "Quiz"], ["defis", "Défis"], ["glossaire", "Glossaire"]];
       choix.forEach(function (c) {
         var b = el("button", { type: "button", role: "tab", "aria-controls": "panneau", "aria-selected": c[0] === (onglet || "parcours") ? "true" : "false", text: c[1] });
         b.addEventListener("click", function () { history.replaceState(null, "", "#/p/" + encodeURIComponent(p.id) + (c[0] === "parcours" ? "" : "/" + c[0])); tabs.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); }); remplir(c[0]); });
@@ -318,7 +319,7 @@
       });
       function remplir(o) {
         zone.innerHTML = "";
-        if (o === "quiz") zone.appendChild(ongletQuiz(p, s)); else if (o === "defis") zone.appendChild(ongletDefis(p, s)); else zone.appendChild(parProgramme(p) ? ongletSommaire(p, s, prevus) : ongletPaliers(p, s, prevus));
+        if (o === "quiz") zone.appendChild(ongletQuiz(p, s)); else if (o === "defis") zone.appendChild(ongletDefis(p, s)); else if (o === "glossaire") zone.appendChild(ongletGlossaire(p, s)); else zone.appendChild(parProgramme(p) ? ongletSommaire(p, s, prevus) : ongletPaliers(p, s, prevus));
         if (window.poserIcones) window.poserIcones(zone);
       }
       var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1), prog = parProgramme(p), mf = prog ? modulesFaits(p, s.fait) : 0;
@@ -414,13 +415,165 @@
     return ul;
   }
 
+  /* ---------- Glossaire : onglet, mots soulignés dans les leçons, fiche ---------- */
+  var glossaires = {}; // par parcours : { k, termes } (le plus grand « jusqu'à » demandé ; une lecture plus courte en est extraite)
+  function sansAccent(t) { return String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, " ").trim(); }
+  function comparerTermes(a, b) { return a.terme.localeCompare(b.terme, "fr", { sensitivity: "base" }) || a.numero - b.numero; }
+  /* Parcours vérifiés : même forme que GET /api/glossaire (termes uniques sans accents ni casse, première leçon gardée, tri français). */
+  var DATE_TERME = /^\s*(\d|vers\s+\d|(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\b)/i; // les dates des repères ne sont pas des mots à définir
+  function glossaireDe(lecons) {
+    var vus = Object.create(null), termes = [];
+    lecons.slice().sort(function (a, b) { return a.numero - b.numero; }).forEach(function (l) {
+      (l.definitions || []).concat(l.reperes || []).forEach(function (d) {
+        if (!d || typeof d.terme !== "string" || typeof d.definition !== "string") return;
+        var terme = d.terme.trim(), definition = d.definition.trim(), k = sansAccent(terme);
+        if (!k || !definition || vus[k] || DATE_TERME.test(terme)) return;
+        vus[k] = 1;
+        termes.push({ terme: terme, definition: definition, numero: l.numero, titre: typeof l.titre === "string" ? l.titre : "" });
+      });
+    });
+    return termes.sort(comparerTermes);
+  }
+  function glossaireServeur(id, k) {
+    return pretServeur.then(function () {
+      if (!serveur.base) throw Object.assign(new Error("hors ligne"), { statut: 0 });
+      return api("GET", "glossaire?parcours=" + encodeURIComponent(id) + "&jusqua=" + k);
+    }).then(function (j) {
+      return (j.termes || []).filter(function (t) { return t && typeof t.terme === "string" && typeof t.definition === "string" && typeof t.numero === "number"; })
+        .map(function (t) { return { terme: t.terme, definition: t.definition, numero: t.numero, titre: typeof t.titre === "string" ? t.titre : "" }; });
+    });
+  }
+  /* Mots définis dans les leçons 1 à k du parcours (jamais au-delà : pas d'avance sur ce qui n'est pas encore lu). */
+  function glossaireJusqua(p, k) {
+    if (!(k >= 1)) return Promise.resolve([]);
+    var g = glossaires[p.id];
+    if (!g || g.k < k) {
+      var termes = verifie(p.id) ? paliersEntre(p, 1, k).then(glossaireDe) : glossaireServeur(p.id, k);
+      g = glossaires[p.id] = { k: k, termes: termes };
+      termes.then(null, function () { if (glossaires[p.id] === g) delete glossaires[p.id]; });
+    }
+    return g.termes.then(function (l) { return l.filter(function (t) { return t.numero <= k; }); });
+  }
+  function ongletGlossaire(p, s) {
+    var bloc = el("div", { "class": "pile" });
+    var vide = function () { return el("p", { "class": "verrou" }, [icone("carnet"), "Les mots définis dans tes leçons apparaîtront ici."]); };
+    if (!(s.fait >= 1)) { bloc.appendChild(vide()); return bloc; }
+    var attenteG = el("p", { "class": "attente", role: "status", text: "Chargement du glossaire…" });
+    bloc.appendChild(attenteG);
+    glossaireJusqua(p, s.fait).then(function (termes) {
+      attenteG.remove();
+      if (!termes.length) { bloc.appendChild(vide()); return; }
+      var champ = el("input", { "class": "champ", id: "recherche-glossaire", type: "search", autocomplete: "off", enterkeyhint: "search", placeholder: "Chercher un mot ou une définition" });
+      var compte = el("p", { "class": "meta", role: "status" });
+      var liste = el("ul", { "class": "liste gloss-liste" });
+      var aucun = el("p", { "class": "meta", text: "Aucun terme ne correspond.", hidden: "" });
+      var plats = termes.map(function (t) { return sansAccent(t.terme + " " + t.definition); });
+      function afficher() {
+        var mots = sansAccent(champ.value).split(" ").filter(Boolean), f = document.createDocumentFragment(), n = 0;
+        termes.forEach(function (t, i) {
+          if (mots.some(function (m) { return plats[i].indexOf(m) < 0; })) return;
+          n += 1;
+          f.appendChild(el("li", {}, [el("b", { text: t.terme }), el("p", { text: t.definition }), el("a", { "class": "lien", href: "#/p/" + encodeURIComponent(p.id) + "/" + t.numero, text: "Leçon " + t.numero + (t.titre ? " · " + t.titre : "") })]));
+        });
+        liste.textContent = ""; liste.appendChild(f);
+        compte.textContent = mots.length ? n + " sur " + pluriel(termes.length, "terme", "termes") : pluriel(termes.length, "terme", "termes");
+        aucun.hidden = n > 0;
+      }
+      champ.addEventListener("input", afficher);
+      bloc.appendChild(el("div", { "class": "pile serree" }, [el("label", { "for": "recherche-glossaire", "class": "sr", text: "Chercher dans le glossaire" }), champ, compte]));
+      bloc.appendChild(aucun); bloc.appendChild(liste);
+      afficher();
+    }, function () { attenteG.replaceWith(el("p", { "class": "verrou" }, [icone("carnet"), "Le glossaire ne se charge pas. Réessaie dans un moment."])); });
+    return bloc;
+  }
+
+  /* Fiche d'un mot : fenêtre en bas d'écran, fermable par Échap, par le bouton ou en touchant à côté. Le focus y entre, y reste, puis revient au mot. */
+  var fiche = null;
+  function fermerFiche(rendreFocus) {
+    if (!fiche) return;
+    document.removeEventListener("keydown", fiche.touche);
+    fiche.voile.remove(); fiche.boite.remove();
+    app.removeAttribute("inert"); nav.removeAttribute("inert");
+    var d = fiche.declencheur; fiche = null;
+    if (rendreFocus && d && d.isConnected) d.focus({ preventScroll: true });
+  }
+  function ouvrirFiche(t, id, declencheur) {
+    fermerFiche(false);
+    var fermer = el("button", { "class": "btn second petit", type: "button", text: "Fermer" });
+    var revoir = el("a", { "class": "btn", href: "#/p/" + encodeURIComponent(id) + "/" + t.numero, text: "Revoir la leçon " + t.numero });
+    var boite = el("div", { "class": "fiche", role: "dialog", "aria-modal": "true", "aria-labelledby": "fiche-terme", "aria-describedby": "fiche-definition", tabindex: "-1" }, [
+      el("div", { "class": "ligne-titre fiche-haut" }, [el("h2", { id: "fiche-terme", text: t.terme }), fermer]),
+      el("p", { id: "fiche-definition", text: t.definition }),
+      revoir
+    ]);
+    var voile = el("div", { "class": "fiche-voile" });
+    function touche(e) {
+      if (e.key === "Escape") { e.preventDefault(); fermerFiche(true); return; }
+      if (e.key !== "Tab") return;
+      var cibles = [fermer, revoir], actif = document.activeElement, i = cibles.indexOf(actif);
+      if (e.shiftKey && (i <= 0)) { e.preventDefault(); cibles[cibles.length - 1].focus(); }
+      else if (!e.shiftKey && (i < 0 || i === cibles.length - 1)) { e.preventDefault(); cibles[0].focus(); }
+    }
+    fermer.addEventListener("click", function () { fermerFiche(true); });
+    voile.addEventListener("click", function () { fermerFiche(true); });
+    revoir.addEventListener("click", function () { fermerFiche(false); });
+    document.addEventListener("keydown", touche);
+    document.body.appendChild(voile); document.body.appendChild(boite);
+    app.setAttribute("inert", ""); nav.setAttribute("inert", "");
+    fiche = { voile: voile, boite: boite, declencheur: declencheur, touche: touche };
+    boite.focus({ preventScroll: true });
+  }
+  /* Une expression de mot entier, insensible à la casse ; espaces et apostrophes de typographie interchangeables. */
+  function motEntier(terme) {
+    var motif = terme.trim().split(/\s+/).map(function (m) { return m.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&").replace(/['’]/g, "['’]"); }).join("\\s+");
+    return new RegExp(motif + "(?![\\p{L}\\p{N}_])", "giu");
+  }
+  function dejaPris(liste, d, f) { return liste.some(function (x) { return d < x.f && x.d < f; }); }
+  /* Première occurrence de chaque mot connu dans En bref, À retenir et les explications : les plus longs d'abord, sans chevauchement. */
+  function lierTermes(article, termes, id) {
+    var zones = Array.prototype.slice.call(article.querySelectorAll(".texte p, .a-retenir li")), pris;
+    try {
+      var textes = zones.map(function (z) { return z.textContent; });
+      pris = zones.map(function () { return []; });
+      termes.filter(function (t) { return Array.from(t.terme.trim()).length >= 3; })
+        .sort(function (a, b) { return b.terme.length - a.terme.length || comparerTermes(a, b); })
+        .forEach(function (t) {
+          var re = motEntier(t.terme);
+          for (var i = 0; i < textes.length; i++) {
+            var m; re.lastIndex = 0;
+            while ((m = re.exec(textes[i]))) {
+              var d = m.index, f = d + m[0].length;
+              if ((d > 0 && /[\p{L}\p{N}_]/u.test(textes[i].charAt(d - 1))) || dejaPris(pris[i], d, f)) { re.lastIndex = d + 1; continue; }
+              pris[i].push({ d: d, f: f, t: t });
+              return;
+            }
+          }
+        });
+    } catch (e) { return; }
+    zones.forEach(function (z, i) {
+      if (!pris[i].length) return;
+      var texte = z.textContent, suite = document.createDocumentFragment(), pos = 0;
+      pris[i].sort(function (a, b) { return a.d - b.d; }).forEach(function (x) {
+        if (x.d > pos) suite.appendChild(document.createTextNode(texte.slice(pos, x.d)));
+        var b = el("button", { "class": "terme", type: "button", "aria-haspopup": "dialog", text: texte.slice(x.d, x.f) });
+        b.addEventListener("click", function () { ouvrirFiche(x.t, id, b); });
+        suite.appendChild(b); pos = x.f;
+      });
+      if (pos < texte.length) suite.appendChild(document.createTextNode(texte.slice(pos)));
+      z.textContent = ""; z.appendChild(suite);
+    });
+  }
+
   /* ---------- Palier (leçon) ---------- */
   function sectionL(titre, contenu) { return contenu ? el("section", {}, [el("h2", { text: titre }), contenu]) : null; }
   function texteL(t) { if (!t) return null; var d = el("div", { "class": "texte" }); String(t).split("\n").forEach(function (x) { if (x.trim()) d.appendChild(el("p", { text: x })); }); return d; }
   function listeRetenir(liste) { if (!liste || !liste.length) return null; var ul = el("ul", { "class": "a-retenir" }); liste.forEach(function (t) { ul.appendChild(el("li", { text: t })); }); return ul; }
-  function filAriane(l) { // « Niveau · Module » au-dessus du titre (formation par niveaux)
-    if (!l.niveau || !l.module) return null;
-    return el("nav", { "aria-label": "Position dans la formation" }, [el("ol", { "class": "fil" }, [el("li", { text: "Niveau " + l.niveau.numero + " · " + l.niveau.titre }), el("li", { text: "Module " + l.module.numero + " · " + l.module.titre })])]);
+  /* Au-dessus du titre : « Niveau · Module » (formation par niveaux) ou « Sommaire », dans les deux cas un lien vers le sommaire. */
+  function filAriane(l, id) {
+    var sommaire = "#/p/" + encodeURIComponent(id);
+    if (!l.niveau || !l.module) return el("nav", { "aria-label": "Sommaire" }, [el("a", { "class": "fil-lien", href: sommaire }, [icone("sommaire"), "Sommaire"])]);
+    return el("nav", { "aria-label": "Position dans la formation" }, [el("a", { "class": "fil-lien", href: sommaire }, [icone("sommaire"), el("span", { "class": "sr", text: "Sommaire" + N + ": " }),
+      el("ol", { "class": "fil" }, [el("li", { text: "Niveau " + l.niveau.numero + " · " + l.niveau.titre }), el("li", { text: "Module " + l.module.numero + " · " + l.module.titre })])])]);
   }
   function pageVerrou(id, texte, n) { montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [el("p", { "class": "verrou" }, [icone("cadenas"), texte]), lien("#/p/" + encodeURIComponent(id) + "/" + n, "Aller au palier " + n, "btn")])]), "accueil", "Verrouillé"); }
   function pageFin(p) {
@@ -479,15 +632,21 @@
         else if (n % 5 === 0 && !(s2.quiz || {})[n]) location.hash = base + "/quiz/" + n;
         else location.hash = base + "/" + (n + 1);
       });
+      var racine = "#/p/" + encodeURIComponent(p.id);
+      var rangeeNav = el("nav", { "class": "nav-lecon", "aria-label": "Navigation dans le cours" }, [
+        n > 1 ? el("a", { "class": "lien", href: racine + "/" + (n - 1) }, [icone("retour"), "Leçon précédente"]) : null,
+        el("a", { "class": "lien", href: racine }, [icone("sommaire"), "Sommaire"])
+      ]);
       var points = el("div", { "class": "etapes-q", "aria-hidden": "true" });
       var mod = parProgramme(p) ? (p.etapes || []).filter(function (e) { return e.numero === l.etape; })[0] : null; // les points suivent le module
       var e0 = mod && (mod.paliers || []).length ? mod.paliers[0].numero - 1 : Math.floor((n - 1) / 10) * 10, nbPoints = mod && (mod.paliers || []).length ? mod.paliers.length : 10;
       for (var k = 1; k <= nbPoints; k++) points.appendChild(el("i", { "class": e0 + k < n ? "fait" : (e0 + k === n ? "ok" : null) }));
+      var article;
       montrer(el("div", { "class": "page plein" }, [
         el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer le palier" }, [icone("faux")]), points, puceXP()]),
         image(l.image),
-        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre + " · palier " + n }), filAriane(l), el("h1", { text: l.titre }), el("span", {}, [badge(v)])]),
-        el("article", { "class": "lecon" }, [
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre + " · palier " + n }), filAriane(l, p.id), el("h1", { text: l.titre }), el("span", {}, [badge(v)])]),
+        article = el("article", { "class": "lecon" }, [
           sectionL("En bref", texteL(l.sections && l.sections.enBref)),
           sectionL("À retenir", listeRetenir(l.aRetenir)),
           sectionL("Comment", texteL(l.sections && l.sections.comment)),
@@ -503,8 +662,10 @@
           sectionL("Sources", srcs),
           el("p", { "class": "verif" + (v.statut === "verifie" ? " ok" : "") }, [icone(v.statut === "verifie" ? "verifie" : "liste"), noteV])
         ]),
-        verifBloc, finir
+        verifBloc, finir, rangeeNav
       ]), null, l.titre);
+      // Mots déjà définis dans les leçons précédentes : soulignés, avec leur fiche. Sans glossaire, la leçon reste telle quelle.
+      glossaireJusqua(p, n - 1).then(function (termes) { if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
     }, function (e) {
       if (e.statut === 404 && /^Formation terminée/.test(e.message || "")) { // le serveur dit qu'il n'y a plus de module
         delete cache["p:" + id];
@@ -882,21 +1043,90 @@
       el("div", { "class": "carte" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Niveau " + n.niveau }), el("span", { "class": "meta gain", text: (etat.xp || 0) + N + "XP" })]), el("div", { "class": "progres" }, [el("i", { style: "width:" + Math.round(((etat.xp || 0) - n.base) / (n.suivant - n.base) * 100) + "%" })]), el("span", { "class": "meta", text: (n.suivant - (etat.xp || 0)) + N + "XP avant le niveau " + (n.niveau + 1) })]),
       el("div", { "class": "chiffres-profil" }, [el("div", {}, [el("span", { "class": "meta", text: "Paliers" }), el("strong", { text: String(paliers) })]), el("div", {}, [el("span", { "class": "meta", text: "Sujets" }), el("strong", { text: String(sujets) })]), el("div", {}, [el("span", { "class": "meta", text: "Série" }), el("strong", { text: String(serieJours()) })]), el("div", {}, [el("span", { "class": "meta", text: "Erreurs à revoir" }), el("strong", { text: String(etat.erreurs.length) })])]),
       etat.erreurs.length ? lien("#/jeu/erreurs", "Revoir mes erreurs", "btn") : null,
+      el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [el("span", { "class": "vignette" }, [icone("aide")]), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("fleche")])])]),
       el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
-      el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Pexels, Unsplash et Wikimédia · icônes Phosphor (MIT)" })
+      el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Unsplash et Wikimédia · icônes Phosphor (MIT)" })
     ]), "profil", "Profil");
     majSync(); pretServeur.then(majSync);
+  }
+
+  /* ---------- Comment ça marche ---------- */
+  function rubriqueAide(nomIcone, titre, enfants) {
+    return el("details", { "class": "plier ligne" }, [
+      el("summary", {}, [el("span", { "class": "aide-titre" }, [icone(nomIcone), el("h2", { text: titre })]), icone("fleche")]),
+      el("div", { "class": "aide-corps" }, enfants)
+    ]);
+  }
+  function listeAide(items) { var ul = el("ul", { "class": "aide-liste" }); items.forEach(function (i) { ul.appendChild(el("li", {}, [].concat(i))); }); return ul; }
+  function gainAide(n) { return el("span", { "class": "gain", text: "+" + n + N + "XP" }); }
+  function vueAide() {
+    var haut = profil ? entete() : el("div", { "class": "pile serree" }, [el("header", { "class": "haut" }, [el("span", { "class": "marque", text: "Koîos" })]), el("a", { "class": "retour-texte", href: "#/accueil" }, [icone("retour"), "Retour"])]);
+    var rubriques = el("div", { "class": "aide-rubriques" }, [
+      rubriqueAide("livres", "Une formation", [
+        el("p", { text: "Tape un sujet. L’app écrit un programme en 4 niveaux" + N + ": Bases, Intermédiaire, Avancé, Expert." }),
+        el("p", { text: "Chaque niveau a des modules. Chaque module compte 5 à 10 leçons." }),
+        el("p", { text: "Les leçons s’ouvrent dans l’ordre et s’appuient sur les précédentes. Tu peux relire toutes les leçons déjà faites depuis le sommaire." })
+      ]),
+      rubriqueAide("livre", "Une leçon", [
+        el("p", { text: "Une leçon réunit" + N + ":" }),
+        listeAide(["l’essentiel en bref", guill("À retenir"), "les explications" + N + ": comment, pourquoi, où et quand", "les définitions", "une frise ou des chiffres", "un moyen de s’en souvenir, quand il y en a un", "les sources", "une question pour vérifier que tu as compris"]),
+        el("p", { text: "Les mots déjà vus sont soulignés" + N + ": touche‑les pour revoir leur définition." })
+      ]),
+      rubriqueAide("carnet", "Le glossaire", [
+        el("p", { text: "Dans chaque formation, l’onglet Glossaire réunit les mots définis dans les leçons déjà faites. Une recherche t’aide à retrouver un mot." })
+      ]),
+      rubriqueAide("trophee", "Quiz et défis", [
+        listeAide(["Un quiz toutes les 5 leçons.", "Un défi d’étape toutes les 10 leçons.", "Le quiz direct est toujours ouvert."]),
+        el("p", { text: "Chaque réponse est expliquée, qu’elle soit juste ou fausse. Tes erreurs sont gardées pour être revues." })
+      ]),
+      rubriqueAide("diplome", "L’XP", [
+        el("p", { text: "Tu gagnes de l’XP en avançant" + N + ":" }),
+        listeAide([["Une leçon terminée" + N + ": ", gainAide(XP.palier)], ["La question de vérification d’une leçon" + N + ": ", gainAide(XP.verif)], ["Une question de quiz" + N + ": ", gainAide(XP.quiz)], ["Une question de défi d’étape" + N + ": ", gainAide(XP.defi)], ["Une bonne réponse dans un mini‑jeu" + N + ": ", gainAide(XP.jeu * 2)]]),
+        el("p", { text: "Une question ne rapporte de l’XP qu’une seule fois. Les niveaux demandent de plus en plus d’XP." })
+      ]),
+      rubriqueAide("verifie", "D’où viennent les informations", [
+        el("p", { text: "Les parcours au badge " + guill("Vérifié") + " ont été recoupés à la main. Chaque fait a au moins deux sources indépendantes, dont une institutionnelle." }),
+        el("p", { text: "Les autres formations sont rédigées par une IA (GLM) à partir d’extraits de Wikipédia en français et en anglais. Une deuxième IA, d’un autre fournisseur, contrôle chaque affirmation contre ces extraits. Ce qui n’est pas confirmé est retiré." }),
+        listeAide([["Badge " + guill("Recoupé automatiquement") + N + ": la deuxième IA a tout confirmé."], ["Badge " + guill("Recoupé en partie") + N + ": des affirmations ont été retirées."]]),
+        el("p", { text: "Il n’y a pas de relecture humaine pour ces formations. Garde un œil critique et consulte les sources en bas de chaque leçon." }),
+        el("p", { text: "Les photos viennent d’Unsplash ou de Wikimédia, avec leur crédit." })
+      ]),
+      rubriqueAide("cercle", "Avec tes amis", [
+        el("p", { text: "L’onglet Jouer réunit ce qui se fait à plusieurs." }),
+        listeAide([
+          ["Question du jour" + N + ": la même pour tous. Les jours de réponse qui se suivent forment ta série."],
+          ["Quiz mélangé" + N + ": 10 questions sur tous les sujets."],
+          ["Duel" + N + ": lance‑le depuis l’onglet Défis d’un sujet ou depuis le quiz mélangé. Envoie le lien à un ami" + N + ": il a les mêmes questions que toi, et le tableau du duel compare vos scores. Les duels demandent la connexion en ligne."],
+          ["Classement" + N + ": les joueurs, classés selon leurs XP cumulés."],
+          ["Inviter" + N + ": un lien à partager pour faire venir un ami dans Koîos."]
+        ])
+      ]),
+      rubriqueAide("profil", "Ton compte", [
+        el("p", { text: "Ta progression est gardée sur ton téléphone et synchronisée. La clé de connexion, dans le Profil, te permet de la retrouver sur un autre appareil. Garde‑la pour toi." })
+      ]),
+      rubriqueAide("sablier", "Limites", [
+        el("p", { text: "Une leçon nouvelle peut prendre jusqu’à une minute la première fois. Ensuite elle s’ouvre tout de suite, pour tout le monde." }),
+        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + " et " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + "." }),
+        el("p", { text: "L’IA peut se tromper." })
+      ])
+    ]);
+    montrer(el("div", { "class": "page aide" + (profil ? "" : " plein") }, [haut,
+      el("h1", { text: "Comment ça marche" }),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Le but" }), el("p", { "class": "aide-intro", text: "Koîos t’aide à apprendre n’importe quel sujet, des bases jusqu’au niveau expert. Tu avances par leçons courtes. Ensuite tu retiens en jouant, seul ou avec tes amis." })]),
+      rubriques
+    ]), profil ? "aide" : null, "Comment ça marche");
   }
 
   /* ---------- Routeur ---------- */
   function route() {
     var p = location.hash.replace(/^#\/?/, "").split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
-    if (!profil) { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }
+    fermerFiche(false);
+    if (!profil && p[0] !== "aide") { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }
     switch (p[0]) {
       case "": case "accueil": return vueMaison();
       case "p":
         if (!p[1]) return vueMaison();
-        if (!p[2] || p[2] === "quiz" && !p[3] || p[2] === "defis") return vueParcours(p[1], p[2] === "defis" ? "defis" : p[2] === "quiz" ? "quiz" : null);
+        if (!p[2] || p[2] === "quiz" && !p[3] || p[2] === "defis" || p[2] === "glossaire") return vueParcours(p[1], p[2] === "defis" ? "defis" : p[2] === "quiz" ? "quiz" : p[2] === "glossaire" ? "glossaire" : null);
         if (p[2] === "quiz" || p[2] === "defi") return vueQuiz(p[1], p[3]);
         if (p[2] === "jeu") return vueJeu(p[1], p[3]);
         return vuePalier(p[1], Math.max(1, parseInt(p[2], 10) || 1));
@@ -904,6 +1134,7 @@
       case "duel": return vueDuel(p[1]);
       case "jouer": return vueJouer();
       case "profil": return vueProfil();
+      case "aide": return vueAide();
       default: location.hash = "#/";
     }
   }

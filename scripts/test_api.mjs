@@ -46,6 +46,7 @@ import { onRequestGet as duelGet, onRequestPost as duelPost, onRequestPut as due
 import { onRequestGet as duelsGet } from '../functions/api/duels.js';
 import { onRequestGet as parcoursGet, onRequestPost as parcoursPost } from '../functions/api/parcours.js';
 import { onRequestGet as palierGet } from '../functions/api/palier.js';
+import { onRequestGet as glossaireGet } from '../functions/api/glossaire.js';
 import { onRequestGet as quizGet } from '../functions/api/quiz.js';
 import { onRequestPost as quizDirectPost } from '../functions/api/quiz-direct.js';
 import { fauxD1 } from './faux_d1.mjs';
@@ -149,6 +150,7 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
     [palierGet, { requete: '?parcours=phares&n=1' }],
     [quizGet, { requete: '?parcours=phares' }],
     [quizDirectPost, { methode: 'POST', jeton, corps: { parcours: 'phares' } }],
+    [glossaireGet, { requete: '?parcours=phares&jusqua=1' }],
   ];
   for (const [handler, options] of cas) {
     const rep = await appel(handler, { ...options, env: sansBase });
@@ -4175,9 +4177,94 @@ test('duel POST : accepte les références {chapitre: "<parcours>:<k>", index} e
   assert.equal(lignes('SELECT * FROM duels').length, 2);
 });
 
+// --- GET /api/glossaire ---
+
+function insererLecon(parcours, numero, contenu) {
+  db.base.prepare('INSERT OR REPLACE INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, ?, ?, 0, ?)')
+    .run(`${parcours}:${numero}`, parcours, numero, typeof contenu === 'string' ? contenu : JSON.stringify({ id: `${parcours}:${numero}`, numero, ...contenu }), '2026-10-19T08:00:00.000Z');
+}
+const glossaire = (requete, options = {}) => appel(glossaireGet, { requete, ...options });
+
+test('glossaire GET : parcours inconnu ou sans leçon en cache : liste vide, sans connexion ni quota ni IA', async () => {
+  toutVoir();
+  const ia = fauxAI([]);
+  for (const requete of ['?parcours=inconnu&jusqua=5', '?parcours=la-tour-eiffel&jusqua=1']) {
+    const r = await glossaire(requete, { env: { DB: db, AI: ia } });
+    ok200(r);
+    assert.deepEqual(r.corps, { termes: [] });
+    assert.match(r.type, /application\/json/);
+  }
+  insererLecon('la-tour-eiffel', 1, { titre: 'Sans définition', sections: { enBref: 'x' } });
+  assert.deepEqual((await glossaire('?parcours=la-tour-eiffel&jusqua=9')).corps, { termes: [] });
+  assert.equal(ia.appels.length, 0);
+  assert.equal(lignes('SELECT * FROM quotas').length, 0);
+});
+
+test('glossaire GET : tri français, dédoublonnage sans accents ni casse (première leçon gardée), définitions et repères sans les dates, borne jusqua', async () => {
+  toutVoir();
+  insererLecon('la-tour-eiffel', 1, {
+    titre: 'Une tour pour 1889',
+    definitions: [{ terme: 'Rivet', definition: 'Tige métallique à tête.' }, { terme: 'Écrou', definition: 'Pièce taraudée.' }, { terme: 'Zinc', definition: 'Un métal.' }],
+    reperes: [{ terme: '31 mars 1889', definition: 'Fin du chantier.' }],
+  });
+  insererLecon('la-tour-eiffel', 2, {
+    titre: 'Gustave Eiffel',
+    definitions: [{ terme: 'rivet', definition: 'Doublon en minuscules : ignoré.' }, { terme: 'ECROU', definition: 'Doublon sans accent : ignoré.' }, { terme: 'Fer puddlé', definition: 'Fer brassé en fusion.' }, { terme: 'Abside', definition: 'Fond d’une église.' }],
+    reperes: [{ terme: 'Fer puddlé', definition: 'Doublon avec espace insécable : ignoré.' }],
+  });
+  insererLecon('la-tour-eiffel', 3, { titre: 'La radio', definitions: [{ terme: 'Antenne', definition: 'Reçoit les ondes.' }] });
+  insererLecon('la-tour-eiffel', 4, { titre: 'Trop loin', definitions: [{ terme: 'Zéro', definition: 'Pas lu avec jusqua=3.' }] });
+  insererLecon('autre-parcours', 1, { titre: 'Autre', definitions: [{ terme: 'Étranger', definition: 'D’un autre parcours.' }] });
+  const r = await glossaire('?parcours=la-tour-eiffel&jusqua=3');
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['termes']);
+  assert.deepEqual(r.corps.termes.map((x) => x.terme), ['Abside', 'Antenne', 'Écrou', 'Fer puddlé', 'Rivet', 'Zinc']);
+  assert.ok(!r.corps.termes.some((x) => x.terme === '31 mars 1889'), 'une date de repère n’est pas un mot du glossaire');
+  assert.deepEqual(r.corps.termes.find((x) => x.terme === 'Zinc'), { terme: 'Zinc', definition: 'Un métal.', numero: 1, titre: 'Une tour pour 1889' });
+  assert.deepEqual(r.corps.termes.map((x) => x.numero), [2, 3, 1, 2, 1, 1]);
+  assert.equal(r.corps.termes.find((x) => x.terme === 'Rivet').definition, 'Tige métallique à tête.', 'la première leçon l’emporte');
+  assert.equal(r.corps.termes.find((x) => x.terme === 'Écrou').titre, 'Une tour pour 1889');
+  assert.ok(!r.corps.termes.some((x) => x.terme === 'Zéro' || x.terme === 'Étranger'), 'ni les leçons au-delà de jusqua ni un autre parcours');
+  // La borne change le résultat : jusqua=1 ne voit que la leçon 1, jusqua=4 voit aussi la leçon 4.
+  assert.deepEqual((await glossaire('?parcours=la-tour-eiffel&jusqua=1')).corps.termes.map((x) => x.terme), ['Écrou', 'Rivet', 'Zinc']);
+  assert.deepEqual((await glossaire('?parcours=la-tour-eiffel&jusqua=500')).corps.termes.map((x) => x.terme).slice(-2), ['Zéro', 'Zinc']);
+  // « é » se range avec « e », pas après « z » ; les majuscules ne comptent pas.
+  insererLecon('tri', 1, { titre: 'Tri', definitions: [{ terme: 'zèbre', definition: 'a' }, { terme: 'Élan', definition: 'b' }, { terme: 'éléphant', definition: 'c' }, { terme: 'Eau', definition: 'd' }, { terme: 'ane', definition: 'e' }] });
+  assert.deepEqual((await glossaire('?parcours=tri&jusqua=1')).corps.termes.map((x) => x.terme), ['ane', 'Eau', 'Élan', 'éléphant', 'zèbre']);
+});
+
+test('glossaire GET : lecture seule (aucune vue comptée), ligne illisible ou champs mal formés ignorés, titre absent', async () => {
+  toutVoir();
+  insererLecon('lecture', 1, { titre: 'Bonne', definitions: [{ terme: 'Bon', definition: 'Valide.' }, { terme: 'Sans définition' }, { definition: 'Sans terme.' }, { terme: '  ', definition: 'Terme vide.' }, { terme: 'Vide', definition: '  ' }, null, 'texte', { terme: 12, definition: 'Nombre.' }] });
+  insererLecon('lecture', 2, 'pas du json');
+  insererLecon('lecture', 3, { definitions: 'pas une liste', reperes: { terme: 'Objet', definition: 'Pas une liste.' } });
+  insererLecon('lecture', 4, { definitions: [{ terme: 'Sans titre', definition: 'La leçon n’a pas de titre.' }] });
+  const r = await glossaire('?parcours=lecture&jusqua=10');
+  ok200(r);
+  assert.deepEqual(r.corps.termes, [
+    { terme: 'Bon', definition: 'Valide.', numero: 1, titre: 'Bonne' },
+    { terme: 'Sans titre', definition: 'La leçon n’a pas de titre.', numero: 4, titre: '' },
+  ]);
+  assert.deepEqual(lignes('SELECT SUM(vues) AS v FROM paliers'), [{ v: 0 }]);
+});
+
+test('glossaire GET : paramètres invalides 400 ; parcours bien formé mais inconnu : liste vide', async () => {
+  toutVoir();
+  for (const requete of ['', '?parcours=la-tour-eiffel', '?jusqua=3', '?parcours=&jusqua=3', '?parcours=la-tour-eiffel&jusqua=',
+    '?parcours=la-tour-eiffel&jusqua=abc', '?parcours=la-tour-eiffel&jusqua=1.5', '?parcours=la-tour-eiffel&jusqua=-1',
+    '?parcours=la-tour-eiffel&jusqua=0', '?parcours=la-tour-eiffel&jusqua=501', '?parcours=la-tour-eiffel&jusqua=1000',
+    '?parcours=la-tour-eiffel&jusqua=0001', '?parcours=Pas%20Valide&jusqua=1', '?parcours=' + 'a'.repeat(41) + '&jusqua=1']) {
+    erreurFr(await glossaire(requete), 400);
+  }
+  for (const k of ['1', '500', '007']) ok200(await glossaire('?parcours=inconnu&jusqua=' + k));
+  // POST non permis.
+  const rep = await worker.fetch(new Request('https://koios.test/api/glossaire?parcours=x&jusqua=1', { method: 'POST', body: '{}' }), { DB: db, ASSETS: {} }, { waitUntil() {} });
+  assert.equal(rep.status, 405);
+});
+
 // --- Worker : routes v2 ---
 
-test('worker v2 : /api/parcours, palier, quiz et quiz-direct sont routés (tiret accepté) ; méthodes absentes 405', async () => {
+test('worker v2 : /api/parcours, palier, quiz, quiz-direct et glossaire sont routés (tiret accepté) ; méthodes absentes 405', async () => {
   toutVoir();
   const ctx = { waitUntil() {} };
   const assets = { fetch: async (requete) => new Response('fichier ' + new URL(requete.url).pathname, { status: 200 }) };
@@ -4194,6 +4281,10 @@ test('worker v2 : /api/parcours, palier, quiz et quiz-direct sont routés (tiret
   assert.deepEqual(await via('/api/palier?parcours=zz&n=1'), { statut: 404, corps: { erreur: 'Parcours introuvable.' } });
   assert.deepEqual(await via('/api/palier/?parcours=zz&n=1'), { statut: 404, corps: { erreur: 'Parcours introuvable.' } });
   assert.deepEqual(await via('/api/quiz?parcours=zz'), { statut: 404, corps: { erreur: 'Parcours introuvable.' } });
+  assert.deepEqual(await via('/api/glossaire?parcours=zz&jusqua=3'), { statut: 200, corps: { termes: [] } });
+  assert.deepEqual(await via('/api/glossaire/?parcours=zz&jusqua=3'), { statut: 200, corps: { termes: [] } });
+  assert.equal((await via('/api/glossaire')).statut, 400);
+  assert.deepEqual(await via('/api/glossaire', { method: 'POST', body: '{}' }), { statut: 405, corps: { erreur: 'Méthode non permise.' } });
   assert.deepEqual(await via('/api/quiz-direct', { method: 'POST', body: '{}' }), { statut: 401, corps: { erreur: 'Connexion requise.' } });
   assert.deepEqual(await via('/api/quiz-direct'), { statut: 405, corps: { erreur: 'Méthode non permise.' } });
   assert.deepEqual(await via('/api/palier', { method: 'POST', body: '{}' }), { statut: 405, corps: { erreur: 'Méthode non permise.' } });
@@ -4253,7 +4344,7 @@ test('aucun secret dans le code', async () => {
     '../functions/api/libre.js', '../functions/api/signalement.js', '../functions/api/sujets.js', '../functions/api/sujet.js',
     '../functions/api/chapitre-ia.js', '../functions/api/melange.js', '../functions/api/duel.js', '../functions/api/duels.js',
     '../lib/fournisseurs.js', '../lib/images.js', '../lib/paliers.js', '../functions/api/parcours.js',
-    '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js',
+    '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
     '../scripts/serveur_local.mjs', '../wrangler.toml'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');

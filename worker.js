@@ -18,11 +18,12 @@ import * as parcours from './functions/api/parcours.js';
 import * as palier from './functions/api/palier.js';
 import * as quiz from './functions/api/quiz.js';
 import * as quizDirect from './functions/api/quiz-direct.js';
+import * as glossaire from './functions/api/glossaire.js';
 
 const ROUTES = {
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
-  parcours, palier, quiz, 'quiz-direct': quizDirect,
+  parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire,
 };
 
 function erreur(statut, message) {
