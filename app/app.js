@@ -5,7 +5,8 @@
   var F = " ", N = " ";
   var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
   var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
-  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js et quiz-general.js (un bloc = 10 questions)
+  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40, variantes: 15, variantesTotal: 150 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js, quiz-general.js (un bloc = 10 questions) et variante.js
+  var L = window.Logique; // règles pures : révision espacée, jours actifs, badges, cours vérifiés (app/logique.js)
 
   /* ---------- Mémoire locale ---------- */
   var S = {
@@ -19,6 +20,10 @@
   if (!etat.erreurs) etat.erreurs = [];
   if (!etat.reussies) etat.reussies = {};
   if (!etat.cartes) etat.cartes = {};
+  if (!etat.revisions) etat.revisions = {}; // { clé: { boite, prochaine, xp? } } : révision espacée
+  if (!etat.faits) etat.faits = {}; // { duel, direct } : dates des premières parties
+  if (!etat.badges) etat.badges = null; // { id: date } une fois suivis ; null = pas encore suivis (premier calcul sans annonce)
+  etat.jours = L.normaliserJours(etat.jours); // lit l'ancien format (une chaîne par jour)
   var verifiees = []; // catalogue des formations vérifiées à la main (contenu/parcours.json), chargé au démarrage
   var serveur = { base: false, ia: false };
   var apresAccueil = null;
@@ -68,8 +73,14 @@
   }
   /* Une photo ne s'affiche qu'avec son auteur et sa licence : seules celles de Commons ou d'Unsplash passent. Les anciennes images de Wikipédia, sans crédit complet, sont ignorées. */
   function imageOk(img) { return img && img.src && img.credit && (img.source === "commons" || img.source === "unsplash" || img.source === "fixe") ? img : null; }
-  /* Formation vérifiée à la main dont le titre est celui de la formation donnée (même règle partout : titres normalisés égaux). */
-  function verifieeDeTitre(titre) { var k = normaliser(titre); return verifiees.filter(function (x) { return normaliser(x.titre) === k; })[0] || null; }
+  /* Cours vérifié à la main qui correspond au titre d'une formation (même règle partout) : le même titre, ou un titre qui contient le mot clé
+     d'un domaine vérifié (histoire ou géographie, sciences ou nature, art ou culture, gemmologie, joaillerie ou pierres), sans accents. */
+  function verifieeDeTitre(titre) {
+    var k = normaliser(titre), exact = verifiees.filter(function (x) { return normaliser(x.titre) === k; })[0];
+    if (exact) return exact;
+    var id = L.domaineVerifie(titre);
+    return id ? verifiees.filter(function (x) { return x.id === id; })[0] || null : null;
+  }
   /* Photo imposée par le contenu (imageFixe : { src, credit, lien }) : elle prime sur toute recherche. Vide ou incomplète : ignorée. */
   function imageFixe(p) {
     var f = p && p.imageFixe;
@@ -173,7 +184,7 @@
   }
   function enLigne() { return serveur.base && profil && profil.id; }
   var minuterieSync;
-  function sauver() { etat.maj = Date.now(); S.ecrire("koios.etat", etat); pousser(); }
+  function sauver() { etat.maj = Date.now(); S.ecrire("koios.etat", etat); pousser(); verifierBadges(); }
   function pousser() {
     if (!enLigne()) return;
     clearTimeout(minuterieSync);
@@ -186,13 +197,26 @@
   function elaguerCartes(o) {
     var cles = Object.keys(o);
     if (cles.length <= CARTES_MAX) return;
-    cles.sort(function (x, y) { return o[x].vu - o[y].vu; }).slice(0, cles.length - CARTES_MAX).forEach(function (k) { delete o[k]; });
+    cles.sort(function (x, y) { return o[x].vu - o[y].vu; }).slice(0, cles.length - CARTES_MAX).forEach(function (k) { delete o[k]; if (o === etat.cartes) delete etat.revisions[k]; });
   }
-  function noterCarte(id, ok) {
+  /* Une carte vue : notée dans etat.cartes. Sa première vue la met en révision espacée (boîte 1, à revoir demain). */
+  function marquerCarte(id, ok) {
     var c = etat.cartes[id];
     etat.cartes[id] = { vu: Date.now(), ok: ok === undefined ? (c && c.ok !== undefined ? c.ok : null) : ok };
+    if (!etat.revisions[id]) etat.revisions[id] = L.nouvelleEntree(aujourdhui());
     elaguerCartes(etat.cartes);
-    sauver();
+  }
+  function noterCarte(id, ok) { marquerCarte(id, ok); sauver(); }
+  /* Une réponse de révision (« Je savais » ou « À revoir ») : boîte suivante ou retour en boîte 1, jour actif, 1 XP au plus par élément et par jour.
+     Une question ratée qui atteint la boîte 3 sort de la liste des erreurs. Renvoie l'XP gagnée (0 ou 1). */
+  function reponseRevision(cle, ok) {
+    var r = L.repondre(etat.revisions[cle], ok, aujourdhui());
+    etat.revisions[cle] = r.entree;
+    if (cle.indexOf("#") < 0) marquerCarte(cle, ok);
+    else if (ok && r.entree.boite >= 3) { etat.erreurs = etat.erreurs.filter(function (e) { return e.palier + "#" + e.index !== cle; }); delete etat.revisions[cle]; }
+    noterJour("revision");
+    if (r.xp) gagner(r.xp); else sauver();
+    return r.xp;
   }
   function fusion(a, b) {
     if (!b || b.version !== 2) return a;
@@ -201,7 +225,7 @@
       var x = a.parcours[id], y = (b.parcours || {})[id];
       if (!x || !y) { r.parcours[id] = x || y; return; }
       var q = {}; [x.quiz || {}, y.quiz || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { q[k] = Math.max(q[k] || 0, o[k]); }); });
-      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, jeux: Object.assign({}, x.jeux || {}, y.jeux || {}), total: x.total || y.total, date: (x.date || "") > (y.date || "") ? x.date : y.date };
+      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, jeux: Object.assign({}, x.jeux || {}, y.jeux || {}), total: x.total || y.total, date: (x.date || "") > (y.date || "") ? x.date : y.date, mods: Math.max(x.mods || 0, y.mods || 0), bases: Math.max(x.bases || 0, y.bases || 0) };
     });
     var vus = {};
     (a.erreurs || []).concat(b.erreurs || []).forEach(function (e) { var k = e.palier + "#" + e.index; if (!vus[k]) { vus[k] = 1; r.erreurs.push(e); } });
@@ -210,7 +234,12 @@
     r.cartes = {};
     [a.cartes || {}, b.cartes || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { var c = o[k]; if (c && typeof c.vu === "number" && (!r.cartes[k] || c.vu > r.cartes[k].vu)) r.cartes[k] = { vu: c.vu, ok: c.ok === true ? true : c.ok === false ? false : null }; }); });
     elaguerCartes(r.cartes);
-    [a.jours, b.jours || {}].forEach(function (j) { Object.keys(j).forEach(function (d) { r.jours[d] = r.jours[d] || j[d]; }); });
+    r.jours = L.fusionnerJours(a.jours, b.jours);
+    r.revisions = L.fusionnerRevisions(a.revisions, b.revisions);
+    L.elaguerRevisions(r);
+    r.faits = {};
+    [a.faits || {}, b.faits || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { if (typeof o[k] === "string" && (!r.faits[k] || o[k] < r.faits[k])) r.faits[k] = o[k]; }); });
+    r.badges = L.fusionnerBadges(a.badges, b.badges);
     return r;
   }
   var creation = null;
@@ -273,7 +302,9 @@
     if (!it || !it.palier) return;
     var k = it.palier + "#" + it.index;
     if (!etat.erreurs.some(function (e) { return e.palier + "#" + e.index === k; })) etat.erreurs.push({ palier: it.palier, index: it.index, titre: it.titre });
+    etat.erreurs.slice(0, -100).forEach(function (e) { delete etat.revisions[e.palier + "#" + e.index]; });
     etat.erreurs = etat.erreurs.slice(-100);
+    if (it.index >= 0) etat.revisions[k] = L.nouvelleEntree(aujourdhui()); // une erreur revient en boîte 1, à revoir demain
   }
   function premiereReussite(it) { // l'XP d'une question ne se gagne qu'une fois
     var k = it.palier + "#" + it.index;
@@ -283,7 +314,43 @@
     if (cles.length > 3000) delete etat.reussies[cles[0]];
     return true;
   }
-  function oublierErreur(it) { var k = it.palier + "#" + it.index; etat.erreurs = etat.erreurs.filter(function (e) { return e.palier + "#" + e.index !== k; }); }
+  function oublierErreur(it) { var k = it.palier + "#" + it.index; etat.erreurs = etat.erreurs.filter(function (e) { return e.palier + "#" + e.index !== k; }); delete etat.revisions[k]; }
+  /* Jour actif : type = « lecon », « revision », « quiz » ou « jour » (valeur « juste » ou « faux » pour la question du jour). Compte pour la série. */
+  function noterJour(type, valeur) {
+    var d = aujourdhui(), j = L.jourNormal(etat.jours[d]);
+    if (type === "jour") j.jour = valeur === "juste" ? "juste" : "faux"; else j[type] = 1;
+    etat.jours[d] = j;
+  }
+  function jourFait(d) { return L.jourNormal(etat.jours[d]).jour || null; } // « juste », « faux » ou null : la question du jour de cette date
+  function serieJours() { return L.serieActuelle(etat.jours, aujourdhui()); }
+  /* Première fois qu'on joue ou lance un duel ou un salon (« duel »), qu'on termine une partie en direct (« direct ») : gardée pour les badges. */
+  function noterFait(cle) { if (!etat.faits[cle]) { etat.faits[cle] = aujourdhui(); sauver(); } }
+  /* Badges : calculés sur les données réelles (jamais accordés d'avance), annoncés une seule fois par un petit toast.
+     Au premier suivi, ce qui est déjà acquis est noté sans annonce (date vide : on ne l'invente pas). */
+  function verifierBadges() {
+    var liste = L.calculerBadges(etat, aujourdhui());
+    if (!etat.badges) {
+      etat.badges = {};
+      liste.forEach(function (b) { if (b.obtenu) etat.badges[b.id] = ""; });
+      S.ecrire("koios.etat", etat); pousser();
+      return;
+    }
+    var neufs = liste.filter(function (b) { return b.obtenu && etat.badges[b.id] === undefined; });
+    if (!neufs.length) return;
+    neufs.forEach(function (b) { etat.badges[b.id] = aujourdhui(); });
+    S.ecrire("koios.etat", etat); pousser();
+    neufs.forEach(toastBadge);
+  }
+  function toastBadge(b) {
+    var zone = document.getElementById("toasts-badges");
+    if (!zone) { zone = el("div", { id: "toasts-badges", "class": "toasts-badges" }); document.body.appendChild(zone); }
+    var t = el("div", { "class": "toast-badge " + b.teinte, role: "status" }, [
+      el("span", { "class": "badge-rond", "aria-hidden": "true" }, [icone(b.icone)]),
+      el("span", { "class": "toast-badge-texte" }, [el("span", { "class": "sur", text: "Badge obtenu" }), el("b", { text: b.nom })])
+    ]);
+    zone.appendChild(t);
+    setTimeout(function () { t.classList.add("sort"); setTimeout(function () { t.remove(); }, 250); }, 4000);
+  }
 
   /* ---------- Contenu ---------- */
   var cache = {};
@@ -311,7 +378,20 @@
   function formationComplete(p) { return parProgramme(p) && (p.etapes || []).length >= (p.modulesTotal || 0); } // tous les modules sont ouverts
   function fini(p) { return (p.verifie || formationComplete(p)) && suivi(p.id).fait >= paliersPrevus(p); }
   /* Une photo gardée n'est conservée que si elle vient de la requête actuelle du parcours (sinon une ancienne photo hors sujet resterait). */
-  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.motImage = p.motImage || null; var gardee = imageOk(s.image) && s.image.req === requetePhoto(p) ? s.image : null; s.image = imageFixe(p) || imageOk(p.image) || gardee || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
+  /* Modules finis et niveau Bases fini d'une formation par niveaux, d'après les leçons faites (pour les badges). Jamais à la baisse. */
+  function majModules(p, s) {
+    if (!parProgramme(p)) return;
+    var ouverts = {}, mods = 0, bases = 0;
+    (p.etapes || []).forEach(function (e) { ouverts[e.numero] = e; });
+    function fait(m) { var e = ouverts[m.numero], l = e ? e.paliers || [] : []; return l.length > 0 && l[l.length - 1].numero <= (s.fait || 0); }
+    p.programme.niveaux.forEach(function (niv) {
+      var f = niv.modules.filter(fait).length;
+      mods += f;
+      if (niv.numero === 1 && niv.modules.length > 0 && f === niv.modules.length) bases = 1;
+    });
+    s.mods = Math.max(s.mods || 0, mods); s.bases = Math.max(s.bases || 0, bases);
+  }
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; majModules(p, s); s.motImage = p.motImage || null; var gardee = imageOk(s.image) && s.image.req === requetePhoto(p) ? s.image : null; s.image = imageFixe(p) || imageOk(p.image) || gardee || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
   function modulesFaits(p, fait) { return (p.etapes || []).filter(function (e) { var l = e.paliers || []; return l.length && l[l.length - 1].numero <= fait; }).length; }
   function creerParcours(titre, bouton, alerte, statut) {
     titre = String(titre || "").trim();
@@ -517,7 +597,7 @@
       el("span", { "class": "meta", text: pluriel(p.paliers, "leçon", "leçons") + (s.fait ? " · " + s.fait + (s.fait > 1 ? " faites" : " faite") : "") }),
       el("span", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + pct + "%" })])])])]);
   }
-  /* Accueil en grille « bento » : chaque tuile repose sur une donnée réelle de l’état du joueur (XP, jours joués, erreurs, glossaire, formation en cours). */
+  /* Accueil en grille « bento » : chaque tuile repose sur une donnée réelle de l’état du joueur (XP, jours actifs, éléments à réviser, glossaire, formation en cours). */
   var JOURS_COURTS = ["L", "M", "M", "J", "V", "S", "D"];
   function pctNiveau(n) { return Math.max(0, Math.min(100, Math.round(((etat.xp || 0) - n.base) / (n.suivant - n.base) * 100))); }
   function anneauHtml(pct, centre) {
@@ -533,16 +613,16 @@
       el("span", { "class": "tb-bas", "aria-hidden": "true" }, [el("b", { text: xp + N + "XP" }), el("span", { "class": "meta", text: "encore " + (n.suivant - xp) + N + "XP" })])
     ]);
   }
-  /* Série : jours d'affilée où la question du jour a été jouée, et la semaine en cours (lundi à dimanche). */
+  /* Série : jours d'affilée où une leçon, une révision, un quiz ou la question du jour a été faite, et la semaine en cours (lundi à dimanche). */
   function tuileSerie() {
     var n = serieJours(), d = new Date(), dow = (d.getDay() + 6) % 7, faits = 0;
     var semaine = el("div", { "class": "semaine", role: "img" });
     for (var k = 0; k < 7; k++) {
-      var fait = !!etat.jours[jour(new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow + k))];
+      var fait = L.jourActif(etat.jours[jour(new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow + k))]);
       if (fait) faits += 1;
       semaine.appendChild(el("span", { "class": "jr" + (fait ? " fait" : "") + (k === dow ? " auj" : "") }, [el("i"), el("span", { text: JOURS_COURTS[k] })]));
     }
-    semaine.setAttribute("aria-label", "Question du jour cette semaine" + N + ": " + pluriel(faits, "jour joué", "jours joués"));
+    semaine.setAttribute("aria-label", "Activité cette semaine" + N + ": " + pluriel(faits, "jour actif", "jours actifs"));
     return el("div", { "class": "tb serie" }, [
       el("span", { "class": "sur", text: "Série" }),
       el("span", { "class": "ligne-gros" }, [el("span", { "class": "gros", text: String(n) }), el("span", { "class": "meta", text: n > 1 ? "jours de suite" : "jour de suite" })]),
@@ -550,7 +630,7 @@
     ]);
   }
   function tuileJour() {
-    var fait = etat.jours[aujourdhui()];
+    var fait = jourFait(aujourdhui());
     return el("section", { "class": "tb jour", "aria-label": "Question du jour" }, [
       el("div", { "class": "tb-tete" }, [ronde("ampoule"), el("span", { "class": "tb-texte" }, [el("b", { text: "Question du jour" }),
         el("span", { "class": "meta", text: fait ? (fait === "juste" ? "Réussie aujourd’hui. La suivante arrive demain." : "Manquée aujourd’hui. La suivante arrive demain.") : "La même pour tous." })])]),
@@ -586,7 +666,7 @@
     var credits = blocCredits();
     var miens = Object.keys(etat.parcours).map(function (id) { return { id: id, s: etat.parcours[id] }; }).filter(function (x) { return x.s.titre; }).sort(function (a, b) { return (b.s.date || "") > (a.s.date || "") ? 1 : -1; });
     var rech = carteRecherche(credits);
-    var tuiles = [], nbErreurs = etat.erreurs.length;
+    var tuiles = [], nbRevisions = L.fileDuJour(etat, aujourdhui()).length;
     if (miens.length) tuiles.push(tuileReprendre(miens[0], credits));
     else {
       var premiere = el("button", { "class": "tb premiere", type: "button" }, [icone("livres"), el("span", { "class": "tb-texte" }, [el("b", { text: "Lance ta première formation" }), el("span", { "class": "meta", text: "Écris un sujet, ou choisis une idée plus bas." })]), icone("fleche")]);
@@ -594,7 +674,7 @@
       tuiles.push(premiere);
     }
     tuiles.push(tuileNiveau(), tuileSerie(), tuileJour());
-    if (nbErreurs) tuiles.push(tuileCompte("#/jeu/erreurs", "cerveau", nbErreurs, "question à revoir", "questions à revoir"));
+    if (nbRevisions) tuiles.push(tuileCompte("#/reviser", "cerveau", nbRevisions, "à réviser aujourd’hui", "à réviser aujourd’hui"));
     var eclair = tuileEclair();
     tuiles.push(eclair);
     var bibliotheque = null;
@@ -617,8 +697,8 @@
       bibliotheque = tuileCompte("#/bibliotheque", "livres", n, "formation à ouvrir", "formations à ouvrir");
       bento.insertBefore(bibliotheque, eclair); ranger();
     }, function () {});
-    // Pas d'erreur à revoir : la tuile Glossaire (termes déjà rencontrés dans la formation en cours) prend la place, si elle a des termes.
-    if (!nbErreurs && miens.length && miens[0].s.fait >= 1) {
+    // Rien à réviser aujourd'hui : la tuile Glossaire (termes déjà rencontrés dans la formation en cours) prend la place, si elle a des termes.
+    if (!nbRevisions && miens.length && miens[0].s.fait >= 1) {
       glossaireJusqua({ id: miens[0].id }, miens[0].s.fait).then(function (termes) {
         if (!termes.length || !bento.isConnected) return;
         bento.insertBefore(tuileCompte("#/p/" + encodeURIComponent(miens[0].id) + "/glossaire", "carnet", termes.length, "terme appris", "termes appris"), eclair);
@@ -920,7 +1000,7 @@
           var barre = el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + Math.round(i / file.length * 100) + "%" })]);
           var rep = el("div", { "class": "reponses-rev", hidden: "" });
           var revoir = el("button", { "class": "btn second", type: "button", text: "À revoir" }), sue = el("button", { "class": "btn", type: "button", text: "Je savais" });
-          function repondre(ok) { noterCarte(c.id, ok); if (ok) savait += 1; i += 1; carteSuivante(); var h = cadre.querySelector(".carte-flip"); if (h) h.focus(); }
+          function repondre(ok) { reponseRevision(c.id, ok); if (ok) savait += 1; i += 1; carteSuivante(); var h = cadre.querySelector(".carte-flip"); if (h) h.focus(); }
           revoir.addEventListener("click", function () { repondre(false); });
           sue.addEventListener("click", function () { repondre(true); });
           rep.appendChild(revoir); rep.appendChild(sue);
@@ -938,7 +1018,7 @@
           retour.addEventListener("click", function () { route(); });
           cadre.appendChild(retour);
           if (window.poserIcones) window.poserIcones(cadre);
-          if (rate) cadre.appendChild(el("p", { "class": "meta", text: pluriel(rate, "carte reste", "cartes restent") + " à revoir. Elles reviendront à la prochaine révision." }));
+          if (rate) cadre.appendChild(el("p", { "class": "meta", text: pluriel(rate, "carte reste", "cartes restent") + " à revoir. Elles reviennent demain dans la révision du jour." }));
         }
         carteSuivante();
         if (window.poserIcones) window.poserIcones(cadre);
@@ -1245,6 +1325,68 @@
       p.programme && formationComplete(p) && !p.verifie ? boutonProlonger(p, function () { delete cache["p:" + p.id]; location.hash = base; }) : null,
       lien("#/", "Retour à l’accueil", "btn second")])]), "accueil", "Formation terminée");
   }
+  /* ---------- Versions « Simple » et « Expert » d'une leçon ---------- */
+  var modeLecture = "normal"; // le choix reste pour la session, d'une leçon à l'autre
+  var variantes = {}; // versions déjà reçues : « parcours:leçon:mode » -> promesse
+  var SECTIONS_LECON = ["enBref", "comment", "pourquoi", "ouQuand"];
+  function chargerVariante(parcours, n, mode) {
+    var k = parcours + ":" + n + ":" + mode;
+    if (!variantes[k]) {
+      variantes[k] = pretCompte().then(function () {
+        if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+        return api("POST", "variante", { parcours: parcours, n: n, mode: mode }, 100000);
+      }).then(function (j) { return j.variante; }, function (e) { delete variantes[k]; throw e; });
+    }
+    return variantes[k];
+  }
+  /* Sélecteur « Normal · Simple · Expert » sous le titre d'une leçon. Il remplace le texte des quatre sections (pas leur titre) ; une section
+     que la version n'a pas gardée reste telle quelle. Pas de sélecteur pour un cours vérifié. `apres` est appelé après chaque remplacement. */
+  function selecteurLecture(p, n, secEls, originales, article, apres) {
+    if (verifie(p.id)) return null;
+    var courant = "normal", boutons = {};
+    var seg = el("div", { "class": "onglets", role: "radiogroup", "aria-label": "Niveau de lecture" });
+    [["normal", "Normal"], ["simple", "Simple"], ["expert", "Expert"]].forEach(function (c) {
+      var b = el("button", { type: "button", role: "radio", "aria-checked": c[0] === "normal" ? "true" : "false", text: c[1] });
+      b.addEventListener("click", function () { choisir(c[0]); });
+      boutons[c[0]] = b; seg.appendChild(b);
+    });
+    var statut = el("p", { "class": "attente courte", role: "status", hidden: "" });
+    var info = el("p", { "class": "meta", hidden: "" });
+    var alerte = el("p", { "class": "alerte", role: "status", hidden: "" });
+    function marquer(m) { Object.keys(boutons).forEach(function (k) { boutons[k].setAttribute("aria-checked", k === m ? "true" : "false"); }); }
+    function activer(oui) { Object.keys(boutons).forEach(function (k) { boutons[k].disabled = !oui; }); if (oui) article.removeAttribute("aria-busy"); else article.setAttribute("aria-busy", "true"); statut.hidden = oui; }
+    function poser(secs) {
+      SECTIONS_LECON.forEach(function (cle) {
+        var sec = secEls[cle], t = (secs && secs[cle]) || originales[cle], ancien = sec && sec.querySelector(".texte");
+        if (ancien && t) ancien.replaceWith(texteL(t));
+      });
+      apres();
+    }
+    function choisir(m, auto) {
+      if (m === courant) return;
+      alerte.hidden = true;
+      if (m === "normal") { courant = m; modeLecture = m; marquer(m); poser(null); info.hidden = true; return; }
+      marquer(m);
+      statut.textContent = "Réécriture " + (m === "simple" ? "en version simple" : "en version experte") + "… La première fois, compte jusqu’à une minute.";
+      activer(false);
+      chargerVariante(p.id, n, m).then(function (v) {
+        if (!article.isConnected) return;
+        var vv = v.verification || {};
+        courant = m; modeLecture = m; poser(v.sections);
+        info.textContent = "Version " + (m === "simple" ? "simple" : "experte") + (vv.ia ? " rédigée par l’IA " + vv.ia[0] + " à partir des mêmes sources, puis contrôlée par l’IA " + vv.ia[1] + (vv.retirees ? F + "; " + pluriel(vv.retirees, "phrase non confirmée a été retirée", "phrases non confirmées ont été retirées") + "." : ".") : ".");
+        info.hidden = false;
+        activer(true);
+      }, function (e) {
+        if (!article.isConnected) return;
+        marquer(courant); if (auto) modeLecture = courant;
+        alerte.textContent = e.statut === 401 ? "La réécriture demande ton compte en ligne. Réessaie dans un moment."
+          : messageErreur(e, "Limite du jour" + N + ": " + pluriel(LIMITES.variantes, "version réécrite", "versions réécrites") + " par personne. Les versions déjà écrites restent ouvertes.");
+        alerte.hidden = false;
+        activer(true);
+      });
+    }
+    return { noeud: el("div", { "class": "pile serree lecture" }, [seg, statut, info, alerte]), choisir: choisir };
+  }
   function vuePalier(id, n) {
     var s0 = suivi(id);
     if (n > (s0.fait || 0) + 1) { pageVerrou(id, "Cette leçon s’ouvre après la leçon " + (n - 1) + ".", (s0.fait || 0) + 1); return; }
@@ -1294,7 +1436,7 @@
         var s2 = suivi(p.id);
         if (finir.disabled) return;
         var gain = 0;
-        if (n > s2.fait) { if (bonus && !premiereReussite({ palier: l.id, index: qIndex })) bonus = 0; s2.fait = n; etat.parcours[p.id] = s2; gain = XP.palier + bonus; gagner(gain, p.id); toast("+" + gain + N + "XP"); }
+        if (n > s2.fait) { if (bonus && !premiereReussite({ palier: l.id, index: qIndex })) bonus = 0; s2.fait = n; majModules(p, s2); etat.parcours[p.id] = s2; noterJour("lecon"); gain = XP.palier + bonus; gagner(gain, p.id); toast("+" + gain + N + "XP"); }
         var base = "#/p/" + encodeURIComponent(p.id), cible;
         if (p.verifie && n >= paliersPrevus(p)) cible = base;
         else if (n % 10 === 0 && !(s2.quiz || {})[n]) cible = base + "/defi/" + n;
@@ -1320,14 +1462,21 @@
         n > 1 ? el("a", { "class": "lien", href: "#/p/" + encodeURIComponent(p.id) + "/glossaire" }, [icone("carnet"), "Voir le glossaire"]) : null]) : null;
       var exemple = typeof l.exemple === "string" && l.exemple ? el("section", { "class": "exemple" }, [titreSection("Exemple", "ampoule"), texteL(l.exemple)]) : null;
       var cartesL = blocCartesLecon(p, n, l.cartes);
+      var originales = l.sections || {};
+      var secEls = { // les quatre sections réécrites par « Simple » et « Expert » : on remplace leur texte, pas leur titre
+        enBref: sectionL("En bref", texteL(originales.enBref), "eclair"),
+        comment: sectionL("Comment", texteL(originales.comment), "engrenage"),
+        pourquoi: sectionL("Pourquoi", texteL(originales.pourquoi), "aide"),
+        ouQuand: sectionL("Où et quand", texteL(originales.ouQuand), "repere")
+      };
       var article = el("article", { "class": "lecon" }, [
         avant,
-        sectionL("En bref", texteL(l.sections && l.sections.enBref), "eclair"),
+        secEls.enBref,
         blocRetenir(l.aRetenir),
-        sectionL("Comment", texteL(l.sections && l.sections.comment), "engrenage"),
+        secEls.comment,
         exemple,
-        sectionL("Pourquoi", texteL(l.sections && l.sections.pourquoi), "aide"),
-        sectionL("Où et quand", texteL(l.sections && l.sections.ouQuand), "repere"),
+        secEls.pourquoi,
+        secEls.ouQuand,
         sectionL(!(l.definitions || []).length ? "Repères" : "Définitions", dl, "livre-ouvert"),
         sectionL("Frise", V.frise ? V.frise(l.frise) : null, "frise"),
         sectionL("En chiffres", V.barres ? V.barres(l.chiffres) : null, "barres"),
@@ -1343,10 +1492,13 @@
       // Photo de la leçon : la sienne, sinon une photo libre cherchée sur Commons. Rien n'est réservé tant que l'adresse n'est pas connue.
       var emplacement = el("div", { "class": "emplacement", hidden: "" });
       function poserPhoto(img) { var f = photo(img, "lecon-img", l.titre); if (f) { emplacement.appendChild(f); emplacement.hidden = false; } }
+      var termesLecon = null; // mots déjà définis (glossaire des leçons précédentes), pour souligner aussi le texte réécrit
+      var lecture = selecteurLecture(p, n, secEls, originales, article, function () { if (termesLecon) lierTermes(article, termesLecon, p.id); });
       montrer(el("div", { "class": "page plein " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer la leçon" }, [icone("fermer")]), points, puceXP()]),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre }), filAriane(l, p.id), el("h1", { text: l.titre }),
-          el("div", { "class": "meta-lecon" }, [badge(v), el("span", { "class": "meta", text: "Leçon " + n }), minutes ? el("span", { "class": "meta", text: "≈" + N + minutes + N + "min" }) : null])]),
+          el("div", { "class": "meta-lecon" }, [badge(v), el("span", { "class": "meta", text: "Leçon " + n }), minutes ? el("span", { "class": "meta", text: "≈" + N + minutes + N + "min" }) : null]),
+          lecture ? lecture.noeud : null]),
         emplacement,
         article,
         verifBloc, finir, rangeeNav
@@ -1354,7 +1506,8 @@
       if (imageOk(l.image)) poserPhoto(l.image);
       else trouverImage(String(l.titre || "").slice(0, 50).trim() + " " + requetePhoto(p), "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
       // Mots déjà définis dans les leçons précédentes : soulignés, avec leur fiche. Sans glossaire, la leçon reste telle quelle.
-      glossaireJusqua(p, n - 1).then(function (termes) { if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
+      glossaireJusqua(p, n - 1).then(function (termes) { termesLecon = termes; if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
+      if (lecture && modeLecture !== "normal") lecture.choisir(modeLecture, true); // le choix de la session suit d'une leçon à l'autre
     }, function (e) {
       if (!vive()) return;
       if (e.statut === 404 && /^Formation terminée/.test(e.message || "")) { // le serveur dit qu'il n'y a plus de module
@@ -1486,6 +1639,7 @@
       if (flux) flux.ecoute = null;
       var n = items.length, pct = Math.round(justes / Math.max(n, 1) * 100);
       compteur.textContent = ""; compteur.appendChild(puceXP());
+      if (!opt.pasQuiz) { noterJour("quiz"); sauver(); } // un quiz fini est un jour actif (la question du jour compte à part)
       gagner(gagne, opt.parcours);
       var revoir = el("div", { "class": "pile" });
       rates.forEach(function (it) {
@@ -1607,6 +1761,7 @@
       if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
       return api("POST", "duel", { questions: items.map(function (x) { return { chapitre: x.palier, index: x.index }; }), score: { justes: res.justes, n: res.n, points: res.gagne } });
     }).then(function (j) {
+      noterFait("duel");
       var url = location.origin + location.pathname + "#/duel/" + j.id;
       info.textContent = "Duel prêt. Tes amis auront les mêmes questions.";
       var b = el("button", { "class": "btn", type: "button" }, [icone("epee"), "Envoyer le duel"]);
@@ -1733,7 +1888,7 @@
       var corps = { questions: refsDe(items), type: "salon", titre: sujet.slice(0, 60) };
       if (score) corps.score = score;
       return api("POST", "duel", corps);
-    });
+    }).then(function (j) { noterFait("duel"); return j; });
   }
   function vueQuizGeneral(sujet, n, apres) {
     sujet = String(sujet || "").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -1864,7 +2019,7 @@
             var etat2 = el("p", { "class": "meta", role: "status", text: "Enregistrement de ton score…" });
             zone.appendChild(etat2);
             noterReponses(d.id, res.details || []);
-            api("PUT", "duel", { id: d.id, score: { justes: res.justes, n: res.n, points: res.justes * XP.quiz } }).then(function () { return api("GET", "duel?id=" + enc(d.id)); }).then(function (j2) {
+            api("PUT", "duel", { id: d.id, score: { justes: res.justes, n: res.n, points: res.justes * XP.quiz } }).then(function () { noterFait("duel"); return api("GET", "duel?id=" + enc(d.id)); }).then(function (j2) {
               etat2.textContent = "";
               zone.appendChild(el("h2", { text: salon || tournoi ? "Classement" : "Tableau du duel" }));
               zone.appendChild(tableauDuel(j2.duel));
@@ -1929,7 +2084,6 @@
   }
 
   /* ---------- Jouer ---------- */
-  function serieJours() { var n = 0, d = new Date(); if (!etat.jours[jour(d)]) d.setDate(d.getDate() - 1); while (etat.jours[jour(d)]) { n += 1; d.setDate(d.getDate() - 1); } return n; }
   /* Question du jour : /api/jour (thème du jour et question, la même pour tous). Gardée pour la session ; null si le réseau ou le serveur manque. */
   function chargerJour() {
     var d = aujourdhui();
@@ -1939,7 +2093,7 @@
   }
   function vueJour() {
     var d = aujourdhui();
-    if (etat.jours[d]) { location.replace("#/jouer"); return; }
+    if (jourFait(d)) { location.replace("#/jouer"); return; }
     var vive = vivante();
     montrer(attente("Préparation de la question du jour…", true), null, "Question du jour");
     chargerJour().then(function (j) {
@@ -1952,9 +2106,9 @@
     }).then(function (r) {
       if (!vive()) return;
       var it = r.it;
-      etat.jours[d] = "faux"; sauver();
-      montrer(quiz([it], { titre: "Question du jour", entete: r.theme ? "Aujourd’hui" + N + ": " + r.theme : "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
-        etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
+      noterJour("jour", "faux"); sauver();
+      montrer(quiz([it], { titre: "Question du jour", entete: r.theme ? "Aujourd’hui" + N + ": " + r.theme : "Question du jour", retour: "#/jouer", xp: XP.quiz, pasQuiz: true, fin: function (res, zone) {
+        noterJour("jour", res.justes ? "juste" : "faux"); sauver();
         zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine arrive demain." }));
         if (r.theme) zone.appendChild(lienAvance("#/quiz/" + enc(r.theme) + "/10", "Un quiz sur ce thème", "btn"));
         else zone.appendChild(lienAvance("#/p/" + it.palier.split(":")[0], "Ouvrir cette formation", "btn"));
@@ -1989,15 +2143,124 @@
       montrer(quiz(items, { titre: "Revoir mes erreurs", retour: "#/profil", xp: XP.quiz, erreurs: true, fin: function (res, zone) { sauver(); zone.appendChild(lien("#/profil", "Retour au profil", "btn second")); } }), null, "Mes erreurs");
     });
   }
+  /* ---------- Révision espacée : une file unique, sans IA ---------- */
+  /* Une question ratée en carte : l'énoncé au recto, la bonne réponse et son explication au verso. */
+  function faceQuestion(q) {
+    if (!q) return null;
+    var expl = q.explication ? " " + q.explication : "";
+    if (q.type === "qcm" && typeof q.enonce === "string" && q.reponses && typeof q.reponses[q.bonne] === "string") return { recto: q.enonce, verso: q.reponses[q.bonne].replace(/\.$/, "") + "." + expl };
+    if (q.type === "vraifaux" && typeof q.affirmation === "string") return { recto: "Vrai ou faux" + F + "? " + q.affirmation, verso: (q.vrai ? "Vrai." : "Faux.") + expl };
+    return null;
+  }
+  /* Contenu d'un élément de la file : une carte (lue dans sa leçon, déjà écrite) ou une question ratée. null si on ne peut pas la lire. */
+  function chargerElement(x) {
+    if (x.type === "carte") {
+      var m = /^(.+):(\d+):(\d+)$/.exec(x.cle);
+      return chargerPalier(m[1], parseInt(m[2], 10)).then(function (l) {
+        var c = ((l && l.cartes) || [])[parseInt(m[3], 10) - 1];
+        return c && typeof c.recto === "string" && typeof c.verso === "string" ? { cle: x.cle, recto: c.recto, verso: c.verso, source: "Carte · leçon " + m[2] + (l.titre ? " · " + l.titre : "") } : null;
+      }, function () { return null; });
+    }
+    return resoudre([{ chapitre: x.palier, index: x.index }]).then(function (l) {
+      var f = l[0] ? faceQuestion(l[0].question) : null;
+      return f ? { cle: x.cle, recto: f.recto, verso: f.verso, source: "Question ratée" + (x.titre ? " · " + x.titre : "") } : null;
+    }, function () { return null; });
+  }
+  function quandRevision(p) { return (p.jours === 1 ? "demain" : "dans " + p.jours + " jours") + " · " + pluriel(p.n, "élément", "éléments"); }
+  function vueReviser() {
+    var vive = vivante(), auj = aujourdhui();
+    var file = L.fileDuJour(etat, auj), lot = file.slice(0, L.SEANCE);
+    var barre = el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/", "aria-label": "Quitter la révision" }, [icone("fermer")]), el("span"), puceXP()]);
+    function pageSimple(enfants) { montrer(el("div", { "class": "page plein" }, [barre].concat(enfants)), null, "Réviser"); }
+    if (!file.length) {
+      var proch = L.prochaineRevision(etat, auj);
+      pageSimple([el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Révision" }), el("h1", { text: "Rien à réviser" })]),
+        etatVide("juste", proch ? "Tu es à jour. Prochaine révision" + N + ": " + quandRevision(proch) + "." : "Les cartes des leçons que tu fais et les questions que tu rates arrivent ici, pour revenir au bon moment.", lien("#/", "Retour à l’accueil", "btn"))]);
+      return;
+    }
+    montrer(attente("Préparation de la révision…", true), null, "Réviser");
+    Promise.all(lot.map(chargerElement)).then(function (liste) {
+      if (!vive()) return;
+      var items = melanger(liste.filter(Boolean)), i = 0, justes = 0, xp = 0;
+      if (!items.length) { pageSimple([etatVide("carnet", "Les éléments à réviser ne se chargent pas. Réessaie dans un moment.", lien("#/", "Retour à l’accueil", "btn"))]); return; }
+      var cadre = el("div", { "class": "pile revision" });
+      pageSimple([cadre]);
+      function suivante() {
+        cadre.textContent = "";
+        if (i >= items.length) { fin(); return; }
+        var c = items[i];
+        var etapes = el("p", { "class": "meta", role: "status", text: (i + 1) + " sur " + items.length });
+        var jauge = el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + Math.round(i / items.length * 100) + "%" })]);
+        var rep = el("div", { "class": "reponses-rev", hidden: "" });
+        var revoir = el("button", { "class": "btn second", type: "button", text: "À revoir" }), sue = el("button", { "class": "btn", type: "button", text: "Je savais" });
+        function repondre(ok) { if (ok) justes += 1; xp += reponseRevision(c.cle, ok); i += 1; suivante(); var h = cadre.querySelector(".carte-flip"); if (h) h.focus(); }
+        revoir.addEventListener("click", function () { repondre(false); });
+        sue.addEventListener("click", function () { repondre(true); });
+        rep.appendChild(revoir); rep.appendChild(sue);
+        var indice = el("p", { "class": "meta", text: "Touche la carte pour voir la réponse." });
+        cadre.appendChild(el("span", { "class": "sur", text: c.source }));
+        cadre.appendChild(etapes); cadre.appendChild(jauge);
+        cadre.appendChild(carteRetournable(c, function (on) { rep.hidden = !on; indice.hidden = on; }));
+        cadre.appendChild(indice); cadre.appendChild(rep);
+        if (window.poserIcones) window.poserIcones(cadre);
+      }
+      function fin() {
+        var reste = L.fileDuJour(etat, auj).length, prochaine = L.prochaineRevision(etat, auj);
+        cadre.appendChild(el("span", { "class": "sur", text: "Révision" }));
+        cadre.appendChild(el("h1", { text: justes === items.length ? "Sans faute" : "Séance terminée" }));
+        cadre.appendChild(el("div", { "class": "score" }, [el("strong", { text: justes + "/" + items.length }), el("span", { "class": "meta gain", text: "+" + xp + N + "XP" })]));
+        if (items.length - justes) cadre.appendChild(el("p", { "class": "meta", text: pluriel(items.length - justes, "élément reviendra", "éléments reviendront") + " demain." }));
+        if (reste) cadre.appendChild(el("p", { "class": "meta", text: "Il en reste " + reste + " à réviser aujourd’hui." }));
+        else if (prochaine) cadre.appendChild(el("p", { "class": "meta", text: "Prochaine révision" + N + ": " + quandRevision(prochaine) + "." }));
+        if (reste) {
+          var encore = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Continuer · " + pluriel(Math.min(reste, L.SEANCE), "élément", "éléments") }), icone("fleche")]);
+          encore.addEventListener("click", function () { route(); });
+          cadre.appendChild(encore);
+          cadre.appendChild(lien("#/", "Retour à l’accueil"));
+        } else cadre.appendChild(lien("#/", "Retour à l’accueil", "btn"));
+        if (window.poserIcones) window.poserIcones(cadre);
+        var h = cadre.querySelector("h1"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+      }
+      suivante();
+    });
+  }
+
+  /* ---------- Badges : obtenus en couleur, à venir en gris avec leur condition ---------- */
+  function dateFr(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || "");
+    if (!m) return "";
+    var d = new Date(+m[1], +m[2] - 1, +m[3], 12), opt = { day: "numeric", month: "long" };
+    if (d.getFullYear() !== new Date().getFullYear()) opt.year = "numeric";
+    return d.toLocaleDateString("fr-FR", opt);
+  }
+  function vueBadges() {
+    var liste = L.calculerBadges(etat, aujourdhui());
+    var obtenus = liste.filter(function (b) { return b.obtenu; }), avenir = liste.filter(function (b) { return !b.obtenu; });
+    function ligne(b) {
+      var date = etat.badges && etat.badges[b.id];
+      var detail = b.obtenu ? (date ? "Obtenu le " + dateFr(date) : "Obtenu") : b.condition + (b.cible > 1 ? " " + b.valeur + " sur " + b.cible + "." : "");
+      return el("li", {}, [el("div", { "class": "rangee badge-ligne" + (b.obtenu ? "" : " gris") }, [
+        el("span", { "class": "badge-rond " + (b.obtenu ? b.teinte : "gris"), "aria-hidden": "true" }, [icone(b.icone)]),
+        el("span", {}, [el("b", {}, [el("span", { "class": "sr", text: (b.obtenu ? "Obtenu" : "À venir") + N + ": " }), b.nom]), el("span", { "class": "meta", text: detail })])])]);
+    }
+    function groupe(titre, l) { return l.length ? el("section", { "class": "pile serree" }, [el("h2", { text: titre }), el("ul", { "class": "liste" }, l.map(ligne))]) : null; }
+    montrer(el("div", { "class": "page" }, [
+      el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Profil" }), el("h1", { text: "Badges" }),
+        el("p", { "class": "meta", style: "font-size:16px", text: obtenus.length + " sur " + liste.length + " obtenus. Chacun se calcule sur ce que tu as vraiment fait." })]),
+      groupe("Obtenus", obtenus), groupe("À venir", avenir)
+    ]), "profil", "Badges");
+  }
+
   /* Jouer : le quiz de culture générale, puis ce qui se joue seul (question du jour, quiz mélangé, erreurs à revoir, mini-jeux des formations). */
   function vueJouer() {
-    var jourFait = etat.jours[aujourdhui()];
-    var metaJour = el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") });
+    var faitJour = jourFait(aujourdhui());
+    var metaJour = el("span", { "class": "meta", text: faitJour ? (faitJour === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") });
     var lignes = [
-      el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [tuile("ampoule"), el("span", {}, [el("b", { text: "Question du jour" }), metaJour]), jourFait ? icone("juste") : icone("chevron")])]),
+      el("li", {}, [el(faitJour ? "div" : "a", { "class": "rangee", href: faitJour ? null : "#/jeu/jour" }, [tuile("ampoule"), el("span", {}, [el("b", { text: "Question du jour" }), metaJour]), faitJour ? icone("juste") : icone("chevron")])]),
       el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/melange" }, [tuile("liste"), el("span", {}, [el("b", { text: "Quiz mélangé" }), el("span", { "class": "meta", text: "10 questions, tous sujets confondus" })]), icone("chevron")])])
     ];
-    if (!jourFait) chargerJour().then(function (j) { if (j && j.theme && metaJour.isConnected) metaJour.textContent = "Aujourd’hui" + N + ": " + j.theme + " · la même pour tous"; });
+    if (!faitJour) chargerJour().then(function (j) { if (j && j.theme && metaJour.isConnected) metaJour.textContent = "Aujourd’hui" + N + ": " + j.theme + " · la même pour tous"; });
     if (etat.erreurs.length) lignes.push(el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/erreurs" }, [tuile("cerveau"), el("span", {}, [el("b", { text: "Revoir mes erreurs" }), el("span", { "class": "meta", text: pluriel(etat.erreurs.length, "question à revoir", "questions à revoir") })]), icone("chevron")])]));
     var defis = Object.keys(etat.parcours).filter(function (id) { return etat.parcours[id].titre && (etat.parcours[id].fait || 0) >= 5; });
     var ulDefis = el("ul", { "class": "liste" });
@@ -2318,7 +2581,7 @@
       var k = n.etat + ":" + n.indice + ":" + (n.moi.joueur ? 1 : 0);
       if (k !== cle) { cle = k; demande = false; rendre(); } else majPartielle();
       if (!tic && p.etat !== "fini") tic = setInterval(tictac, 250);
-      if (p.etat === "fini") { clearInterval(tic); tic = null; }
+      if (p.etat === "fini") { clearInterval(tic); tic = null; if (p.moi.joueur) noterFait("direct"); }
       tictac();
     }
     function majPartielle() {
@@ -2517,7 +2780,7 @@
         el("div", { "class": "chiffres-cles" }, [el("div", {}, [el("strong", { text: String(paliers) }), el("span", { "class": "meta", text: paliers > 1 ? "Leçons faites" : "Leçon faite" })]), el("div", {}, [el("strong", { text: String(sujets) }), el("span", { "class": "meta", text: sujets > 1 ? "Sujets suivis" : "Sujet suivi" })]), el("div", {}, [el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: "Jours de suite" })])])], true),
       bande([
         etat.erreurs.length ? lienAvance("#/jeu/erreurs", "Revoir mes erreurs (" + etat.erreurs.length + ")", "btn") : etatVide("juste", "Aucune erreur à revoir pour l’instant.", lien("#/jeu/melange", "Faire un quiz mélangé", "btn second petit")),
-        el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [tuile("aide"), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("chevron")])])]),
+        el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/badges" }, [tuile("medaille"), el("span", {}, [el("b", { text: "Badges" }), el("span", { "class": "meta", text: L.calculerBadges(etat, aujourdhui()).filter(function (b) { return b.obtenu; }).length + " sur " + L.BADGES.length + " obtenus" })]), icone("chevron")])]), el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [tuile("aide"), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("chevron")])])]),
         el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
         el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Wikimédia Commons et Unsplash · icônes Phosphor (MIT)" })
       ], false)
@@ -2554,12 +2817,36 @@
       rubriqueAide("livre", "Une leçon", [
         el("p", { text: "Une leçon réunit" + N + ":" }),
         listeAide([guill("Avant de commencer") + N + ": un rappel de ce que tu as déjà vu", "l’essentiel en bref", guill("À retenir"), "les explications" + N + ": comment, pourquoi, où et quand", "un exemple", "les définitions", "une frise ou des chiffres", "un moyen de s’en souvenir, quand il y en a un", guill("Tes cartes") + N + ": 2 à 4 cartes à retourner", "les sources, repliées sous " + guill("Sources") + ", à ouvrir si tu veux vérifier", "une question pour vérifier que tu as compris"]),
+        el("p", { text: "Sous le titre, " + guill("Normal") + N + "·" + N + guill("Simple") + N + "·" + N + guill("Expert") + " change le registre du texte (voir " + guill("Explique-moi simplement") + ")." }),
         el("p", { text: "Les mots déjà vus sont soulignés" + N + ": touche‑les pour revoir leur définition." }),
         el("p", { text: "Chaque module a sa " + guill("Fiche du module") + N + ": l’essentiel et les définitions des leçons que tu as faites, à relire d’un coup. Elle se construit sans IA." })
       ]),
       rubriqueAide("carnet", "Les cartes", [
         el("p", { text: "Chaque leçon donne 2 à 4 cartes. Touche une carte pour la retourner et voir la réponse." }),
-        listeAide(["L’onglet " + guill("Cartes") + " d’une formation réunit les cartes des leçons faites. Tu peux filtrer par module.", guill("Réviser") + N + ": une carte à la fois. Tu retournes, puis tu touches " + guill("Je savais") + " ou " + guill("À revoir") + ".", "Les cartes à revoir reviennent à la révision suivante. Tes réponses sont gardées avec ta progression."])
+        listeAide(["L’onglet " + guill("Cartes") + " d’une formation réunit les cartes des leçons faites. Tu peux filtrer par module.", guill("Réviser") + N + ": une carte à la fois. Tu retournes, puis tu touches " + guill("Je savais") + " ou " + guill("À revoir") + ".", "Chaque réponse compte dans la révision espacée (voir plus bas). Tes réponses sont gardées avec ta progression."])
+      ]),
+      rubriqueAide("cerveau", "La révision du jour", [
+        el("p", { text: "Sur l’accueil, la tuile " + guill("À réviser aujourd’hui") + " réunit en une seule file les cartes des leçons que tu as vues et les questions que tu as ratées. Elle disparaît quand il n’y a rien à réviser." }),
+        listeAide([
+          "Une carte ou une question à la fois. Tu retournes, puis tu touches " + guill("Je savais") + " ou " + guill("À revoir") + ". Une séance compte 20 éléments au plus.",
+          guill("Je savais") + " fait passer l’élément à la boîte suivante, qui revient plus tard" + N + ": après 1, 3, 7, 16 puis 35" + N + "jours (cinq boîtes). " + guill("À revoir") + " le remet en première boîte, à revoir demain.",
+          "Une question ratée sort de ta liste d’erreurs quand elle atteint la troisième boîte.",
+          ["Chaque bonne réponse rapporte ", gainAide(1), " au plus une fois par jour pour un même élément."]
+        ]),
+        el("p", { text: "Cette révision n’utilise pas l’IA et ne consomme aucune limite." })
+      ]),
+      rubriqueAide("medaille", "Série et badges", [
+        el("p", { text: "Un jour compte dans ta série quand tu termines une leçon, une révision, un quiz ou la question du jour. La tuile " + guill("Série") + " montre les jours de suite et la semaine en cours." }),
+        el("p", { text: "Les badges sont dans ton Profil. Chacun se calcule sur ce que tu as vraiment fait" + N + ": leçons terminées, premier module, niveau Bases, séries de 3, 7 et 30" + N + "jours, cartes révisées, premier duel ou salon, première partie en direct, 1" + F + "000" + N + "XP. Les badges obtenus sont en couleur, les autres en gris avec leur condition." })
+      ]),
+      rubriqueAide("ampoule", "Explique-moi simplement", [
+        el("p", { text: "Sous le titre d’une leçon, choisis " + guill("Normal") + ", " + guill("Simple") + " ou " + guill("Expert") + "." }),
+        listeAide([
+          [guill("Simple") + N + ": phrases très courtes, mots courants, une analogie par idée, aucun jargon."],
+          [guill("Expert") + N + ": plus précis, avec les chiffres, les nuances et les débats que disent les sources."],
+          "Le texte de l’en-bref et des explications est réécrit par l’IA à partir de la leçon et de ses sources, puis contrôlé par une 2e IA" + F + "; une phrase non confirmée est retirée. Le reste de la leçon ne change pas.",
+          "Ton choix reste pour la session. Une version déjà écrite s’ouvre tout de suite, pour tout le monde. Les cours vérifiés à la main n’ont pas ce choix."
+        ])
       ]),
       rubriqueAide("carnet", "Le glossaire", [
         el("p", { text: "Dans chaque formation, l’onglet Glossaire réunit les mots définis dans les leçons déjà faites. Une recherche t’aide à retrouver un mot." })
@@ -2575,7 +2862,7 @@
       ]),
       rubriqueAide("diplome", "L’XP", [
         el("p", { text: "Tu gagnes de l’XP en avançant" + N + ":" }),
-        listeAide([["Une leçon terminée" + N + ": ", gainAide(XP.palier)], ["Une bonne réponse à la question de vérification d’une leçon" + N + ": ", gainAide(XP.verif)], ["Une bonne réponse de quiz" + N + ": ", gainAide(XP.quiz)], ["Une bonne réponse de grand quiz" + N + ": ", gainAide(XP.defi)], ["Une bonne réponse dans un mini‑jeu" + N + ": ", gainAide(XP.jeu * 2)]]),
+        listeAide([["Une leçon terminée" + N + ": ", gainAide(XP.palier)], ["Une bonne réponse à la question de vérification d’une leçon" + N + ": ", gainAide(XP.verif)], ["Une bonne réponse de quiz" + N + ": ", gainAide(XP.quiz)], ["Une bonne réponse de grand quiz" + N + ": ", gainAide(XP.defi)], ["Une bonne réponse dans un mini‑jeu" + N + ": ", gainAide(XP.jeu * 2)], ["Un élément révisé juste dans la révision du jour" + N + ": ", gainAide(1)]]),
         el("p", { text: "Une mauvaise réponse ne rapporte rien. Une question ne rapporte de l’XP qu’une seule fois. Les niveaux demandent de plus en plus d’XP." })
       ]),
       rubriqueAide("verifie", "D’où viennent les informations", [
@@ -2588,7 +2875,7 @@
       rubriqueAide("cercle", "Avec tes amis", [
         el("p", { text: "L’onglet Amis réunit ce qui se fait à plusieurs. L’onglet Jouer garde le quiz de culture générale, la question du jour, le quiz mélangé et les mini‑jeux." }),
         listeAide([
-          ["Question du jour" + N + ": la même pour tous, sur un thème qui change chaque jour (cinéma, sport, sciences…). Les jours de réponse qui se suivent forment ta série."],
+          ["Question du jour" + N + ": la même pour tous, sur un thème qui change chaque jour (cinéma, sport, sciences…). Elle compte, comme une leçon, une révision ou un quiz, dans ta série de jours."],
           ["Quiz mélangé" + N + ": 10 questions sur tous les sujets."],
           ["Salon" + N + ": un quiz de culture générale que tes amis jouent par un simple lien, sans limite de joueurs. Crée‑le depuis l’onglet Amis, ou touche " + guill("Défier des amis") + " à la fin d’un quiz. Le classement du salon compte " + XP.quiz + N + "points par bonne réponse."],
           ["Tournoi de la semaine" + N + ": 10 questions sur un thème qui change chaque semaine, une seule partie par joueur, du lundi 00" + N + "h au dimanche 23" + N + "h 59 (heure UTC). Ensuite le classement reste visible, mais les scores ne changent plus."],
@@ -2625,8 +2912,8 @@
       ]),
       rubriqueAide("sablier", "Limites", [
         el("p", { text: "Une leçon nouvelle peut prendre jusqu’à une minute la première fois. Ensuite elle s’ouvre tout de suite, pour tout le monde." }),
-        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale. Tu peux aussi prolonger " + pluriel(LIMITES.prolonger, "formation", "formations") + " avec " + guill("Aller plus loin") + "." }),
-        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " et " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
+        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale. Tu peux aussi prolonger " + pluriel(LIMITES.prolonger, "formation", "formations") + " avec " + guill("Aller plus loin") + " et demander " + pluriel(LIMITES.variantes, "version simple ou experte", "versions simples ou expertes") + " de leçons." }),
+        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " , " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " et " + pluriel(LIMITES.variantesTotal, "version réécrite", "versions réécrites") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
         el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites. La question du jour et le tournoi sont écrits une seule fois pour tous et ne comptent pas dans tes limites." }),
         el("p", { text: "Jeu en direct" + N + ": jusqu’à 12 joueurs, mise à jour toutes les 2 secondes. Un groupe de formation compte aussi 12 membres au plus." }),
         el("p", { text: "L’IA peut se tromper." })
@@ -2661,6 +2948,8 @@
       case "nouveau-salon": return vueNouveauSalon(p[1], parseInt(p[2], 10));
       case "groupe": return p[1] ? vueGroupe(p[1]) : vueAmis();
       case "partie": return p[1] ? vuePartie(p[1], p[2] === "rejoindre") : vueAmis();
+      case "reviser": return vueReviser();
+      case "badges": return vueBadges();
       case "jouer": return vueJouer();
       case "amis": return vueAmis();
       case "bibliotheque": return vueBibliotheque();

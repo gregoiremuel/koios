@@ -167,3 +167,11 @@ CREATE TABLE IF NOT EXISTS parties_reponses (
   juste INTEGER,
   PRIMARY KEY (partie, joueur, indice)
 );
+
+-- Leçons réécrites en version « simple » ou « expert » (id = <parcours>:<n>:<mode>), vérifiées par une 2e IA et
+-- partagées entre tous les lecteurs.
+CREATE TABLE IF NOT EXISTS variantes (
+  id TEXT PRIMARY KEY,
+  contenu TEXT,
+  cree TEXT
+);

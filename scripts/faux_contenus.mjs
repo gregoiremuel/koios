@@ -409,6 +409,23 @@ export function quizSimule(demande) {
   return { questions: [...qcms, ...vfs] };
 }
 
+// --- Variante d'une leçon (simple ou expert) ---------------------------------
+
+// Réécrit chaque section du texte actuel donné par la demande : la phrase est reprise avec une tournure du mode
+// (simulé : c'est l'écran qu'on essaie, pas le style). Les sections absentes du texte actuel restent null.
+export function varianteSimulee(demande) {
+  const mode = premier(/Mode demandé : (\w+)/, demande, 'simple');
+  const debut = mode === 'expert' ? 'Plus précisément, ' : 'En clair, ';
+  const sections = { enBref: null, comment: null, pourquoi: null, ouQuand: null };
+  for (const ligne of demande.split('\n')) {
+    const m = /^[^\n(]+ \(clé (enBref|comment|pourquoi|ouQuand)\) : (.*)$/.exec(ligne);
+    if (!m) continue;
+    const phrases = m[2].split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«“"(0-9])/u).filter(Boolean);
+    sections[m[1]] = phrases.map((p, i) => (i === 0 ? debut + p.charAt(0).toLowerCase() + p.slice(1) : p));
+  }
+  return { sections };
+}
+
 // --- Vérification ----------------------------------------------------------
 
 // Les affirmations marquées [rumeur] ne sont pas confirmées ; toutes les autres le sont.
