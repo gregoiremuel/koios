@@ -5,6 +5,8 @@
 //   GET  /api/admin?export=<id>      : titre, programme et leçons écrites du parcours (verification, modele), pour audit.
 //   POST /api/admin {action: 'debloquer', parcours} : met en file toute la formation (leçons des modules ouverts, ouverture des
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
+//   POST /api/admin {action: 'reecrire', parcours} : met en file la réécriture des leçons faibles (statut « partiel » avec plus de 20 % de
+//                                       retraits, ou marquées « à revoir »). La nouvelle version remplace l'ancienne : seul cas où l'on écrase.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
 //   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h UTC).
 //                                       L'état est renvoyé par GET et POST dans `jour`.
@@ -12,7 +14,7 @@ import {
   ErreurHttp, enveloppe, exigerBase, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import {
-  debloquer, definirJournee, definirPause, etatFile, exporterLecons, viderFile,
+  debloquer, definirJournee, definirPause, etatFile, exporterLecons, reecrire, viderFile,
 } from '../../lib/nuit.js';
 
 // 20 mauvais essais par jour et par adresse : au-delà, même la bonne clé est refusée. Les accès réussis ne comptent pas.
@@ -46,6 +48,10 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
   if (corps.action === 'debloquer') {
     const ajoutees = await debloquer(env, corps.parcours);
     return json({ ok: true, ajoutees, ...(await etatFile(env, corps.parcours)) });
+  }
+  if (corps.action === 'reecrire') {
+    const { ajoutees, faibles } = await reecrire(env, corps.parcours);
+    return json({ ok: true, ajoutees, faibles, ...(await etatFile(env, corps.parcours)) });
   }
   if (corps.action === 'pause' || corps.action === 'reprendre') {
     await definirPause(env, corps.action === 'pause');

@@ -806,7 +806,18 @@
     });
     info.className = "meta info-nuit";
     zone.appendChild(el("p", { "class": "meta", text: pluriel(f.pretes, "leçon prête", "leçons prêtes") + " sur " + f.total + (f.ouverts < f.modules ? " · " + pluriel(f.modules - f.ouverts, "module pas encore ouvert", "modules pas encore ouverts") : "") + (f.enFile ? " · " + pluriel(f.enFile, "tâche en file", "tâches en file") : "") }));
-    zone.appendChild(bouton); zone.appendChild(info); zone.appendChild(alerte);
+    /* Leçons faibles (statut « partiel » avec plus de 20 % de retraits, ou « à revoir ») : réécriture mise en file, la nouvelle version remplace l'ancienne. */
+    var reecrire = el("button", { "class": "btn second", type: "button", text: "Réécrire les leçons faibles" });
+    reecrire.addEventListener("click", function () {
+      if (reecrire.disabled) return;
+      reecrire.disabled = true; alerte.hidden = true;
+      api("POST", "admin", { action: "reecrire", parcours: p.id }, 30000).then(function (r) {
+        afficherAdminFormation(p, zone, r);
+        var n = (r.faibles || []).length, i2 = zone.querySelector(".info-nuit");
+        if (i2) { i2.textContent = n ? pluriel(r.ajoutees || 0, "réécriture mise en file", "réécritures mises en file") + " sur " + pluriel(n, "leçon faible", "leçons faibles") + ". La nouvelle version remplace l’ancienne." : "Aucune leçon faible."; i2.hidden = false; }
+      }, function (e) { reecrire.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
+    });
+    zone.appendChild(bouton); zone.appendChild(reecrire); zone.appendChild(info); zone.appendChild(alerte);
     /* Export pour audit : l'en-tête x-admin-cle part avec la requête (api), le fichier ne contient aucune clé. */
     var telecharger = el("button", { "class": "btn second", type: "button", text: "Télécharger les leçons prêtes" });
     telecharger.addEventListener("click", function () {

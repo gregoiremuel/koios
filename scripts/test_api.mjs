@@ -137,7 +137,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -214,7 +214,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets', 'variantes']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sources_cache', 'sujets', 'variantes']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
@@ -853,7 +853,7 @@ function insererChapitre(sujetId, numero, titre = `Chapitre ${numero}`) {
 const toutVoir = () => { toutVider(); reinitWiki(); reinitExt(); };
 // Repart d'une bibliothèque vide en gardant les joueurs.
 const viderBibliotheque = () => {
-  for (const t of ['quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons']) db.base.exec(`DELETE FROM ${t}`);
+  for (const t of ['quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'sources_cache']) db.base.exec(`DELETE FROM ${t}`);
   reinitWiki();
   reinitExt();
 };
@@ -2356,7 +2356,7 @@ const fauxCompat = (pannes) => (u, init) => {
 };
 const appelCompat = (famille, env = COMPAT_TEST[famille].env) => tousLesFournisseurs(env).find((f) => f.famille === famille).appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
 
-test('fournisseurs : ordre de rédaction gemini, cerebras, groq, mistral, glm, grok, llama ; vérification cerebras, groq, mistral, gemini, glm, grok, workers-ai', async () => {
+test('fournisseurs : ordre de rédaction gemini, cerebras, groq, mistral, glm, grok, llama ; vérification gemini, cerebras, groq, mistral, glm, grok, workers-ai', async () => {
   reinitExt();
   const fam = (l) => l.map((f) => f.famille);
   const rl = redacteurs(TOUS);
@@ -2366,14 +2366,14 @@ test('fournisseurs : ordre de rédaction gemini, cerebras, groq, mistral, glm, g
   assert.deepEqual(fam(tousLesFournisseurs(TOUS)), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
   // Vérification : autre famille que le rédacteur, dans l'ordre fixé.
   assert.deepEqual(fam(verificateurs(TOUS, rl[0])), ['cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(fam(verificateurs(TOUS, rl[1])), ['groq', 'mistral', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(fam(verificateurs(TOUS, rl[2])), ['cerebras', 'mistral', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(fam(verificateurs(TOUS, rl[3])), ['cerebras', 'groq', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(fam(verificateurs(TOUS, rl[5])), ['cerebras', 'groq', 'mistral', 'gemini', 'glm', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[1])), ['gemini', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[2])), ['gemini', 'cerebras', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[3])), ['gemini', 'cerebras', 'groq', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[5])), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'workers-ai', 'workers-ai']);
   // Workers AI : son Mistral reste dans la famille 'workers-ai', distincte de la famille 'mistral' (API) : il ne vérifie pas le Llama de Workers AI
   // sous le même nom, et le Mistral de l'API ne vérifie pas un autre modèle Mistral de l'API.
   const verifLlama = verificateurs(TOUS, rl[6]);
-  assert.deepEqual(verifLlama.map((f) => f.famille + ':' + f.modele), ['cerebras:gpt-oss-120b', 'groq:llama-3.3-70b-versatile', 'mistral:mistral-medium-latest', 'gemini:gemini-3-flash-preview', 'glm:glm-4.7-flash', 'grok:grok-3-mini', 'workers-ai:' + MISTRAL]);
+  assert.deepEqual(verifLlama.map((f) => f.famille + ':' + f.modele), ['gemini:gemini-3-flash-preview', 'cerebras:gpt-oss-120b', 'groq:llama-3.3-70b-versatile', 'mistral:mistral-medium-latest', 'glm:glm-4.7-flash', 'grok:grok-3-mini', 'workers-ai:' + MISTRAL]);
   assert.ok(!fam(verificateurs(TOUS, rl[3])).includes('mistral'));
   // Clé absente : fournisseur absent (rédaction, vérification, diagnostic).
   for (const f of ['cerebras', 'groq', 'mistral']) {
@@ -3066,8 +3066,9 @@ test('prompts v2 : français, JSON strict, faits des extraits seulement, défini
     assert.ok(PROMPT_PALIER.includes(mot), mot);
   }
   for (const mot of ['etape', 'paliers', 'resume', 'motImage', 'anglais', '10 titres']) assert.ok(PROMPT_ETAPE.includes(mot), mot);
-  assert.match(PROMPT_VERIFICATION, /nonConfirmees/);
-  assert.match(PROMPT_VERIFICATION, /Ce que tu sais en dehors des extraits ne compte pas/);
+  assert.match(PROMPT_VERIFICATION, /verdicts/);
+  assert.match(PROMPT_VERIFICATION, /vrai[\s\S]*faux[\s\S]*incertain/);
+  assert.match(PROMPT_VERIFICATION, /extraits ET tes connaissances sûres/);
   assert.match(PROMPT_VERIFICATION, /UN SEUL objet JSON strict/);
   assert.match(PROMPT_QUIZ, /10 questions/);
   // Les exemples respectent leurs propres règles.
@@ -4212,7 +4213,8 @@ test('palier GET : sans vérification possible, ou palier sans « en bref », ou
   const sc4 = scenario({ ...partiesStandard(), verif: [verifNumeros(1, 2, 3), verifNumeros()] });
   ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc4));
   assert.equal(sc4.appels.length, 4);
-  // Wikipédia injoignable : aucune source, l’IA n’écrit pas.
+  // Wikipédia injoignable : aucune source, l’IA n’écrit pas (le cache des sources est vide).
+  db.base.exec('DELETE FROM sources_cache');
   wiki.panne = 500;
   const sc5 = scenario(partiesStandard());
   erreurFr(await lirePalier(j, 'la-tour-eiffel', 2, sc5), 502, /sources/);
@@ -4449,7 +4451,7 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   const scJ = scenario(partiesStandard());
   const ai = { run: (modele, entree) => { jetons.push(entree.max_tokens); return scJ.ai.run(modele, entree); } };
   ok200(await lirePalier(j, 'la-tour-eiffel', 2, scJ, { AI: ai }));
-  assert.deepEqual(jetons, [2200, 2200, 400], 'deux moitiés de 2 200 jetons, vérification de 400');
+  assert.deepEqual(jetons, [2200, 2200, 700], 'deux moitiés de 2 200 jetons, vérification de 700');
 });
 
 test('leçon : les termes déjà définis par les leçons précédentes sont fournis (200 au plus, noms seulement), pas les suivantes', async () => {
@@ -4939,7 +4941,7 @@ test('leçon : une moitié B lente ou invalide ne bloque pas ; au moins une ques
   const sc = scenario({ ...partiesStandard(), leconB: [sansQuestion], leconB2: [court] });
   const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
   ok200(r);
-  assert.deepEqual(sc.appels.map((a) => a.etape), ['lecon', 'leconB', 'leconB', 'leconB2', 'verif'], 'B essaie Llama puis Mistral, puis la version courte');
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['lecon', 'leconB', 'leconB2', 'verif'], 'B échoue chez Llama : sa version courte est écrite par le même modèle (jamais un autre rédacteur)');
   const p = r.corps.palier;
   assert.equal(p.questions.length, 2);
   assert.deepEqual([p.frise, p.chiffres, p.notions, p.cartes], [[], [], null, []]);
@@ -5002,7 +5004,7 @@ test('leçon : les deux moitiés partent ensemble (parallèle), même contexte ;
   assert.equal(r2.corps.palier.verification.retirees, 1, 'seule la carte de B est dans l’appel B ; le rappel vient de A (sain)');
 });
 
-test('leçon : la vérification est légère (400 jetons, extraits tronqués à 5 000 caractères)', async () => {
+test('leçon : la vérification est légère (700 jetons, extraits tronqués à 5 000 caractères)', async () => {
   const j = await prepareProgramme();
   const grosse = 'Phrase longue sur la tour. '.repeat(500); // 13 500 caractères
   for (const cle of Object.keys(wiki.pages)) wiki.pages[cle].texte = grosse;
@@ -5036,7 +5038,8 @@ test('leçon : la cause de l’échec s’affiche dans le message 502 (délai, r
     erreurFr(r4, 502, /\(cause : délai dépassé\)/);
     assert.ok(!/undefined|Error|stack/i.test(message(r4)), 'texte seulement, rien de technique');
   });
-  // Sources injoignables.
+  // Sources injoignables (le cache des sources est vide).
+  db.base.exec('DELETE FROM sources_cache');
   wiki.panne = 500;
   erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, scenario(partiesStandard())), 502, /\(cause : sources injoignables\)/);
   wiki.panne = null;

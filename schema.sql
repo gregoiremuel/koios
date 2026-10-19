@@ -189,3 +189,11 @@ CREATE TABLE IF NOT EXISTS file_attente (
   maj TEXT,
   UNIQUE (parcours, type, numero)
 );
+
+-- Extraits encyclopédiques (Wikipédia FR, EN si le français est maigre) donnés au rédacteur et au vérificateur d'une leçon,
+-- gardés 30 jours. cle = ancre:<requête>|<titre voulu> (recherche) ou page:<langue>:<titre> (page de référence).
+CREATE TABLE IF NOT EXISTS sources_cache (
+  cle TEXT PRIMARY KEY,
+  contenu TEXT,
+  cree TEXT
+);

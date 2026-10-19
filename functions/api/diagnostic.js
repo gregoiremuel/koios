@@ -1,6 +1,6 @@
-// GET /api/diagnostic?cle=<DIAG_KEY> : essaie chaque IA configurée (gemini, cerebras, groq, mistral, glm, grok, llama, mistral de Workers AI)
+// GET /api/diagnostic?cle=<DIAG_KEY> : essaie chaque IA configurée (claude, gemini, cerebras, groq, mistral, glm, grok, llama, mistral de Workers AI)
 // avec une question minuscule et rapporte l'état (durée, extrait court). Pour tous sauf Workers AI, `couple` = (url, modèle) qui a répondu.
-// `geminiCle`, `cerebrasCle`, `groqCle`, `mistralCle`, `glmCle`, `grokCle` : présence de chaque clé (jamais sa valeur).
+// `claudeCle`, `geminiCle`, `cerebrasCle`, `groqCle`, `mistralCle`, `glmCle`, `grokCle` : présence de chaque clé (jamais sa valeur).
 // Pour Gemini, Cerebras, Groq et Mistral, `erreursModeles` donne l'erreur (code et message court) de CHAQUE modèle candidat essayé ; pour Grok, l'état « cle-invalide »
 // (401 sur tous les couples) vaut un fournisseur ignoré pendant 1 heure.
 // `modelesGemini` et `modelesCompat` (cerebras, groq, mistral) : l'état de chaque modèle de la cascade (ok, epuise jusqu'à tel instant,
@@ -8,7 +8,7 @@
 // Protégé par le secret DIAG_KEY (aucune clé n'est affichée, ni dans les adresses, ni dans les erreurs).
 import { ErreurHttp, enveloppe, json, secretsEgaux } from '../../lib/api.js';
 import {
-  LLAMA, MISTRAL, cleCerebras, cleGLM, cleGemini, cleGrok, cleGroq, cleMistral, etatModelesCompat, etatModelesGemini, nomsEpuises, nomsIgnores,
+  LLAMA, MISTRAL, cleCerebras, cleClaude, cleGLM, cleGemini, cleGrok, cleGroq, cleMistral, etatModelesCompat, etatModelesGemini, nomsEpuises, nomsIgnores,
   tousLesFournisseurs,
 } from '../../lib/fournisseurs.js';
 
@@ -42,10 +42,11 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   // Clé par l'en-tête x-diag-cle (préféré) ou par l'adresse (conservé pour l'instant) ; comparaison à temps constant.
   const cle = request.headers.get('x-diag-cle') || new URL(request.url).searchParams.get('cle') || '';
   if (!(await secretsEgaux(cle, env.DIAG_KEY))) throw new ErreurHttp(404, 'Introuvable.');
-  const secrets = [env.GEMINI_API_KEY, env.CEREBRAS_API_KEY, env.GROQ_API_KEY, env.MISTRAL_API_KEY, env.GLM_API_KEY, env.GROK_API_KEY].map((c) => (typeof c === 'string' ? c.trim() : ''));
+  const secrets = [env.CLAUDE_API_KEY, env.GEMINI_API_KEY, env.CEREBRAS_API_KEY, env.GROQ_API_KEY, env.MISTRAL_API_KEY, env.GLM_API_KEY, env.GROK_API_KEY].map((c) => (typeof c === 'string' ? c.trim() : ''));
   const resultats = [];
   for (const f of tousLesFournisseurs(env, { complet: true })) resultats.push(await essai(f, secrets));
   return json({
+    claudeCle: cleClaude(env),
     geminiCle: cleGemini(env),
     cerebrasCle: cleCerebras(env),
     groqCle: cleGroq(env),
