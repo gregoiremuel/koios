@@ -2,11 +2,11 @@
 import {
   ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, pseudoValide,
 } from '../../lib/api.js';
+import { compterFaits } from '../../lib/groupes.js';
 
 const TONS = ['taquin', 'sobre'];
 const MAX_OCTETS = 64 * 1024;
 const XP_MAX = 1000000;
-const PALIERS_PAR_PARCOURS = 500;
 const PALIERS_MAX = 100000;
 
 async function joueurConnecte(request, env) {
@@ -20,22 +20,6 @@ async function joueurConnecte(request, env) {
 function bornerXp(valeur) {
   if (typeof valeur !== 'number' || !Number.isFinite(valeur)) return 0;
   return Math.min(XP_MAX, Math.max(0, Math.floor(valeur)));
-}
-
-// Paliers terminés d'un parcours (`fait`) : liste de numéros, objet {numéro: vrai} ou nombre. 500 au plus.
-function compterFaits(fait) {
-  const numero = (v) => {
-    const n = typeof v === 'string' && /^\d{1,3}$/.test(v) ? Number(v) : v;
-    return Number.isInteger(n) && n >= 1 && n <= PALIERS_PAR_PARCOURS ? n : null;
-  };
-  if (Array.isArray(fait)) return new Set(fait.map(numero).filter((n) => n !== null)).size;
-  if (fait && typeof fait === 'object') {
-    return Object.entries(fait).filter(([cle, v]) => v && numero(cle) !== null).length;
-  }
-  if (typeof fait === 'number' && Number.isFinite(fait)) {
-    return Math.min(PALIERS_PAR_PARCOURS, Math.max(0, Math.floor(fait)));
-  }
-  return 0;
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {

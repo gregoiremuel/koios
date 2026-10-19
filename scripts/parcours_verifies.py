@@ -26,6 +26,7 @@ MOTS_IMAGE = {
 # Photo imposée, facultative : { src, credit, lien } (vide = on cherche avec motImage). Elle prime sur la recherche ;
 # à remplir à la main dans app/contenu/parcours/v-xx.json, ou ici pour qu'elle survive à une régénération.
 IMAGES_FIXES = {dom: {"src": "", "credit": "", "lien": ""} for dom in MOTS_IMAGE}
+IMAGES_FIXES["gj"] = {"src": "contenu/images/rubis.jpg", "credit": "Photo : Grégoire Muel", "lien": ""}
 
 
 def explication(t):

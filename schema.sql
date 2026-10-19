@@ -121,3 +121,49 @@ CREATE TABLE IF NOT EXISTS salons (
   fin TEXT,
   cree TEXT
 );
+
+-- Formation à plusieurs : un groupe suit une formation (parcours). La progression des membres est lue dans joueurs.etat.
+CREATE TABLE IF NOT EXISTS groupes (
+  id TEXT PRIMARY KEY,
+  nom TEXT,
+  parcours TEXT,
+  createur TEXT,
+  cree TEXT
+);
+
+CREATE TABLE IF NOT EXISTS groupe_membres (
+  groupe TEXT,
+  joueur TEXT,
+  rejoint TEXT,
+  PRIMARY KEY (groupe, joueur)
+);
+
+-- Jeu en direct : une partie (code de 6 caractères), ses joueurs et leurs réponses. L'état courant se déduit de
+-- debut_question et de l'horloge du serveur à chaque lecture (aucune tâche de fond).
+CREATE TABLE IF NOT EXISTS parties (
+  id TEXT PRIMARY KEY,
+  createur TEXT,
+  titre TEXT,
+  questions TEXT,
+  etat TEXT,
+  indice INTEGER,
+  debut_question INTEGER,
+  cree TEXT
+);
+
+CREATE TABLE IF NOT EXISTS parties_joueurs (
+  partie TEXT,
+  joueur TEXT,
+  points INTEGER,
+  PRIMARY KEY (partie, joueur)
+);
+
+CREATE TABLE IF NOT EXISTS parties_reponses (
+  partie TEXT,
+  joueur TEXT,
+  indice INTEGER,
+  choix INTEGER,
+  ms INTEGER,
+  juste INTEGER,
+  PRIMARY KEY (partie, joueur, indice)
+);

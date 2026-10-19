@@ -55,7 +55,7 @@ const FIN_MAX_JOURS = 31;
 
 // 5 à 20 questions (50 pour un salon) {chapitre: "ia:<sujet>:<k>" (chapitre IA), "hg-01" (chapitre vérifié), "<parcours>:<k>"
 // (palier), "<parcours>:quiz" (quiz direct) ou "qg:<slug>:<k>" (bloc de culture générale), index}.
-function validerQuestions(brut, type = 'duel') {
+export function validerQuestions(brut, type = 'duel') {
   const max = MAX_QUESTIONS[type];
   if (!Array.isArray(brut) || brut.length < 5 || brut.length > max) {
     throw new ErreurHttp(400, `Un ${type} compte de 5 à ${max} questions.`);
@@ -90,7 +90,7 @@ function lireJSONColonne(texte, parDefaut) {
 
 const inconnue = () => new ErreurHttp(400, 'Question inconnue : chapitre absent de la bibliothèque.');
 
-async function verifierReferences(env, questions) {
+export async function verifierReferences(env, questions) {
   const marque = (ids) => ids.map(() => '?').join(', ');
   const chapitres = [...new Set(questions.map((q) => q.chapitre).filter((c) => lireIdChapitre(c)))];
   if (chapitres.length) {

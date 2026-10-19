@@ -54,6 +54,12 @@ import { onRequestPost as quizDirectPost } from '../functions/api/quiz-direct.js
 import { onRequestGet as quizGeneralGet, onRequestPost as quizGeneralPost } from '../functions/api/quiz-general.js';
 import { onRequestGet as jourGet } from '../functions/api/jour.js';
 import { onRequestGet as tournoiGet } from '../functions/api/tournoi.js';
+import { onRequestGet as groupeGet, onRequestPost as groupePost } from '../functions/api/groupe.js';
+import { onRequestGet as partieGet, onRequestPost as partiePost } from '../functions/api/partie.js';
+import {
+  CYCLE, DUREE_QUESTION, SQL_POINTS, avancer, codePartie, lireCode, pointsReponse,
+} from '../lib/parties.js';
+import { classerMembres, lireSuivi } from '../lib/groupes.js';
 import {
   THEMES, classer, finDeSemaine, jourUtc, lireIdBloc, lireRefQg, lundiDe, themeDeLaSemaine, themeDuJour,
 } from '../lib/general.js';
@@ -113,7 +119,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -163,6 +169,10 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
     [quizGeneralGet, { requete: '?bloc=phares:1' }],
     [jourGet, {}],
     [tournoiGet, {}],
+    [groupeGet, { requete: '?id=abcd1234' }],
+    [groupePost, { methode: 'POST', jeton, corps: { nom: 'Les phares', parcours: 'phares' } }],
+    [partieGet, { requete: '?id=ABCDEF' }],
+    [partiePost, { methode: 'POST', jeton, corps: { action: 'rejoindre', id: 'ABCDEF' } }],
   ];
   for (const [handler, options] of cas) {
     const rep = await appel(handler, { ...options, env: sansBase });
@@ -185,7 +195,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'images', 'joueurs', 'paliers', 'parcours', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
@@ -201,6 +211,11 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(colonnes('quiz_direct'), ['parcours', 'contenu', 'cree']);
   assert.deepEqual(colonnes('quiz_general'), ['id', 'sujet', 'bloc', 'contenu', 'cree']);
   assert.deepEqual(colonnes('salons'), ['id', 'titre', 'type', 'fin', 'cree']);
+  assert.deepEqual(colonnes('groupes'), ['id', 'nom', 'parcours', 'createur', 'cree']);
+  assert.deepEqual(colonnes('groupe_membres'), ['groupe', 'joueur', 'rejoint']);
+  assert.deepEqual(colonnes('parties'), ['id', 'createur', 'titre', 'questions', 'etat', 'indice', 'debut_question', 'cree']);
+  assert.deepEqual(colonnes('parties_joueurs'), ['partie', 'joueur', 'points']);
+  assert.deepEqual(colonnes('parties_reponses'), ['partie', 'joueur', 'indice', 'choix', 'ms', 'juste']);
 });
 
 test('quota : compte, refuse au-delà, repart à zéro le lendemain', async () => {
@@ -5235,6 +5250,629 @@ test('worker : le motif de route accepte le tiret ; adresses inconnues 404, mét
   assert.deepEqual(await via('/'), { statut: 200, corps: 'fichier /' });
 });
 
+// =============================================================================
+// Formation à plusieurs (groupes) et jeu en direct (parties)
+// =============================================================================
+
+const semerFormation = (id = 'les-phares', titre = 'Les phares') => db.base.prepare(
+  'INSERT OR REPLACE INTO parcours (id, titre, contenu, auteur, vues, cree) VALUES (?, ?, ?, ?, 0, ?)',
+).run(id, titre, '{}', 'x', 'now');
+const postGroupe = (joueur, corps, requete = '', e = env) => appel(groupePost, { env: e, methode: 'POST', jeton: joueur && joueur.jeton, corps, requete });
+const getGroupe = (id, joueur) => appel(groupeGet, { requete: '?id=' + id, jeton: joueur && joueur.jeton });
+const suivreProgres = async (joueur, parcours, suivi, xp = 0) => ok200(await appel(progressionPut, {
+  methode: 'PUT', jeton: joueur.jeton, corps: { pseudo: joueur.pseudo, etat: { version: 2, xp, parcours: { [parcours]: suivi } } },
+}));
+
+test('groupe POST : création (connexion, nom 2 à 40, formation existante), le créateur est inscrit', async () => {
+  toutVider();
+  semerFormation();
+  const a = await creerJoueur('Alice');
+  erreurFr(await postGroupe(null, { nom: 'Les phares', parcours: 'les-phares' }), 401);
+  for (const nom of [undefined, null, '', 'x', '   ', 12, ['a'], 'x'.repeat(41)]) {
+    erreurFr(await postGroupe(a, { nom, parcours: 'les-phares' }), 400, /Nom de groupe/);
+  }
+  for (const parcours of [undefined, null, 5, '', 'Les Phares', 'a b', 'x'.repeat(41), '../etc']) {
+    erreurFr(await postGroupe(a, { nom: 'Les phares', parcours }), 400, /Formation attendue/);
+  }
+  erreurFr(await postGroupe(a, { nom: 'Les phares', parcours: 'inconnue' }), 404, /n’existe pas/);
+  erreurFr(await postGroupe(a, { nom: 'Les phares', parcours: 'v-zz' }), 404);
+  assert.equal(lignes('SELECT * FROM groupes').length, 0);
+  const r = await postGroupe(a, { nom: '  Les   phares  entre amis ', parcours: 'les-phares' });
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['id']);
+  assert.match(r.corps.id, /^[a-z0-9]{8}$/);
+  assert.deepEqual(lignes('SELECT nom, parcours, createur FROM groupes'), [{ nom: 'Les phares entre amis', parcours: 'les-phares', createur: a.id }]);
+  assert.deepEqual(lignes('SELECT groupe, joueur FROM groupe_membres'), [{ groupe: r.corps.id, joueur: a.id }]);
+  erreurFr(await appel(groupePost, { methode: 'POST', jeton: a.jeton, corps: { id: r.corps.id } }), 400, /Action inconnue/);
+  erreurFr(await appel(groupePost, { methode: 'POST', jeton: a.jeton, brut: '{pas du json' }), 400);
+});
+
+test('groupe POST : une formation vérifiée du catalogue est acceptée quand le catalogue répond', async () => {
+  toutVider();
+  const a = await creerJoueur('Alice');
+  const catalogue = { parcours: [{ id: 'v-hg', titre: 'Histoire et géographie' }] };
+  const avecAssets = { DB: db, AI: undefined, ASSETS: { fetch: async () => new Response(JSON.stringify(catalogue), { status: 200 }) } };
+  ok200(await postGroupe(a, { nom: 'Histoire à deux', parcours: 'v-hg' }, '', avecAssets));
+  erreurFr(await postGroupe(a, { nom: 'Histoire à deux', parcours: 'v-ab' }, '', avecAssets), 404);
+  const casse = { DB: db, AI: undefined, ASSETS: { fetch: async () => new Response('<html>', { status: 200 }) } };
+  erreurFr(await postGroupe(a, { nom: 'Histoire à deux', parcours: 'v-hg' }, '', casse), 404);
+  erreurFr(await postGroupe(a, { nom: 'Histoire à deux', parcours: 'v-hg' }), 404);
+});
+
+test('groupe POST : quota de créations par jour et plafond de groupes suivis', async () => {
+  toutVider();
+  semerFormation();
+  const a = await creerJoueur('Alice');
+  for (let i = 0; i < 10; i++) ok200(await postGroupe(a, { nom: 'Groupe ' + i, parcours: 'les-phares' }));
+  erreurFr(await postGroupe(a, { nom: 'Groupe de trop', parcours: 'les-phares' }), 429, /Reviens demain/);
+  db.base.exec("DELETE FROM quotas");
+  for (let i = 10; i < 20; i++) ok200(await postGroupe(a, { nom: 'Groupe ' + i, parcours: 'les-phares' }));
+  db.base.exec("DELETE FROM quotas");
+  erreurFr(await postGroupe(a, { nom: 'Le vingt et unième', parcours: 'les-phares' }), 409, /20 groupes/);
+  const b = await creerJoueur('Bob');
+  const id = lignes('SELECT id FROM groupes LIMIT 1')[0].id;
+  ok200(await postGroupe(b, { id, rejoindre: true }));
+  const liste = await appel(groupeGet, { jeton: a.jeton });
+  assert.equal(liste.corps.groupes.length, 20);
+});
+
+test('groupe POST : rejoindre (corps ou ?action=), idempotent, plafond de 12, quitter, groupe vide supprimé', async () => {
+  toutVider();
+  semerFormation();
+  const a = await creerJoueur('Alice');
+  const id = (await postGroupe(a, { nom: 'Les phares', parcours: 'les-phares' })).corps.id;
+  const autres = [];
+  for (let i = 0; i < 11; i++) autres.push(await creerJoueur('Joueur' + i));
+  // Rejoindre : par le corps et par l'adresse.
+  erreurFr(await postGroupe(null, { id, rejoindre: true }), 401);
+  erreurFr(await postGroupe(autres[0], { id: 'court', rejoindre: true }), 400, /8 caractères/);
+  erreurFr(await postGroupe(autres[0], { id: 'abcdefgh', rejoindre: true }), 404);
+  assert.deepEqual((await postGroupe(autres[0], { id, rejoindre: true })).corps, { ok: true, id });
+  assert.deepEqual((await postGroupe(autres[1], undefined, `?id=${id}&action=rejoindre`)).corps, { ok: true, id });
+  assert.deepEqual((await postGroupe(autres[1], undefined, `?id=${id}&action=rejoindre`)).corps, { ok: true, id, dejaMembre: true });
+  assert.equal(lignes('SELECT * FROM groupe_membres').length, 3);
+  for (const j of autres.slice(2, 11)) ok200(await postGroupe(j, { id, rejoindre: true }));
+  assert.equal(lignes('SELECT * FROM groupe_membres').length, 12);
+  // Le 13e est refusé, un membre qui revient est reconnu.
+  const treize = await creerJoueur('Treize');
+  erreurFr(await postGroupe(treize, { id, rejoindre: true }), 409, /complet : 12 membres/);
+  assert.equal((await postGroupe(autres[0], { id, rejoindre: true })).corps.dejaMembre, true);
+  let g = (await getGroupe(id)).corps.groupe;
+  assert.deepEqual([g.membres, g.complet, g.max], [12, true, 12]);
+  // Quitter libère une place.
+  ok200(await postGroupe(autres[0], { id, quitter: true }));
+  ok200(await postGroupe(autres[0], undefined, `?id=${id}&action=quitter`)); // déjà parti : rien ne casse
+  g = (await getGroupe(id)).corps.groupe;
+  assert.deepEqual([g.membres, g.complet], [11, false]);
+  ok200(await postGroupe(treize, { id, rejoindre: true }));
+  erreurFr(await postGroupe(autres[0], { id, rejoindre: true }), 409, /complet/);
+  erreurFr(await postGroupe(treize, { id: 'abcdefgh', quitter: true }), 404);
+  // Le dernier qui part éteint le groupe.
+  for (const j of [a, ...autres.slice(1), treize]) ok200(await postGroupe(j, { id, quitter: true }));
+  assert.equal(lignes('SELECT * FROM groupes').length, 0);
+  assert.equal(lignes('SELECT * FROM groupe_membres').length, 0);
+  erreurFr(await getGroupe(id), 404);
+});
+
+test('groupe GET : lecture publique, progression du groupe, rangs, aucun identifiant ni clé qui fuit', async () => {
+  toutVider();
+  semerFormation();
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const c = await creerJoueur('Camille');
+  const id = (await postGroupe(a, { nom: 'Les phares', parcours: 'les-phares' })).corps.id;
+  ok200(await postGroupe(b, { id, rejoindre: true }));
+  ok200(await postGroupe(c, { id, rejoindre: true }));
+  // Avant tout envoi de progression : trois membres à zéro, à égalité.
+  let g = (await getGroupe(id)).corps.groupe;
+  assert.deepEqual(g.classement.map((m) => [m.rang, m.pseudo, m.lecons, m.xp, m.activite]), [[1, 'Alice', 0, 0, null], [1, 'Bob', 0, 0, null], [1, 'Camille', 0, 0, null]]);
+  // L'envoi existant de la progression suffit : le groupe lit joueurs.etat.
+  await suivreProgres(a, 'les-phares', { titre: 'Les phares', fait: 4, xp: 120, date: '2026-10-19T10:00:00.000Z' }, 300);
+  await suivreProgres(b, 'les-phares', { fait: [1, 2, 3, 3, 9999, 'x'], xp: 80 }, 80);
+  await suivreProgres(c, 'autre-formation', { fait: 12, xp: 500 }, 500); // une autre formation ne compte pas ici
+  const r = await getGroupe(id, b);
+  ok200(r);
+  g = r.corps.groupe;
+  assert.deepEqual(Object.keys(g), ['id', 'nom', 'parcours', 'parcoursTitre', 'createur', 'max', 'complet', 'dejaMembre', 'membres', 'classement']);
+  assert.deepEqual([g.nom, g.parcours, g.parcoursTitre, g.createur, g.dejaMembre, g.membres], ['Les phares', 'les-phares', 'Les phares', 'Alice', true, 3]);
+  assert.deepEqual(g.classement, [
+    { rang: 1, pseudo: 'Alice', lecons: 4, xp: 120, activite: '2026-10-19T10:00:00.000Z' },
+    { rang: 2, pseudo: 'Bob', lecons: 3, xp: 80, activite: null, moi: true },
+    { rang: 3, pseudo: 'Camille', lecons: 0, xp: 0, activite: null },
+  ]);
+  // Public : sans connexion, mêmes membres, pas de « moi », dejaMembre faux.
+  const publique = await getGroupe(id);
+  assert.equal(publique.corps.groupe.dejaMembre, false);
+  assert.ok(publique.corps.groupe.classement.every((m) => !('moi' in m)));
+  // Aucune fuite : ni identifiant de joueur, ni clé, ni hash dans la réponse.
+  const tout = JSON.stringify([r.corps, publique.corps]);
+  for (const j of [a, b, c]) {
+    assert.ok(!tout.includes(j.id), 'identifiant de joueur');
+    assert.ok(!tout.includes(j.cle), 'clé');
+  }
+  for (const h of lignes('SELECT cle_hash FROM joueurs')) assert.ok(!tout.includes(h.cle_hash));
+  assert.ok(!/"(id|joueur|createur_id|jid)":"[a-z0-9]{12}"/.test(tout));
+  erreurFr(await getGroupe('nimportequoi'), 400, /8 caractères/);
+  erreurFr(await getGroupe('abcdefgh'), 404);
+  // Égalité parfaite : même rang ; départage par les leçons puis l'XP.
+  await suivreProgres(c, 'les-phares', { fait: 3, xp: 80 }, 80);
+  g = (await getGroupe(id)).corps.groupe;
+  assert.deepEqual(g.classement.map((m) => [m.rang, m.pseudo]), [[1, 'Alice'], [2, 'Bob'], [2, 'Camille']]);
+  await suivreProgres(c, 'les-phares', { fait: 3, xp: 90 }, 90);
+  assert.deepEqual((await getGroupe(id)).corps.groupe.classement.map((m) => [m.rang, m.pseudo]), [[1, 'Alice'], [2, 'Camille'], [3, 'Bob']]);
+});
+
+test('groupe : un état illisible ou hostile ne casse pas le classement, et tout est borné', async () => {
+  toutVider();
+  semerFormation();
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const id = (await postGroupe(a, { nom: 'Les phares', parcours: 'les-phares' })).corps.id;
+  ok200(await postGroupe(b, { id, rejoindre: true }));
+  db.base.prepare('UPDATE joueurs SET etat = ? WHERE id = ?').run('{pas du json', a.id);
+  await suivreProgres(b, 'les-phares', { fait: 99999, xp: 1e12, date: 'jamais' });
+  const g = (await getGroupe(id)).corps.groupe;
+  assert.deepEqual(g.classement.map((m) => [m.pseudo, m.lecons, m.xp, m.activite]), [['Bob', 500, 1000000, null], ['Alice', 0, 0, null]]);
+  assert.deepEqual(lireSuivi('{"fait":"x","xp":-4,"date":5}'), { lecons: 0, xp: 0, activite: null });
+  assert.deepEqual(lireSuivi(null), { lecons: 0, xp: 0, activite: null });
+  assert.deepEqual(lireSuivi('[1]'), { lecons: 0, xp: 0, activite: null });
+  assert.deepEqual(classerMembres([]), []);
+});
+
+test('groupe GET sans id : mes groupes (connexion), du plus récent au plus ancien', async () => {
+  toutVider();
+  semerFormation();
+  semerFormation('les-volcans', 'Les volcans');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  erreurFr(await appel(groupeGet, {}), 401);
+  const g1 = (await postGroupe(a, { nom: 'Phares', parcours: 'les-phares' })).corps.id;
+  const g2 = (await postGroupe(a, { nom: 'Volcans', parcours: 'les-volcans' })).corps.id;
+  db.base.prepare('UPDATE groupe_membres SET rejoint = ? WHERE groupe = ?').run('2000-01-01T00:00:00.000Z', g1);
+  ok200(await postGroupe(b, { id: g2, rejoindre: true }));
+  const r = await appel(groupeGet, { jeton: a.jeton });
+  assert.deepEqual(r.corps.groupes, [{ id: g2, nom: 'Volcans', parcours: 'les-volcans', membres: 2 }, { id: g1, nom: 'Phares', parcours: 'les-phares', membres: 1 }]);
+  assert.deepEqual((await appel(groupeGet, { jeton: b.jeton })).corps.groupes.map((g) => g.id), [g2]);
+  assert.ok(!JSON.stringify(r.corps).includes(a.id));
+});
+
+// --- Jeu en direct ---
+
+let heure = Date.UTC(2026, 9, 19, 12, 0, 0);
+const envP = { DB: db, AI: undefined, maintenant: () => heure };
+const qcmP = (i) => ({ type: 'qcm', enonce: `Question ${i} ?`, reponses: [`A${i}`, `B${i}`, `C${i}`, `D${i}`], bonne: i % 4, explication: `Explication secrète ${i}.` });
+const vfP = (i) => ({ type: 'vraifaux', affirmation: `Affirmation ${i}.`, vrai: i % 2 === 0, explication: `Explication vrai ou faux ${i}.` });
+// Bloc de 10 questions : 0 à 6 à choix (bonne = i % 4), 7 à 9 vrai ou faux (vrai si i pair, donc 8).
+function semerBlocP(id, extra = {}) {
+  const questions = [...nombres(0, 6).map(qcmP), ...nombres(7, 9).map(vfP)];
+  db.base.prepare('INSERT OR REPLACE INTO quiz_general (id, sujet, bloc, contenu, cree) VALUES (?, ?, ?, ?, ?)')
+    .run(id, 'Sujet test', 1, JSON.stringify({ questions: extra.questions || questions, sources: [], verification: {} }), 'now');
+}
+const refsP = (n = 6, bloc = 'sujet-test:1') => nombres(0, n - 1).map((index) => ({ chapitre: `qg:${bloc}`, index }));
+const postPartie = (joueur, corps) => appel(partiePost, { env: envP, methode: 'POST', jeton: joueur && joueur.jeton, corps });
+const getPartie = async (id, joueur) => {
+  const r = await appel(partieGet, { env: envP, requete: '?id=' + id, jeton: joueur && joueur.jeton });
+  ok200(r);
+  return r.corps.partie;
+};
+async function nouvellePartie(createur, n = 6, titre = 'Partie test') {
+  const r = await postPartie(createur, { action: 'creer', questions: refsP(n), titre });
+  ok200(r);
+  return r.corps.id;
+}
+const reponse = (id, indice, choix) => ({ action: 'repondre', id, indice, choix });
+
+test('partie : code de 6 caractères sans O, 0, I, 1 ; saisie tolérante', async () => {
+  for (let i = 0; i < 300; i++) assert.match(codePartie(), /^[A-HJ-NP-Z2-9]{6}$/);
+  assert.equal(new Set(Array.from({ length: 200 }, codePartie)).size > 190, true);
+  assert.equal(lireCode(' ab c2de '), 'ABC2DE');
+  for (const mauvais of ['ABCDE', 'ABCDEFG', 'ABCDE0', 'ABCDEO', 'ABCDEI', 'ABCDE1', 'ABCDÉF', 12, null, undefined, '']) assert.equal(lireCode(mauvais), null, String(mauvais));
+});
+
+test('partie : points = 100 + bonus de rapidité linéaire sur 20 s (50 au plus), 0 si faux ; le SQL calcule la même chose', async () => {
+  assert.deepEqual([0, 5000, 10000, 15000, 19999, 20000, 99999, -50].map((ms) => pointsReponse(true, ms)), [150, 138, 125, 113, 100, 100, 100, 150]);
+  assert.equal(pointsReponse(false, 0), 0);
+  for (const ms of [0, 1, 199, 200, 201, 5000, 7777, 10000, 19800, 19999, 20000]) {
+    const sql = db.base.prepare(`SELECT ${SQL_POINTS} AS p FROM (SELECT 1 AS juste, ${ms} AS ms) r`).get().p;
+    assert.equal(sql, pointsReponse(true, ms), 'ms = ' + ms);
+  }
+  assert.equal(db.base.prepare(`SELECT ${SQL_POINTS} AS p FROM (SELECT 0 AS juste, 0 AS ms) r`).get().p, 0);
+});
+
+test('partie : avancer() est une fonction de l’heure (question 20 s, résultat 5 s, puis la suivante, puis la fin)', async () => {
+  const p = { etat: 'question', indice: 0, debut_question: 1000 };
+  const a = (t, base = p) => { const v = avancer(base, 3, t); return [v.etat, v.indice, v.ecoule]; };
+  assert.deepEqual(a(1000), ['question', 0, 0]);
+  assert.deepEqual(a(20999), ['question', 0, 19999]);
+  assert.deepEqual(a(21000), ['resultat', 0, 20000]);
+  assert.deepEqual(a(25999), ['resultat', 0, 24999]);
+  assert.deepEqual(a(26000), ['question', 1, 0]);
+  assert.deepEqual(a(1000 + 2 * CYCLE + 5), ['question', 2, 5]);
+  assert.equal(avancer(p, 3, 1000 + 3 * CYCLE).etat, 'fini');
+  assert.equal(avancer(p, 3, 1000 + 99 * CYCLE).etat, 'fini');
+  assert.deepEqual(a(500), ['question', 0, 0], 'une heure en retard ne recule pas');
+  assert.equal(avancer({ etat: 'attente', indice: 0, debut_question: 0 }, 3, 99999999).etat, 'attente');
+  assert.equal(avancer({ etat: 'fini', indice: 2, debut_question: 5 }, 3, 99999999).etat, 'fini');
+});
+
+test('partie POST creer : connexion, 5 à 20 références jouables, titre, quota ; id = code', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  erreurFr(await postPartie(null, { action: 'creer', questions: refsP() }), 401);
+  erreurFr(await postPartie(a, { action: 'inconnue' }), 400, /Action inconnue/);
+  erreurFr(await postPartie(a, { questions: refsP() }), 400, /Action inconnue/);
+  for (const questions of [undefined, [], refsP(4), refsP(10).concat(refsP(10, 'sujet-test:1')).concat(refsP(1)), 'x', [{ chapitre: 'qg:sujet-test:1', index: 99 }, ...refsP(5)]]) {
+    erreurFr(await postPartie(a, { action: 'creer', questions }), 400);
+  }
+  erreurFr(await postPartie(a, { action: 'creer', questions: refsP(5, 'inconnu:1') }), 400, /Question inconnue/);
+  // Les chapitres vérifiés et IA ne sont pas jouables en direct.
+  erreurFr(await postPartie(a, { action: 'creer', questions: [...refsP(4), { chapitre: 'hg-01', index: 0 }] }), 400, /formation, de quiz ou de tournoi/);
+  for (const titre of ['', '   ', 5, 'x'.repeat(61)]) erreurFr(await postPartie(a, { action: 'creer', questions: refsP(), titre }), 400, /Titre/);
+  assert.equal(lignes('SELECT * FROM parties').length, 0);
+  const r = await postPartie(a, { action: 'creer', questions: refsP(6), titre: '  Culture   générale ' });
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['id', 'code']);
+  assert.equal(r.corps.id, r.corps.code);
+  assert.match(r.corps.id, /^[A-HJ-NP-Z2-9]{6}$/);
+  const [ligne] = lignes('SELECT * FROM parties');
+  assert.deepEqual([ligne.id, ligne.createur, ligne.titre, ligne.etat, ligne.indice, ligne.debut_question], [r.corps.id, a.id, 'Culture générale', 'attente', 0, 0]);
+  assert.deepEqual(JSON.parse(ligne.questions), refsP(6));
+  assert.deepEqual(lignes('SELECT partie, joueur, points FROM parties_joueurs'), [{ partie: r.corps.id, joueur: a.id, points: 0 }]);
+  const sans = await postPartie(a, { action: 'creer', questions: refsP(5) });
+  ok200(sans);
+  assert.equal((await getPartie(sans.corps.id)).titre, 'Partie en direct');
+  assert.equal(lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'partie:%'")[0].n, 2);
+});
+
+test('partie POST creer : palier, quiz direct et tournoi acceptés ; question d’un autre type refusée', async () => {
+  toutVider();
+  const a = await creerJoueur('Alice');
+  const lecon = { questions: [qcmP(0), qcmP(1), vfP(2), qcmP(3)] };
+  db.base.prepare('INSERT INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, ?, ?, 0, ?)').run('les-phares:1', 'les-phares', 1, JSON.stringify(lecon), 'now');
+  db.base.prepare('INSERT INTO quiz_direct (parcours, contenu, cree) VALUES (?, ?, ?)').run('les-phares', JSON.stringify({ questions: nombres(0, 9).map(qcmP) }), 'now');
+  semerBlocP('tournoi:2026-10-19');
+  const refs = [
+    { chapitre: 'les-phares:1', index: 0 }, { chapitre: 'les-phares:1', index: 2 },
+    { chapitre: 'les-phares:quiz', index: 9 }, { chapitre: 'qg:tournoi:2026-10-19', index: 8 }, { chapitre: 'qg:tournoi:2026-10-19', index: 3 },
+  ];
+  const r = await postPartie(a, { action: 'creer', questions: refs });
+  ok200(r);
+  const id = r.corps.id;
+  const b = await creerJoueur('Bob');
+  ok200(await postPartie(b, { action: 'rejoindre', id }));
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const types = [];
+  for (let i = 0; i < 5; i++) {
+    types.push((await getPartie(id, b)).question.type);
+    heure += CYCLE;
+  }
+  assert.deepEqual(types, ['qcm', 'vraifaux', 'qcm', 'vraifaux', 'qcm']);
+  // Une question « ordre » (mini-jeu) ne se joue pas en direct.
+  semerBlocP('sujet-test:2', { questions: [...nombres(0, 8).map(qcmP), { type: 'ordre', enonce: 'Range', elements: ['a', 'b'], ordre: ['a', 'b'], explication: '' }] });
+  erreurFr(await postPartie(a, { action: 'creer', questions: [...refsP(4, 'sujet-test:2'), { chapitre: 'qg:sujet-test:2', index: 9 }] }), 400, /autre type/);
+  heure += 3600000;
+});
+
+test('partie POST rejoindre : par code (casse libre), idempotent, 12 joueurs au plus, jamais après le début', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const id = await nouvellePartie(a);
+  const joueurs = [];
+  for (let i = 0; i < 11; i++) joueurs.push(await creerJoueur('Joueur' + i));
+  erreurFr(await postPartie(null, { action: 'rejoindre', id }), 401);
+  for (const mauvais of [undefined, 'ABC', 'ABCDE0', 42]) erreurFr(await postPartie(joueurs[0], { action: 'rejoindre', id: mauvais }), 400, /Code de partie/);
+  erreurFr(await postPartie(joueurs[0], { action: 'rejoindre', id: 'ZZZZZZ' }), 404, /n’existe pas/);
+  assert.deepEqual((await postPartie(joueurs[0], { action: 'rejoindre', id: id.toLowerCase() })).corps, { ok: true, id });
+  assert.equal((await postPartie(joueurs[0], { action: 'rejoindre', id })).corps.dejaJoueur, true);
+  for (const j of joueurs.slice(1)) ok200(await postPartie(j, { action: 'rejoindre', id }));
+  assert.equal(lignes('SELECT * FROM parties_joueurs').length, 12);
+  const treize = await creerJoueur('Treize');
+  erreurFr(await postPartie(treize, { action: 'rejoindre', id }), 409, /complète : 12 joueurs/);
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  erreurFr(await postPartie(treize, { action: 'rejoindre', id }), 409, /déjà commencé/);
+  assert.equal((await postPartie(joueurs[0], { action: 'rejoindre', id })).corps.dejaJoueur, true, 'un joueur déjà dedans reste accepté');
+  // Partie à 3 : un retardataire est refusé même sans plafond.
+  const id2 = await nouvellePartie(a);
+  ok200(await postPartie(a, { action: 'demarrer', id: id2 }));
+  erreurFr(await postPartie(joueurs[1], { action: 'rejoindre', id: id2 }), 409, /déjà commencé/);
+  heure += 3600000;
+});
+
+test('partie POST demarrer : le créateur seulement, une seule fois ; la question 1 démarre à l’heure du serveur', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const id = await nouvellePartie(a);
+  ok200(await postPartie(b, { action: 'rejoindre', id }));
+  erreurFr(await postPartie(null, { action: 'demarrer', id }), 401);
+  erreurFr(await postPartie(b, { action: 'demarrer', id }), 403, /créateur/);
+  const etranger = await creerJoueur('Etranger');
+  erreurFr(await postPartie(etranger, { action: 'demarrer', id }), 403);
+  erreurFr(await postPartie(a, { action: 'demarrer', id: 'ZZZZZZ' }), 404);
+  assert.equal((await getPartie(id)).etat, 'attente');
+  assert.equal(lignes('SELECT etat FROM parties')[0].etat, 'attente');
+  erreurFr(await postPartie(a, reponse(id, 0, 0)), 409, /pas encore commencé/);
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  assert.deepEqual(lignes('SELECT etat, indice, debut_question FROM parties'), [{ etat: 'question', indice: 0, debut_question: heure }]);
+  erreurFr(await postPartie(a, { action: 'demarrer', id }), 409, /déjà commencé/);
+  heure += 3600000;
+});
+
+test('partie GET : la question n’a ni bonne réponse ni explication avant le résultat, et n’est montrée qu’aux joueurs', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const spectateur = await creerJoueur('Spectateur');
+  const id = await nouvellePartie(a);
+  ok200(await postPartie(b, { action: 'rejoindre', id }));
+  // Salle d'attente : pseudos seulement, pas de question.
+  let p = await getPartie(id, b);
+  assert.deepEqual(Object.keys(p), ['id', 'code', 'titre', 'createur', 'etat', 'indice', 'total', 'restant', 'duree', 'max', 'joueurs', 'moi']);
+  assert.deepEqual([p.etat, p.total, p.restant, p.duree, p.max, p.createur, p.titre], ['attente', 6, 0, 20000, 12, 'Alice', 'Partie test']);
+  assert.deepEqual(p.joueurs, [{ pseudo: 'Alice', createur: true }, { pseudo: 'Bob', moi: true }]);
+  assert.deepEqual(p.moi, { joueur: true, createur: false });
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  heure += 4000;
+  p = await getPartie(id, b);
+  assert.deepEqual([p.etat, p.indice, p.restant], ['question', 0, 16000]);
+  assert.deepEqual(p.question, { type: 'qcm', enonce: 'Question 0 ?', reponses: ['A0', 'B0', 'C0', 'D0'] });
+  const brut = JSON.stringify(p);
+  assert.ok(!/bonne|explication|secrète/i.test(brut), 'aucune trace de la réponse avant le résultat');
+  assert.deepEqual(p.joueurs.map((j) => Object.keys(j).sort()), [['createur', 'pseudo', 'repondu'], ['moi', 'pseudo', 'repondu']], 'ni points ni bonnes réponses pendant la question');
+  // Hors partie : l'état, pas la question.
+  for (const lecteur of [null, spectateur]) {
+    const vu = await getPartie(id, lecteur);
+    assert.equal(vu.etat, 'question');
+    assert.equal('question' in vu, false);
+    assert.equal(vu.moi.joueur, false);
+  }
+  // Après la réponse, toujours pas de réponse correcte avant la fin des 20 s.
+  ok200(await postPartie(b, reponse(id, 0, 2)));
+  p = await getPartie(id, b);
+  assert.deepEqual([p.moi.repondu, p.moi.choix, 'juste' in p.moi, 'gain' in p.moi], [true, 2, false, false]);
+  assert.ok(!/bonne|explication|secrète/i.test(JSON.stringify(p)));
+  assert.equal(p.joueurs.find((j) => j.moi).repondu, true);
+  // Au résultat : bonne réponse, explication, points, classement provisoire.
+  heure += 16000;
+  p = await getPartie(id, b);
+  assert.equal(p.etat, 'resultat');
+  assert.equal(p.restant, 5000 - 0);
+  assert.deepEqual(p.question, { type: 'qcm', enonce: 'Question 0 ?', reponses: ['A0', 'B0', 'C0', 'D0'], bonne: 0, explication: 'Explication secrète 0.' });
+  assert.deepEqual([p.moi.choix, p.moi.juste, p.moi.gain], [2, false, 0]);
+  assert.deepEqual(p.joueurs.map((j) => [j.rang, j.pseudo, j.points, j.justes]), [[1, 'Alice', 0, 0], [1, 'Bob', 0, 0]]);
+  heure += 3600000;
+});
+
+test('partie POST repondre : une réponse par question, refusée hors délai ou pour une autre question, points avec bonus', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const c = await creerJoueur('Camille');
+  const d = await creerJoueur('Dora');
+  const dehors = await creerJoueur('Dehors');
+  const id = await nouvellePartie(a);
+  for (const j of [b, c, d]) ok200(await postPartie(j, { action: 'rejoindre', id }));
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const debut = heure;
+  erreurFr(await postPartie(null, reponse(id, 0, 0)), 401);
+  erreurFr(await postPartie(dehors, reponse(id, 0, 0)), 403, /ne joues pas/);
+  for (const corps of [{ indice: '0', choix: 0 }, { indice: 0, choix: '1' }, { indice: -1, choix: 0 }, { indice: 0, choix: -1 }, { indice: 0.5, choix: 0 }, { indice: 0 }]) {
+    erreurFr(await postPartie(b, { action: 'repondre', id, ...corps }), 400, /entiers/);
+  }
+  erreurFr(await postPartie(b, reponse(id, 0, 4)), 400, /choix n’existe pas/);
+  erreurFr(await postPartie(b, reponse(id, 1, 0)), 409, /Trop tard/, 'mauvaise question');
+  // Alice répond tout de suite et juste (0 ms : 150), Bob à 10 s et juste (125), Camille à 19,999 s et juste (100), Dora se trompe.
+  ok200(await postPartie(a, reponse(id, 0, 0)));
+  erreurFr(await postPartie(a, reponse(id, 0, 1)), 409, /déjà répondu/);
+  heure = debut + 10000;
+  ok200(await postPartie(b, reponse(id, 0, 0)));
+  heure = debut + 19999;
+  ok200(await postPartie(c, reponse(id, 0, 0)));
+  ok200(await postPartie(d, reponse(id, 0, 3)));
+  assert.deepEqual(lignes('SELECT joueur, choix, ms, juste FROM parties_reponses ORDER BY ms').map((r) => [r.ms, r.choix, r.juste]), [[0, 0, 1], [10000, 0, 1], [19999, 0, 1], [19999, 3, 0]]);
+  assert.deepEqual(lignes('SELECT points FROM parties_joueurs ORDER BY rowid').map((r) => r.points), [150, 125, 100, 0]);
+  // Hors délai : pile à 20 s, la question est finie.
+  heure = debut + 20000;
+  erreurFr(await postPartie(a, reponse(id, 0, 0)), 409, /Trop tard/);
+  heure = debut + 22000;
+  erreurFr(await postPartie(d, reponse(id, 0, 0)), 409, /Trop tard/);
+  assert.equal(lignes('SELECT * FROM parties_reponses').length, 4, 'rien n’a été écrit hors délai');
+  // Résultat : classement provisoire et gain de chacun.
+  const p = await getPartie(id, b);
+  assert.equal(p.etat, 'resultat');
+  assert.deepEqual(p.joueurs.map((j) => [j.rang, j.pseudo, j.points, j.justes]), [[1, 'Alice', 150, 1], [2, 'Bob', 125, 1], [3, 'Camille', 100, 1], [4, 'Dora', 0, 0]]);
+  assert.deepEqual([p.moi.juste, p.moi.gain], [true, 125]);
+  assert.equal((await getPartie(id, d)).moi.gain, 0);
+  // Question 2 : on ne peut plus répondre à la 1re ; un joueur qui ne répond pas garde ses points et gagne 0.
+  heure = debut + CYCLE + 100;
+  erreurFr(await postPartie(a, reponse(id, 0, 0)), 409, /Trop tard/);
+  ok200(await postPartie(a, reponse(id, 1, 1)));
+  assert.equal(lignes("SELECT points FROM parties_joueurs WHERE joueur = ?", a.id)[0].points, 300);
+  heure += 3600000;
+});
+
+test('partie : un vrai ou faux se joue avec 0 = Vrai, 1 = Faux', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const id = (await postPartie(a, { action: 'creer', questions: nombres(5, 9).map((index) => ({ chapitre: 'qg:sujet-test:1', index })) })).corps.id;
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const debut = heure;
+  // Question 5 (qcm 5, bonne = 1), puis 6 (qcm, bonne = 2), 7 (faux), 8 (vrai), 9 (faux).
+  ok200(await postPartie(a, reponse(id, 0, 1)));
+  heure = debut + 3 * CYCLE;
+  let p = await getPartie(id, a);
+  assert.deepEqual([p.indice, p.question], [3, { type: 'vraifaux', affirmation: 'Affirmation 8.' }]);
+  erreurFr(await postPartie(a, reponse(id, 3, 2)), 400, /n’existe pas/);
+  ok200(await postPartie(a, reponse(id, 3, 0))); // « Vrai » : juste
+  heure = debut + 3 * CYCLE + 21000;
+  p = await getPartie(id, a);
+  assert.deepEqual([p.question.bonne, p.question.explication, p.moi.juste], [0, 'Explication vrai ou faux 8.', true]);
+  heure = debut + 4 * CYCLE;
+  ok200(await postPartie(a, reponse(id, 4, 0))); // « Vrai » à « Affirmation 9 » : faux
+  heure = debut + 4 * CYCLE + 21000;
+  p = await getPartie(id, a);
+  assert.deepEqual([p.question.bonne, p.moi.juste, p.moi.gain], [1, false, 0]);
+  heure += 3600000;
+});
+
+test('partie GET : l’état avance avec l’heure, jusqu’au classement final ; sans tâche de fond, de façon idempotente', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const id = await nouvellePartie(a, 5);
+  ok200(await postPartie(b, { action: 'rejoindre', id }));
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const debut = heure;
+  const etatDb = () => lignes('SELECT etat, indice, debut_question FROM parties')[0];
+  const attendu = (t) => { heure = debut + t; };
+  attendu(0);
+  assert.deepEqual([(await getPartie(id, a)).etat, (await getPartie(id, a)).restant], ['question', 20000]);
+  attendu(19999);
+  assert.equal((await getPartie(id, a)).etat, 'question');
+  assert.deepEqual(etatDb(), { etat: 'question', indice: 0, debut_question: debut });
+  attendu(20000);
+  let p = await getPartie(id, a);
+  assert.deepEqual([p.etat, p.indice, p.restant], ['resultat', 0, 5000]);
+  assert.deepEqual(etatDb(), { etat: 'resultat', indice: 0, debut_question: debut });
+  attendu(24999);
+  assert.deepEqual([(await getPartie(id, a)).etat, (await getPartie(id, a)).restant], ['resultat', 1]);
+  attendu(CYCLE);
+  p = await getPartie(id, a);
+  assert.deepEqual([p.etat, p.indice, p.restant, p.question.enonce], ['question', 1, 20000, 'Question 1 ?']);
+  assert.deepEqual(etatDb(), { etat: 'question', indice: 1, debut_question: debut + CYCLE });
+  // Idempotent : relire 5 fois à la même heure ne change rien.
+  const avant = JSON.stringify(etatDb());
+  for (let i = 0; i < 5; i++) await getPartie(id, a);
+  assert.equal(JSON.stringify(etatDb()), avant);
+  // Personne n'a appelé pendant plusieurs questions : la lecture suivante rattrape tout d'un coup.
+  attendu(3 * CYCLE + 21000);
+  p = await getPartie(id, b);
+  assert.deepEqual([p.etat, p.indice], ['resultat', 3]);
+  assert.deepEqual(etatDb(), { etat: 'resultat', indice: 3, debut_question: debut + 3 * CYCLE });
+  // Réponses de Bob à la dernière question, puis la fin.
+  attendu(4 * CYCLE + 1000);
+  ok200(await postPartie(b, reponse(id, 4, 0))); // question 4 = index 4 : bonne = 0, juste, ms = 1000
+  attendu(5 * CYCLE - 1);
+  assert.equal((await getPartie(id, a)).etat, 'resultat');
+  attendu(5 * CYCLE);
+  p = await getPartie(id, a);
+  assert.deepEqual([p.etat, p.indice, p.restant, 'question' in p], ['fini', 4, 0, false]);
+  assert.deepEqual(p.joueurs.map((j) => [j.rang, j.pseudo, j.points, j.justes]), [[1, 'Bob', 100 + pointsReponse(true, 1000) - 100, 1], [2, 'Alice', 0, 0]]);
+  assert.equal(p.joueurs[0].points, 148);
+  assert.equal(etatDb().etat, 'fini');
+  // Une fois finie, la partie ne bouge plus et refuse les réponses.
+  attendu(99 * CYCLE);
+  assert.equal((await getPartie(id, a)).etat, 'fini');
+  erreurFr(await postPartie(b, reponse(id, 4, 0)), 409, /Trop tard/);
+  assert.deepEqual(Object.keys(p.joueurs[0]), ['rang', 'pseudo', 'points', 'justes']);
+  heure += 3600000;
+});
+
+test('partie : deux lectures simultanées au même seuil donnent le même état et une seule écriture gagnante', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const id = await nouvellePartie(a, 5);
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const debut = heure;
+  heure = debut + 20000;
+  const lectures = await Promise.all([1, 2, 3, 4].map(() => appel(partieGet, { env: envP, requete: '?id=' + id, jeton: a.jeton })));
+  for (const l of lectures) {
+    ok200(l);
+    assert.deepEqual([l.corps.partie.etat, l.corps.partie.indice], ['resultat', 0]);
+  }
+  assert.deepEqual(lignes('SELECT etat, indice, debut_question FROM parties'), [{ etat: 'resultat', indice: 0, debut_question: debut }]);
+
+  // Course déterministe : un autre Worker avance la partie entre la lecture et l'écriture de celui-ci.
+  heure = debut + CYCLE + 100; // la question 2 devrait démarrer
+  let simule = false;
+  const dbCourse = {
+    ...db,
+    prepare(sql) {
+      const st = db.prepare(sql);
+      if (!/^UPDATE parties SET etat = \?/.test(sql)) return st;
+      return {
+        bind(...p) { st.bind(...p); return this; },
+        async run() {
+          if (!simule) { // l'autre Worker a déjà écrit la même avance
+            simule = true;
+            db.base.prepare("UPDATE parties SET etat = 'question', indice = 1, debut_question = ? WHERE id = ?").run(debut + CYCLE, id);
+          }
+          return st.run();
+        },
+      };
+    },
+  };
+  const course = await appel(partieGet, { env: { DB: dbCourse, AI: undefined, maintenant: () => heure }, requete: '?id=' + id, jeton: a.jeton });
+  ok200(course);
+  assert.equal(simule, true, 'la course a bien eu lieu');
+  assert.deepEqual([course.corps.partie.etat, course.corps.partie.indice, course.corps.partie.restant], ['question', 1, 19900]);
+  assert.deepEqual(lignes('SELECT etat, indice, debut_question FROM parties'), [{ etat: 'question', indice: 1, debut_question: debut + CYCLE }]);
+  heure += 3600000;
+});
+
+test('partie : deux envois simultanés de la même réponse ne comptent qu’une fois', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const id = await nouvellePartie(a, 5);
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  const envois = await Promise.all([postPartie(a, reponse(id, 0, 0)), postPartie(a, reponse(id, 0, 0)), postPartie(a, reponse(id, 0, 0))]);
+  assert.deepEqual(envois.map((r) => r.statut).sort(), [200, 409, 409]);
+  assert.equal(lignes('SELECT * FROM parties_reponses').length, 1);
+  assert.equal(lignes('SELECT points FROM parties_joueurs')[0].points, 150);
+  heure += 3600000;
+});
+
+test('partie GET : 400 sur un code invalide, 404 inconnue, public ; une partie de plus de 24 h est effacée à la création suivante', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  erreurFr(await appel(partieGet, { env: envP, requete: '?id=abc' }), 400, /Code de partie/);
+  erreurFr(await appel(partieGet, { env: envP }), 400);
+  erreurFr(await appel(partieGet, { env: envP, requete: '?id=ZZZZZZ' }), 404);
+  const vieille = await nouvellePartie(a);
+  ok200(await postPartie(a, { action: 'demarrer', id: vieille }));
+  ok200(await appel(partieGet, { env: envP, requete: '?id=' + vieille.toLowerCase() }));
+  db.base.prepare('UPDATE parties SET cree = ? WHERE id = ?').run(new Date(Date.now() - 25 * 3600000).toISOString(), vieille);
+  const neuve = await nouvellePartie(a);
+  assert.deepEqual(lignes('SELECT id FROM parties').map((r) => r.id), [neuve]);
+  assert.equal(lignes('SELECT * FROM parties_joueurs').length, 1);
+  assert.equal(lignes('SELECT * FROM parties_reponses').length, 0);
+  erreurFr(await appel(partieGet, { env: envP, requete: '?id=' + vieille }), 404);
+  heure += 3600000;
+});
+
+test('partie : quota de créations par jour, et aucun identifiant de joueur dans les réponses', async () => {
+  toutVider();
+  semerBlocP('sujet-test:1');
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  const id = await nouvellePartie(a);
+  ok200(await postPartie(b, { action: 'rejoindre', id }));
+  ok200(await postPartie(a, { action: 'demarrer', id }));
+  ok200(await postPartie(b, reponse(id, 0, 0)));
+  const tout = [];
+  for (const t of [0, 21000, 6 * CYCLE]) {
+    tout.push(JSON.stringify((await appel(partieGet, { env: { ...envP, maintenant: () => lignes('SELECT debut_question FROM parties')[0].debut_question + t }, requete: '?id=' + id, jeton: b.jeton })).corps));
+  }
+  const brut = tout.join('');
+  for (const j of [a, b]) {
+    assert.ok(!brut.includes(j.id));
+    assert.ok(!brut.includes(j.cle));
+  }
+  for (let i = 0; i < 19; i++) ok200(await postPartie(a, { action: 'creer', questions: refsP(5) }));
+  erreurFr(await postPartie(a, { action: 'creer', questions: refsP(5) }), 429, /Reviens demain/);
+  heure += 3600000;
+});
+
 // --- Robustesse ------------------------------------------------------------
 
 test('une panne de la base donne un JSON français 503, pas une page d’erreur', async () => {
@@ -5255,7 +5893,7 @@ test('aucun secret dans le code', async () => {
     '../lib/fournisseurs.js', '../lib/images.js', '../lib/paliers.js', '../functions/api/parcours.js',
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
     '../functions/api/image.js', '../functions/api/quiz-general.js', '../functions/api/jour.js', '../functions/api/tournoi.js',
-    '../lib/general.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
+    '../lib/general.js', '../lib/groupes.js', '../lib/parties.js', '../functions/api/groupe.js', '../functions/api/partie.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);

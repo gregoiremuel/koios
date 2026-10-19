@@ -10,6 +10,7 @@ export function fauxD1() {
   function prepare(sql) {
     let params = [];
     const st = {
+      sql,
       bind(...p) { params = p; return st; },
       async first(colonne) {
         const ligne = base.prepare(sql).get(...params);
@@ -27,7 +28,7 @@ export function fauxD1() {
     return st;
   }
   async function batch(instructions) {
-    compteurs.batchs += 1;
+    if (/^\s*CREATE/i.test(instructions[0] && instructions[0].sql)) compteurs.batchs += 1; // les créations de tables seulement
     base.exec('BEGIN');
     try {
       const sorties = [];
