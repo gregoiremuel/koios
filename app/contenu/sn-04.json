@@ -1,0 +1,259 @@
+{
+ "id": "sn-04",
+ "domaine": "sn",
+ "numero": 4,
+ "titre": "Les étages de l’océan",
+ "sujet": "Les fonds marins",
+ "figure": null,
+ "essentiel": [
+  "Les océanographes découpent la colonne d’eau en étages : la zone éclairée jusqu’à environ 200 m, la zone crépusculaire de 200 à 1 000 m, la zone de minuit de 1 000 à 4 000 m, puis la zone abyssale jusqu’à 6 000 m.",
+  "La lumière s’éteint vite : sous 200 m elle ne suffit plus à la photosynthèse, et la zone de minuit ne reçoit plus de lumière du soleil.",
+  "La pression, elle, croît d’environ 0,1 MPa tous les 10 m d’eau, soit à peu près une atmosphère de plus.",
+  "Les plaines abyssales, fonds presque plats couverts de sédiments, s’étendent jusqu’à 6 000 m de profondeur.",
+  "Le point le plus profond connu est le Challenger Deep, dans la fosse des Mariannes : environ 10 935 m, avec une pression de plus de 1 089 atmosphères."
+ ],
+ "reperes": [
+  [
+   "200 m",
+   "Base de la zone éclairée, ou épipélagique : la couche qui reçoit la lumière du soleil."
+  ],
+  [
+   "1 000 m",
+   "Base de la zone crépusculaire ; au-dessous commence la zone de minuit, sans lumière du soleil."
+  ],
+  [
+   "6 000 m",
+   "Début de la zone hadale, celle des fosses océaniques."
+  ],
+  [
+   "10 935 m",
+   "Profondeur estimée du Challenger Deep, dans la fosse des Mariannes."
+  ],
+  [
+   "0,1 MPa",
+   "Hausse de pression pour chaque tranche de 10 m d’eau, soit à peu près une atmosphère."
+  ]
+ ],
+ "sources": [
+  [
+   "NOAA JetStream · Layers of the Ocean",
+   "https://noaa.gov/jetstream/ocean/layers-of-ocean"
+  ],
+  [
+   "NOAA National Ocean Service · How far does light travel in the ocean?",
+   "https://oceanservice.noaa.gov/facts/light_travel.html"
+  ],
+  [
+   "NOAA National Ocean Service · How deep is the ocean?",
+   "https://oceanservice.noaa.gov/facts/oceandepth.html"
+  ],
+  [
+   "NOAA NCEI · Planet Postcard: The Mariana Trench",
+   "https://www.ncei.noaa.gov/node/239"
+  ],
+  [
+   "Encyclopædia Britannica · Epipelagic zone",
+   "https://www.britannica.com/science/epipelagic-zone"
+  ],
+  [
+   "Encyclopædia Britannica · Abyssal plain",
+   "https://www.britannica.com/science/abyssal-plain"
+  ],
+  [
+   "Encyclopædia Britannica · Challenger Deep",
+   "https://www.britannica.com/place/Challenger-Deep"
+  ],
+  [
+   "Encyclopædia Universalis · Océan et mers (vie marine), vie dans les grandes profondeurs",
+   "https://www.universalis.fr/encyclopedie/ocean-et-mers-vie-marine-vie-dans-les-grandes-profondeurs/"
+  ],
+  [
+   "Smithsonian Ocean Portal · Mariana Trench",
+   "https://ocean.si.edu/planet-ocean/seafloor/mariana-trench"
+  ],
+  [
+   "Natural History Museum (Londres) · How deep is the ocean?",
+   "https://www.nhm.ac.uk/discover/quick-questions/how-deep-is-the-ocean.html"
+  ],
+  [
+   "info.gouv.fr · Explorer les grands fonds marins pour mieux les protéger",
+   "https://www.info.gouv.fr/actualite/explorer-les-grands-fonds-marins-pour-mieux-les-proteger"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Les étages de lumière",
+   "repere": 0,
+   "enonce": "Jusqu’à quelle profondeur environ s’étend la zone éclairée de l’océan, dite épipélagique ?",
+   "reponses": [
+    "Environ 20 m",
+    "Environ 200 m",
+    "Environ 1 000 m",
+    "Environ 4 000 m"
+   ],
+   "bonne": 1,
+   "correction": "La zone éclairée, ou épipélagique, va de la surface à environ 200 m. En dessous, la zone crépusculaire s’étend jusqu’à 1 000 m.",
+   "figure": null,
+   "sources": [
+    [
+     "NOAA JetStream · Layers of the Ocean",
+     "https://noaa.gov/jetstream/ocean/layers-of-ocean"
+    ],
+    [
+     "Encyclopædia Britannica · Epipelagic zone",
+     "https://www.britannica.com/science/epipelagic-zone"
+    ],
+    [
+     "NOAA National Ocean Service · How far does light travel in the ocean?",
+     "https://oceanservice.noaa.gov/facts/light_travel.html"
+    ]
+   ],
+   "rivalJuste": "Juste. À deux cents mètres, le soleil range déjà ses affaires.",
+   "rivalFaux": "Tu as plongé trop profond. La lumière a eu la sagesse de s’arrêter avant."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "L’Everest dans la fosse",
+   "repere": 3,
+   "affirmation": "Posé au fond de la fosse des Mariannes, le sommet de l’Everest dépasserait de la surface de l’eau.",
+   "vrai": false,
+   "correction": "C’était un bluff : le Challenger Deep est plus profond que l’Everest n’est haut. Même découpé au niveau de la mer et posé au fond, il resterait plus d’un mile d’eau (plus de 1,6 km) au-dessus de son sommet.",
+   "figure": null,
+   "sources": [
+    [
+     "NOAA NCEI · Planet Postcard: The Mariana Trench",
+     "https://www.ncei.noaa.gov/node/239"
+    ],
+    [
+     "Smithsonian Ocean Portal · Mariana Trench",
+     "https://ocean.si.edu/planet-ocean/seafloor/mariana-trench"
+    ],
+    [
+     "Natural History Museum (Londres) · How deep is the ocean?",
+     "https://www.nhm.ac.uk/discover/quick-questions/how-deep-is-the-ocean.html"
+    ],
+    [
+     "Encyclopædia Britannica · Challenger Deep",
+     "https://www.britannica.com/place/Challenger-Deep"
+    ]
+   ],
+   "rivalJuste": "Repéré. L’Everest serait resté les pieds dans l’eau, et le sommet aussi.",
+   "rivalFaux": "Tu l’as hissé trop haut. Il resterait plus d’un mile d’eau sur sa tête."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · classement",
+   "theme": "Ranger les profondeurs",
+   "repere": 1,
+   "enonce": "Range ces quatre profondeurs de la moins profonde à la plus profonde.",
+   "elements": [
+    "Début de la zone hadale (fosses)",
+    "Fond du Challenger Deep",
+    "Base de la zone éclairée",
+    "Base de la zone crépusculaire"
+   ],
+   "ordre": [
+    "Base de la zone éclairée",
+    "Base de la zone crépusculaire",
+    "Début de la zone hadale (fosses)",
+    "Fond du Challenger Deep"
+   ],
+   "correction": "La zone éclairée s’arrête vers 200 m, la zone crépusculaire vers 1 000 m, et la zone hadale, celle des fosses, commence à 6 000 m. Le Challenger Deep, dans la fosse des Mariannes, plonge à environ 10 935 m.",
+   "figure": null,
+   "sources": [
+    [
+     "NOAA JetStream · Layers of the Ocean",
+     "https://noaa.gov/jetstream/ocean/layers-of-ocean"
+    ],
+    [
+     "info.gouv.fr · Explorer les grands fonds marins pour mieux les protéger",
+     "https://www.info.gouv.fr/actualite/explorer-les-grands-fonds-marins-pour-mieux-les-proteger"
+    ],
+    [
+     "Encyclopædia Britannica · Challenger Deep",
+     "https://www.britannica.com/place/Challenger-Deep"
+    ],
+    [
+     "NOAA National Ocean Service · How deep is the ocean?",
+     "https://oceanservice.noaa.gov/facts/oceandepth.html"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Tu descends mieux que la lumière.",
+   "rivalFaux": "La pression a eu raison de ton classement. Il va falloir remonter.",
+   "valeurs": {
+    "Base de la zone éclairée": "200 m",
+    "Base de la zone crépusculaire": "1 000 m",
+    "Début de la zone hadale (fosses)": "6 000 m",
+    "Fond du Challenger Deep": "environ 10 935 m"
+   }
+  }
+ ],
+ "chiffres": [
+  {
+   "libelle": "Base de la zone éclairée",
+   "valeur": 200,
+   "unite": "m"
+  },
+  {
+   "libelle": "Base de la zone crépusculaire",
+   "valeur": 1000,
+   "unite": "m"
+  },
+  {
+   "libelle": "Profondeur moyenne de l’océan",
+   "valeur": 3682,
+   "unite": "m"
+  },
+  {
+   "libelle": "Début des fosses (zone hadale)",
+   "valeur": 6000,
+   "unite": "m"
+  },
+  {
+   "libelle": "Challenger Deep",
+   "valeur": 10935,
+   "unite": "m"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Zone éclairée",
+   "Zone crépusculaire",
+   "Zone de minuit",
+   "Plaines abyssales",
+   "Fosse des Mariannes",
+   "Pression"
+  ],
+  "liens": [
+   [
+    "Zone éclairée",
+    "Zone crépusculaire",
+    "puis"
+   ],
+   [
+    "Zone crépusculaire",
+    "Zone de minuit",
+    "puis"
+   ],
+   [
+    "Zone de minuit",
+    "Plaines abyssales",
+    "puis"
+   ],
+   [
+    "Plaines abyssales",
+    "Fosse des Mariannes",
+    "puis"
+   ],
+   [
+    "Fosse des Mariannes",
+    "Pression",
+    "la plus forte"
+   ]
+  ]
+ },
+ "saviezVous": "Au fond du Challenger Deep, la pression dépasse 1 089 atmosphères, soit plus de mille fois celle de la surface."
+}

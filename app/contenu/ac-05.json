@@ -1,0 +1,290 @@
+{
+ "id": "ac-05",
+ "domaine": "ac",
+ "numero": 5,
+ "titre": "La Nouvelle Vague",
+ "sujet": "Le cinéma",
+ "figure": null,
+ "essentiel": [
+  "Les Cahiers du cinéma naissent en avril 1951 sous l’impulsion d’André Bazin ; Truffaut, Godard, Rivette et Rohmer y écrivent avant de passer à la mise en scène.",
+  "En janvier 1954, Truffaut y publie « Une certaine tendance du cinéma français », texte-manifeste qui pose les bases de la Nouvelle Vague.",
+  "Dès 1955, Agnès Varda signe La Pointe courte, tourné en décors naturels à Sète et monté par Alain Resnais : un film qui annonce la Nouvelle Vague.",
+  "En 1959, Truffaut, interdit de Cannes l’année précédente pour ses critiques, y revient avec Les 400 Coups et reçoit le prix de la mise en scène.",
+  "En 1960, Godard signe À bout de souffle, d’après une histoire de Truffaut, alors que la critique parle de « Nouvelle Vague » depuis 1958."
+ ],
+ "reperes": [
+  [
+   "avril 1951",
+   "Naissance des Cahiers du cinéma, sous l’impulsion d’André Bazin."
+  ],
+  [
+   "janvier 1954",
+   "Truffaut publie « Une certaine tendance du cinéma français » dans les Cahiers."
+  ],
+  [
+   "1955",
+   "La Pointe courte d’Agnès Varda, tourné à Sète et monté par Alain Resnais."
+  ],
+  [
+   "1959",
+   "Les 400 Coups de Truffaut obtient à Cannes le prix de la mise en scène."
+  ],
+  [
+   "1960",
+   "À bout de souffle de Godard, d’après une histoire de Truffaut."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Antoine Doinel, héros des 400 Coups",
+   "valeur": 12,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Truffaut, à Cannes en 1959",
+   "valeur": 27,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Godard, à la sortie d’À bout de souffle",
+   "valeur": 29,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Bazin, à sa mort en 1958",
+   "valeur": 40,
+   "unite": "ans"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Cahiers du cinéma",
+   "André Bazin",
+   "François Truffaut",
+   "Jean‑Luc Godard",
+   "Agnès Varda",
+   "Alain Resnais",
+   "Cannes"
+  ],
+  "liens": [
+   [
+    "André Bazin",
+    "Cahiers du cinéma",
+    "lance"
+   ],
+   [
+    "François Truffaut",
+    "Cahiers du cinéma",
+    "y écrit"
+   ],
+   [
+    "Jean‑Luc Godard",
+    "Cahiers du cinéma",
+    "y écrit"
+   ],
+   [
+    "François Truffaut",
+    "Jean‑Luc Godard",
+    "À bout de souffle"
+   ],
+   [
+    "François Truffaut",
+    "Cannes",
+    "prix 1959"
+   ],
+   [
+    "Agnès Varda",
+    "Alain Resnais",
+    "monté par"
+   ],
+   [
+    "Alain Resnais",
+    "Cannes",
+    "Hiroshima mon amour"
+   ]
+  ]
+ },
+ "citation": {
+  "texte": "J’ai raté mon film. Ils m’aiment !",
+  "auteur": "François Truffaut",
+  "oeuvre": "Réaction à la projection des 400 Coups, Cannes 1959",
+  "source": [
+   "CNC · Les festivals de Cannes dans le rétroviseur",
+   "https://www.cnc.fr/cinema/actualites/les-festivals-de-cannes-dans-le-retroviseur_992824"
+  ]
+ },
+ "saviezVous": "Les 400 Coups est dédié à André Bazin, mort le 11 novembre 1958, au lendemain du premier jour de tournage.",
+ "sources": [
+  [
+   "CNC · Les Quatre cents coups fête ses 60 ans",
+   "https://www.cnc.fr/cinema/actualites/les-quatre-cents-coups-fete-ses-60-ans_989382"
+  ],
+  [
+   "CNC · Les festivals de Cannes dans le rétroviseur",
+   "https://www.cnc.fr/cinema/actualites/les-festivals-de-cannes-dans-le-retroviseur_992824"
+  ],
+  [
+   "CNC · Une nouvelle page s’ouvre pour Les Cahiers du cinéma",
+   "https://www.cnc.fr/cinema/actualites/une-nouvelle-page-souvre-pour-les-cahiers-du-cinema_1120900"
+  ],
+  [
+   "Les enfants de cinéma (École et cinéma, avec le CNC et Réseau Canopé) · Les 400 coups, cahier de notes, par Jean‑Michel Frodon",
+   "https://jeunepublic.veocinemas.fr/wp-content/uploads/2020/12/Les-400-coups-cahier-de-notes.pdf"
+  ],
+  [
+   "Festival de Cannes · Les Quatre Cents Coups, Compétition 1959",
+   "https://www.festival-cannes.com/f/les-quatre-cents-coups-3/"
+  ],
+  [
+   "Encyclopædia Universalis · Nouvelle Vague, cinéma",
+   "https://www.universalis.fr/encyclopedie/nouvelle-vague-cinema/"
+  ],
+  [
+   "Encyclopædia Universalis · Cahiers du cinéma",
+   "https://www.universalis.fr/encyclopedie/cahiers-du-cinema/"
+  ],
+  [
+   "Larousse · Nouvelle Vague",
+   "https://www.larousse.fr/encyclopedie/divers/nouvelle_vague/148007"
+  ],
+  [
+   "Jump Cut · La politique des auteurs, 2, par John Hess (1974, en anglais)",
+   "https://www.ejumpcut.org/archive/onlinessays/JC02folder/auteur2.html"
+  ],
+  [
+   "Festival Premiers Plans d’Angers · La Pointe courte, Agnès Varda (en anglais)",
+   "https://www.premiersplans.org/en/film/la-pointe-courte"
+  ],
+  [
+   "George Eastman Museum · La Pointe Courte (en anglais)",
+   "https://www.eastman.org/la-pointe-courte"
+  ],
+  [
+   "Larousse · À bout de souffle",
+   "https://www.larousse.fr/encyclopedie/film/wd/174"
+  ],
+  [
+   "Il Cinema Ritrovato · À bout de souffle (en anglais)",
+   "https://ilcinemaritrovato.it/en/film/a-bout-de-souffle/"
+  ],
+  [
+   "CNC (Lycéens au cinéma) · À bout de souffle de Jean‑Luc Godard, dossier de 2005",
+   "https://2022.fif-85.com/fr/upload/JEUNE%20PUBLIC/2022/A%20bout%20de%20souffle%20de%20Jean-Luc%20Godard.pdf"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le manifeste de Truffaut",
+   "repere": 1,
+   "enonce": "Dans quelle revue François Truffaut publie-t-il, en janvier 1954, « Une certaine tendance du cinéma français » ?",
+   "reponses": [
+    "Positif",
+    "L’Écran français",
+    "Les Cahiers du cinéma",
+    "Les Lettres françaises"
+   ],
+   "bonne": 2,
+   "correction": "Truffaut publie ce texte dans les Cahiers du cinéma, en janvier 1954. Il y attaque la « tradition de la qualité » et pose les bases de la Nouvelle Vague.",
+   "figure": null,
+   "sources": [
+    [
+     "CNC · Une nouvelle page s’ouvre pour Les Cahiers du cinéma",
+     "https://www.cnc.fr/cinema/actualites/une-nouvelle-page-souvre-pour-les-cahiers-du-cinema_1120900"
+    ],
+    [
+     "Jump Cut · La politique des auteurs, 2, par John Hess (1974, en anglais)",
+     "https://www.ejumpcut.org/archive/onlinessays/JC02folder/auteur2.html"
+    ]
+   ],
+   "rivalJuste": "Les Cahiers, sans surprise. Tu lis visiblement la bonne revue.",
+   "rivalFaux": "Mauvaise revue. Truffaut, lui, savait où se faire des ennemis."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Truffaut et Cannes",
+   "repere": 3,
+   "affirmation": "Interdit de Cannes en 1958 pour ses critiques, François Truffaut y revient en 1959 et reçoit le prix de la mise en scène.",
+   "vrai": true,
+   "correction": "Ce n’était pas un bluff. Banni du festival en 1958 pour ses articles, Truffaut revient en 1959 avec Les 400 Coups, qui obtient le prix de la mise en scène.",
+   "figure": null,
+   "sources": [
+    [
+     "CNC · Les festivals de Cannes dans le rétroviseur",
+     "https://www.cnc.fr/cinema/actualites/les-festivals-de-cannes-dans-le-retroviseur_992824"
+    ],
+    [
+     "Les enfants de cinéma (École et cinéma, avec le CNC et Réseau Canopé) · Les 400 coups, cahier de notes, par Jean‑Michel Frodon",
+     "https://jeunepublic.veocinemas.fr/wp-content/uploads/2020/12/Les-400-coups-cahier-de-notes.pdf"
+    ],
+    [
+     "Festival de Cannes · Les Quatre Cents Coups, Compétition 1959",
+     "https://www.festival-cannes.com/f/les-quatre-cents-coups-3/"
+    ]
+   ],
+   "rivalJuste": "Exact. Banni une année, couronné la suivante : le festival a la mémoire courte.",
+   "rivalFaux": "Si, c’était vrai. Tu soupçonnes trop vite, même quand je dis vrai."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Les repères de la vague",
+   "repere": 0,
+   "enonce": "Range ces quatre événements du plus ancien au plus récent.",
+   "elements": [
+    "Les 400 Coups à Cannes",
+    "Création des Cahiers du cinéma",
+    "À bout de souffle de Godard",
+    "La Pointe courte de Varda"
+   ],
+   "ordre": [
+    "Création des Cahiers du cinéma",
+    "La Pointe courte de Varda",
+    "Les 400 Coups à Cannes",
+    "À bout de souffle de Godard"
+   ],
+   "correction": "Les Cahiers naissent en avril 1951, La Pointe courte de Varda date de 1955. Les 400 Coups passent à Cannes en 1959, et À bout de souffle de Godard suit en 1960.",
+   "figure": null,
+   "sources": [
+    [
+     "CNC · Une nouvelle page s’ouvre pour Les Cahiers du cinéma",
+     "https://www.cnc.fr/cinema/actualites/une-nouvelle-page-souvre-pour-les-cahiers-du-cinema_1120900"
+    ],
+    [
+     "Encyclopædia Universalis · Cahiers du cinéma",
+     "https://www.universalis.fr/encyclopedie/cahiers-du-cinema/"
+    ],
+    [
+     "Festival Premiers Plans d’Angers · La Pointe courte, Agnès Varda (en anglais)",
+     "https://www.premiersplans.org/en/film/la-pointe-courte"
+    ],
+    [
+     "George Eastman Museum · La Pointe Courte (en anglais)",
+     "https://www.eastman.org/la-pointe-courte"
+    ],
+    [
+     "Festival de Cannes · Les Quatre Cents Coups, Compétition 1959",
+     "https://www.festival-cannes.com/f/les-quatre-cents-coups-3/"
+    ],
+    [
+     "Larousse · À bout de souffle",
+     "https://www.larousse.fr/encyclopedie/film/wd/174"
+    ],
+    [
+     "Il Cinema Ritrovato · À bout de souffle (en anglais)",
+     "https://ilcinemaritrovato.it/en/film/a-bout-de-souffle/"
+    ]
+   ],
+   "rivalJuste": "Bien rangé. Même les Cahiers n’auraient rien à redire.",
+   "rivalFaux": "Les vagues se suivent, mais pas dans n’importe quel ordre.",
+   "valeurs": {
+    "Création des Cahiers du cinéma": "avril 1951",
+    "La Pointe courte de Varda": "1955",
+    "Les 400 Coups à Cannes": "1959",
+    "À bout de souffle de Godard": "1960"
+   }
+  }
+ ]
+}

@@ -1,0 +1,294 @@
+{
+ "id": "hg-04",
+ "domaine": "hg",
+ "numero": 4,
+ "sujet": "La Grèce antique",
+ "titre": "Athènes et la démocratie",
+ "figure": null,
+ "essentiel": [
+  "Vers 508‑507 av. J.‑C., Clisthène réorganise Athènes : il répartit les citoyens en dix tribus selon des critères géographiques, et chaque tribu envoie au Conseil cinquante membres tirés au sort, ce qui porte son effectif à cinq cents.",
+  "Aristote lui attribue aussi l’ostracisme : ce vote peut bannir un citoyen pour dix ans sans lui retirer ses biens, si au moins 6 000 votants y participent ; la première victime connue, vers 487 av. J.‑C., est Hipparque, fils de Charmos.",
+  "Périclès, réélu stratège pendant quinze années successives, parachève le régime en faisant rétribuer les charges publiques, afin que les citoyens modestes puissent y prendre part.",
+  "Cette démocratie reste réservée aux citoyens : en 451 av. J.‑C., une loi de Périclès exige d’être né d’un père et d’une mère athéniens, et les femmes, les esclaves et les métèques ne sont pas citoyens.",
+  "Réélu stratège au printemps 429 av. J.‑C., Périclès meurt de la peste en septembre."
+ ],
+ "reperes": [
+  [
+   "508‑507 av. J.‑C.",
+   "Réformes de Clisthène : dix tribus et Conseil de cinq cents membres tirés au sort."
+  ],
+  [
+   "Vers 487 av. J.‑C.",
+   "Premier ostracisme connu, contre Hipparque, fils de Charmos."
+  ],
+  [
+   "451 av. J.‑C.",
+   "Loi de Périclès : il faut être né d’un père et d’une mère athéniens pour être citoyen."
+  ],
+  [
+   "429 av. J.‑C.",
+   "Mort de Périclès, victime de la peste qui frappe Athènes."
+  ],
+  [
+   "6 000 votants",
+   "Quorum exigé pour valider un ostracisme."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Mandat d’un bouleute",
+   "valeur": 1,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Exil par ostracisme",
+   "valeur": 10,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Périclès réélu stratège",
+   "valeur": 15,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Âge d’inscription au dème",
+   "valeur": 18,
+   "unite": "ans"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Clisthène",
+   "Périclès",
+   "Conseil des Cinq‑Cents",
+   "Ostracisme",
+   "Citoyenneté",
+   "Assemblée"
+  ],
+  "liens": [
+   [
+    "Clisthène",
+    "Conseil des Cinq‑Cents",
+    "réorganise"
+   ],
+   [
+    "Ostracisme",
+    "Clisthène",
+    "attribué à"
+   ],
+   [
+    "Périclès",
+    "Clisthène",
+    "achève l’œuvre de"
+   ],
+   [
+    "Périclès",
+    "Citoyenneté",
+    "restreint"
+   ],
+   [
+    "Assemblée",
+    "Citoyenneté",
+    "réservée aux citoyens"
+   ]
+  ]
+ },
+ "saviezVous": "Un puits de la pente nord de l’Acropole a livré 191 ostraka, presque tous au nom de Thémistocle : 180 d’entre eux sont de la main de 14 scripteurs seulement.",
+ "sources": [
+  [
+   "Encyclopædia Britannica · The reforms of Cleisthenes (en anglais)",
+   "https://www.britannica.com/place/ancient-Greece/The-reforms-of-Cleisthenes"
+  ],
+  [
+   "Encyclopædia Britannica · Council of Five Hundred (en anglais)",
+   "https://www.britannica.com/topic/Council-of-Five-Hundred-ancient-Greek-council"
+  ],
+  [
+   "Encyclopædia Britannica · Ecclesia (en anglais)",
+   "https://www.britannica.com/topic/Ecclesia-ancient-Greek-assembly"
+  ],
+  [
+   "Encyclopædia Britannica · Ostracism (en anglais)",
+   "https://www.britannica.com/topic/ostracism"
+  ],
+  [
+   "Encyclopædia Britannica · Pericles, résumé (en anglais)",
+   "https://www.britannica.com/summary/Pericles-Athenian-statesman"
+  ],
+  [
+   "Larousse · Clisthène, homme d’État athénien",
+   "https://www.larousse.fr/encyclopedie/personnage/Clisth%C3%A8ne/113878"
+  ],
+  [
+   "Larousse · Ostracisme",
+   "https://www.larousse.fr/encyclopedie/mythologie/Ostracisme/190421"
+  ],
+  [
+   "Larousse · Périclès",
+   "https://www.larousse.fr/encyclopedie/personnage/P%C3%A9ricl%C3%A8s/137626"
+  ],
+  [
+   "Larousse · Démocratie",
+   "https://www.larousse.fr/encyclopedie/divers/democratie/41420"
+  ],
+  [
+   "Larousse · Démocratie (philosophie)",
+   "https://www.larousse.fr/encyclopedie/philosophie/d%C3%A9mocratie/191453"
+  ],
+  [
+   "Encyclopædia Universalis · Périclès",
+   "https://www.universalis.fr/encyclopedie/pericles/"
+  ],
+  [
+   "Encyclopædia Universalis · Achèvement de la démocratie athénienne",
+   "https://www.universalis.fr/encyclopedie/achevement-de-la-democratie-athenienne/"
+  ],
+  [
+   "Encyclopædia Universalis Junior · Démocratie athénienne",
+   "https://junior.universalis.fr/encyclopedie/democratie-athenienne"
+  ],
+  [
+   "MIT, Internet Classics Archive · Aristote, Constitution d’Athènes, trad. F. G. Kenyon (en anglais)",
+   "https://classics.mit.edu/Aristotle/athenian_const.mb.txt"
+  ],
+  [
+   "Foundation of the Hellenic World · The Assembly (en anglais)",
+   "https://www.fhw.gr/chronos/05/en/politics/321assembly.html"
+  ],
+  [
+   "American School of Classical Studies at Athens · The Athenian Agora XXV, Ostraka (en anglais)",
+   "https://ambrosia.ascsa.net/id/agora/publication/agora%2025"
+  ],
+  [
+   "American School of Classical Studies at Athens · Ostraka of Themistokles from the North Slope (en anglais)",
+   "https://ascsa.net/id/agora/image/2004.02.0024"
+  ],
+  [
+   "Robin Osborne · The Politics of Expulsion : Ostracism at Athens, chapitre en ligne (en anglais)",
+   "https://ia801500.us.archive.org/2/items/omnibus33/02OsborneExpulsion.pdf"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le Conseil des Cinq‑Cents",
+   "repere": 0,
+   "enonce": "Après les réformes de Clisthène, comment sont désignés les cinq cents membres du Conseil, la Boulè ?",
+   "reponses": [
+    "Par élection à main levée, devant l’Assemblée du peuple",
+    "Par tirage au sort, à raison de cinquante par tribu",
+    "Par hérédité, au sein des grandes familles",
+    "Par nomination des dix stratèges"
+   ],
+   "bonne": 1,
+   "correction": "Le Conseil compte cinq cents bouleutes tirés au sort, cinquante par tribu. Athènes préfère en effet le sort à l’élection pour désigner ses magistrats.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Council of Five Hundred (en anglais)",
+     "https://www.britannica.com/topic/Council-of-Five-Hundred-ancient-Greek-council"
+    ],
+    [
+     "MIT, Internet Classics Archive · Aristote, Constitution d’Athènes, trad. F. G. Kenyon (en anglais)",
+     "https://classics.mit.edu/Aristotle/athenian_const.mb.txt"
+    ],
+    [
+     "Larousse · Démocratie",
+     "https://www.larousse.fr/encyclopedie/divers/democratie/41420"
+    ]
+   ],
+   "rivalJuste": "Juste. Les Athéniens se fiaient au sort ; toi, à ta mémoire.",
+   "rivalFaux": "Raté. Les Athéniens tiraient au sort ; toi, tu as tiré à côté."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "La loi de Périclès sur la citoyenneté",
+   "repere": 2,
+   "affirmation": "En 451 av. J.‑C., une loi de Périclès ouvre la citoyenneté athénienne à tous les hommes libres installés à Athènes.",
+   "vrai": false,
+   "correction": "C’était un bluff. Cette loi fait l’inverse : elle restreint la citoyenneté, qui exige désormais d’être né d’un père et d’une mère athéniens.",
+   "figure": null,
+   "sources": [
+    [
+     "Larousse · Périclès",
+     "https://www.larousse.fr/encyclopedie/personnage/P%C3%A9ricl%C3%A8s/137626"
+    ],
+    [
+     "MIT, Internet Classics Archive · Aristote, Constitution d’Athènes, trad. F. G. Kenyon (en anglais)",
+     "https://classics.mit.edu/Aristotle/athenian_const.mb.txt"
+    ],
+    [
+     "Encyclopædia Universalis Junior · Démocratie athénienne",
+     "https://junior.universalis.fr/encyclopedie/democratie-athenienne"
+    ],
+    [
+     "Foundation of the Hellenic World · The Assembly (en anglais)",
+     "https://www.fhw.gr/chronos/05/en/politics/321assembly.html"
+    ]
+   ],
+   "rivalJuste": "Bien vu. Ma phrase était bien plus accueillante que la cité.",
+   "rivalFaux": "Tu m’as cru. Athènes était moins hospitalière que ma phrase."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "De Clisthène à la mort de Périclès",
+   "repere": 1,
+   "enonce": "Range ces quatre événements du plus ancien au plus récent.",
+   "elements": [
+    "Loi de Périclès sur la citoyenneté",
+    "Réformes de Clisthène",
+    "Mort de Périclès",
+    "Premier ostracisme"
+   ],
+   "ordre": [
+    "Réformes de Clisthène",
+    "Premier ostracisme",
+    "Loi de Périclès sur la citoyenneté",
+    "Mort de Périclès"
+   ],
+   "correction": "Clisthène réforme la cité en 508‑507 av. J.‑C., et le premier ostracisme connu date de 487 environ. Périclès fait voter sa loi sur la citoyenneté en 451, puis meurt de la peste en 429.",
+   "figure": null,
+   "sources": [
+    [
+     "Larousse · Clisthène, homme d’État athénien",
+     "https://www.larousse.fr/encyclopedie/personnage/Clisth%C3%A8ne/113878"
+    ],
+    [
+     "Encyclopædia Britannica · The reforms of Cleisthenes (en anglais)",
+     "https://www.britannica.com/place/ancient-Greece/The-reforms-of-Cleisthenes"
+    ],
+    [
+     "Larousse · Ostracisme",
+     "https://www.larousse.fr/encyclopedie/mythologie/Ostracisme/190421"
+    ],
+    [
+     "Encyclopædia Britannica · Ostracism (en anglais)",
+     "https://www.britannica.com/topic/ostracism"
+    ],
+    [
+     "Larousse · Périclès",
+     "https://www.larousse.fr/encyclopedie/personnage/P%C3%A9ricl%C3%A8s/137626"
+    ],
+    [
+     "Encyclopædia Universalis Junior · Démocratie athénienne",
+     "https://junior.universalis.fr/encyclopedie/democratie-athenienne"
+    ],
+    [
+     "Encyclopædia Britannica · Pericles, résumé (en anglais)",
+     "https://www.britannica.com/summary/Pericles-Athenian-statesman"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Clisthène lui-même n’y trouverait rien à redire.",
+   "rivalFaux": "Ordre brouillé. Tes dates méritent dix ans d’exil.",
+   "valeurs": {
+    "Réformes de Clisthène": "508‑507 av. J.‑C.",
+    "Premier ostracisme": "Vers 487 av. J.‑C.",
+    "Loi de Périclès sur la citoyenneté": "451 av. J.‑C.",
+    "Mort de Périclès": "429 av. J.‑C."
+   }
+  }
+ ]
+}

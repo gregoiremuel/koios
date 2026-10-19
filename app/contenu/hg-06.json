@@ -1,0 +1,307 @@
+{
+ "id": "hg-06",
+ "domaine": "hg",
+ "numero": 6,
+ "titre": "L’Islande, terre de feu et de glace",
+ "sujet": "L’Islande",
+ "figure": null,
+ "essentiel": [
+  "L’Islande est l’un des rares endroits du monde où une dorsale océanique émerge au‑dessus de la mer : sur la dorsale médio‑atlantique, la plaque nord‑américaine s’éloigne de la plaque eurasienne.",
+  "Le volcanisme y est récent et actif, avec vingt à vingt‑cinq éruptions par siècle à l’époque historique ; celle du Laki, en 1783–1784, provoque une famine qui fait environ 10 000 morts.",
+  "Les glaciers couvrent environ 10 % du pays, et le plus vaste, le Vatnajökull, occupe environ 7 600 km² en 2023.",
+  "Beaucoup de calottes glaciaires recouvrent des volcans actifs ; en 2010, l’éruption de l’Eyjafjallajökull, sous un glacier, perturbe fortement le trafic aérien en Europe.",
+  "La chaleur du sous‑sol est mise à profit : la géothermie fournit plus de 60 % de l’énergie primaire du pays et chauffe la grande majorité des logements."
+ ],
+ "reperes": [
+  [
+   "Dorsale médio‑atlantique",
+   "Frontière entre les plaques nord‑américaine et eurasienne, visible à l’air libre en Islande, notamment à Þingvellir."
+  ],
+  [
+   "10 %",
+   "Part du territoire couverte par les glaciers ; le Vatnajökull, le plus vaste, occupe environ 7 600 km² en 2023."
+  ],
+  [
+   "1783–1784",
+   "Éruption du Laki, suivie d’une famine qui fait environ 10 000 morts."
+  ],
+  [
+   "1963–1967",
+   "Éruptions qui font naître l’île de Surtsey, à 32 km de la côte sud."
+  ],
+  [
+   "Plus de 60 %",
+   "Part de la géothermie dans l’énergie primaire du pays (62 % en 2018)."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Vatnajökull",
+   "valeur": 7600,
+   "unite": "km²"
+  },
+  {
+   "libelle": "Langjökull",
+   "valeur": 820,
+   "unite": "km²"
+  },
+  {
+   "libelle": "Hofsjökull",
+   "valeur": 795,
+   "unite": "km²"
+  },
+  {
+   "libelle": "Mýrdalsjökull",
+   "valeur": 510,
+   "unite": "km²"
+  },
+  {
+   "libelle": "Drangajökull",
+   "valeur": 136,
+   "unite": "km²"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Dorsale médio‑atlantique",
+   "Volcanisme",
+   "Glaciers",
+   "Géothermie",
+   "Þingvellir",
+   "Laki"
+  ],
+  "liens": [
+   [
+    "Dorsale médio‑atlantique",
+    "Volcanisme",
+    "alimente"
+   ],
+   [
+    "Dorsale médio‑atlantique",
+    "Þingvellir",
+    "affleure à"
+   ],
+   [
+    "Volcanisme",
+    "Glaciers",
+    "sous la glace"
+   ],
+   [
+    "Volcanisme",
+    "Géothermie",
+    "source de chaleur"
+   ],
+   [
+    "Volcanisme",
+    "Laki",
+    "éruption de 1783"
+   ]
+  ]
+ },
+ "saviezVous": "Surtsey, île née d’éruptions entre 1963 et 1967, est protégée depuis son apparition ; les scientifiques y suivent depuis 1964 la colonisation de la terre nue par le vivant.",
+ "sources": [
+  [
+   "USGS · This Dynamic Earth, Thingvellir (en anglais)",
+   "https://pubs.usgs.gov/gip/dynamic/Thingvellir.html"
+  ],
+  [
+   "NASA Earth Observatory · The Land of Ice and Fire (en anglais)",
+   "https://science.nasa.gov/earth/earth-observatory/the-land-of-ice-and-fire-1830/"
+  ],
+  [
+   "Encyclopædia Universalis · Islande",
+   "https://www.universalis.fr/encyclopedie/islande/"
+  ],
+  [
+   "Parc national de Þingvellir · Tectonic movements (en anglais)",
+   "https://thingvellir.is/en/education/nature/tectonic-movements"
+  ],
+  [
+   "Náttúrufræðistofnun Íslands (institut islandais d’histoire naturelle) · Jöklar (en islandais)",
+   "https://www.natt.is/is/jord/vatn/joklar"
+  ],
+  [
+   "Frontiers in Earth Science · Glacier Changes in Iceland From ∼1890 to 2019 (en anglais)",
+   "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2020.523646/pdf"
+  ],
+  [
+   "Parc national du Vatnajökull · Les glaciers islandais (en anglais)",
+   "https://vatnajokulsthjodgardur.is/en/um-horfandi-jokla"
+  ],
+  [
+   "Agence islandaise de l’environnement (Umhverfisstofnun) · Lakagígar (en anglais)",
+   "https://www.ust.is/library/Skrar/2005/Lakagigar_enska.pdf"
+  ],
+  [
+   "Encyclopædia Universalis · Laki",
+   "https://www.universalis.fr/encyclopedie/laki/"
+  ],
+  [
+   "UNESCO · Surtsey (en anglais)",
+   "https://whc.unesco.org/en/list/1267"
+  ],
+  [
+   "Encyclopædia Britannica · Surtsey (en anglais)",
+   "https://www.britannica.com/place/Surtsey"
+  ],
+  [
+   "Encyclopædia Britannica · Heimaey (en anglais)",
+   "https://www.britannica.com/place/Heimaey"
+  ],
+  [
+   "Oregon State University · L’éruption de l’Eldfell à Heimaey (en anglais)",
+   "https://volcano.oregonstate.edu/news/volcano-vs-man-tale-eldfell"
+  ],
+  [
+   "Encyclopædia Britannica · Eyjafjallajökull (en anglais)",
+   "https://www.britannica.com/place/Eyjafjallajokull"
+  ],
+  [
+   "Gouvernement islandais · Volcanic eruption in South Iceland, 16 avril 2010 (en anglais)",
+   "https://www.stjornarradid.is/frettir/grein/2010-04-16-Volcanic-eruption-in-South-Iceland-3203"
+  ],
+  [
+   "Service géologique de Norvège (NGU) · Iceland, chapitre 4, Franzson et al. (en anglais)",
+   "https://static.ngu.no/upload/Aktuelt/CircumArtic/4_Iceland.pdf"
+  ],
+  [
+   "IEA Geothermal · Iceland (en anglais)",
+   "https://iea-gia.org/about-us/members/iceland/"
+  ],
+  [
+   "Gouvernement islandais · Energy (en anglais)",
+   "https://government.is/topics/business-and-industry/energy"
+  ],
+  [
+   "Iceland GeoSurvey (ÍSOR), conférence ARGEO 2018 · Geothermal Country Update for Iceland (en anglais)",
+   "https://theargeo.org/fullpapers/C7/Geothermal%20Country%20Update%20for%20Iceland.pdf"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Les plaques sous l’Islande",
+   "repere": 0,
+   "enonce": "Quelles plaques tectoniques s’écartent sous l’Islande, le long de la dorsale médio‑atlantique ?",
+   "reponses": [
+    "La plaque nord‑américaine et la plaque eurasienne",
+    "La plaque eurasienne et la plaque africaine",
+    "La plaque nord‑américaine et la plaque sud‑américaine",
+    "La plaque eurasienne et la plaque pacifique"
+   ],
+   "bonne": 0,
+   "correction": "La dorsale médio‑atlantique émerge en Islande : la plaque nord‑américaine s’éloigne de la plaque eurasienne. À Þingvellir, cette fracture se voit à l’air libre.",
+   "figure": null,
+   "sources": [
+    [
+     "USGS · This Dynamic Earth, Thingvellir (en anglais)",
+     "https://pubs.usgs.gov/gip/dynamic/Thingvellir.html"
+    ],
+    [
+     "NASA Earth Observatory · The Land of Ice and Fire (en anglais)",
+     "https://science.nasa.gov/earth/earth-observatory/the-land-of-ice-and-fire-1830/"
+    ],
+    [
+     "Encyclopædia Universalis · Islande",
+     "https://www.universalis.fr/encyclopedie/islande/"
+    ],
+    [
+     "Parc national de Þingvellir · Tectonic movements (en anglais)",
+     "https://thingvellir.is/en/education/nature/tectonic-movements"
+    ]
+   ],
+   "rivalJuste": "Juste. L’Islande est tiraillée entre deux plaques ; toi, tu as choisi la bonne.",
+   "rivalFaux": "Non. Les plaques, elles, savent très bien qui s’éloigne de qui."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "La part des glaciers",
+   "repere": 1,
+   "affirmation": "Plus de la moitié de l’Islande est recouverte de glaciers.",
+   "vrai": false,
+   "correction": "C’était un bluff. Les glaciers couvrent environ 10 % du pays ; le Vatnajökull, le plus vaste, occupe environ 7 600 km² en 2023.",
+   "figure": null,
+   "sources": [
+    [
+     "Náttúrufræðistofnun Íslands (institut islandais d’histoire naturelle) · Jöklar (en islandais)",
+     "https://www.natt.is/is/jord/vatn/joklar"
+    ],
+    [
+     "Frontiers in Earth Science · Glacier Changes in Iceland From ∼1890 to 2019 (en anglais)",
+     "https://www.frontiersin.org/journals/earth-science/articles/10.3389/feart.2020.523646/pdf"
+    ],
+    [
+     "Parc national du Vatnajökull · Les glaciers islandais (en anglais)",
+     "https://vatnajokulsthjodgardur.is/en/um-horfandi-jokla"
+    ]
+   ],
+   "rivalJuste": "Repéré. Le nom promet plus de glace que la carte n’en livre.",
+   "rivalFaux": "Un dixième, pas la moitié. Le nom du pays t’a bluffé mieux que moi."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Quatre éruptions marquantes",
+   "repere": 2,
+   "enonce": "Range ces quatre éruptions du plus ancien au plus récent.",
+   "elements": [
+    "Éruption de l’Eyjafjallajökull",
+    "Naissance de Surtsey",
+    "Éruption du Laki",
+    "Éruption de Heimaey"
+   ],
+   "ordre": [
+    "Éruption du Laki",
+    "Naissance de Surtsey",
+    "Éruption de Heimaey",
+    "Éruption de l’Eyjafjallajökull"
+   ],
+   "correction": "Le Laki (1783–1784) est de loin la plus ancienne. Surtsey naît en 1963, l’éruption de Heimaey commence en janvier 1973 et celle de l’Eyjafjallajökull date de 2010.",
+   "figure": null,
+   "sources": [
+    [
+     "Agence islandaise de l’environnement (Umhverfisstofnun) · Lakagígar (en anglais)",
+     "https://www.ust.is/library/Skrar/2005/Lakagigar_enska.pdf"
+    ],
+    [
+     "Encyclopædia Universalis · Laki",
+     "https://www.universalis.fr/encyclopedie/laki/"
+    ],
+    [
+     "UNESCO · Surtsey (en anglais)",
+     "https://whc.unesco.org/en/list/1267"
+    ],
+    [
+     "Encyclopædia Britannica · Surtsey (en anglais)",
+     "https://www.britannica.com/place/Surtsey"
+    ],
+    [
+     "Encyclopædia Britannica · Heimaey (en anglais)",
+     "https://www.britannica.com/place/Heimaey"
+    ],
+    [
+     "Oregon State University · L’éruption de l’Eldfell à Heimaey (en anglais)",
+     "https://volcano.oregonstate.edu/news/volcano-vs-man-tale-eldfell"
+    ],
+    [
+     "Encyclopædia Britannica · Eyjafjallajökull (en anglais)",
+     "https://www.britannica.com/place/Eyjafjallajokull"
+    ],
+    [
+     "Gouvernement islandais · Volcanic eruption in South Iceland, 16 avril 2010 (en anglais)",
+     "https://www.stjornarradid.is/frettir/grein/2010-04-16-Volcanic-eruption-in-South-Iceland-3203"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Les éruptions, elles, ne préviennent pas.",
+   "rivalFaux": "Pas dans cet ordre. Les volcans, eux, n’ont jamais eu de calendrier.",
+   "valeurs": {
+    "Éruption du Laki": "1783–1784",
+    "Naissance de Surtsey": "1963–1967",
+    "Éruption de Heimaey": "1973",
+    "Éruption de l’Eyjafjallajökull": "2010"
+   }
+  }
+ ]
+}

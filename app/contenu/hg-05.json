@@ -1,0 +1,324 @@
+{
+ "id": "hg-05",
+ "domaine": "hg",
+ "numero": 5,
+ "sujet": "La Grèce antique",
+ "titre": "Les guerres médiques",
+ "figure": null,
+ "essentiel": [
+  "En septembre 490 av. J.‑C., à Marathon, environ 10 000 Athéniens et 1 000 Platéens, conduits par Miltiade, repoussent l’armée perse de Darius Ier ; environ 6 400 Perses et 192 Grecs y perdent la vie.",
+  "Selon Hérodote, Phidippidès court d’Athènes à Sparte, environ 240 km, demander du secours avant la bataille ; la course de Marathon à Athènes, d’où vient le marathon moderne, relève de la légende.",
+  "En 480 av. J.‑C., Xerxès envahit la Grèce : aux Thermopyles, Léonidas retient les Perses trois jours avec quelques milliers d’hommes, puis un sentier de montagne, révélé par le traître Éphialtès, permet de le contourner.",
+  "En septembre 480 av. J.‑C., à Salamine, Thémistocle attire la flotte perse, d’environ 800 galères, dans un détroit étroit : les quelque 370 trières grecques en coulent près de 300 et n’en perdent qu’une quarantaine.",
+  "En 479 av. J.‑C., à Platées, en Béotie, les Grecs rassemblés sous le Spartiate Pausanias battent l’armée de Mardonios, qui est tué ; cette victoire met fin à l’occupation perse de la Grèce."
+ ],
+ "reperes": [
+  [
+   "Septembre 490 av. J.‑C.",
+   "Marathon : Miltiade et ses Athéniens repoussent les Perses de Darius Ier."
+  ],
+  [
+   "Août 480 av. J.‑C.",
+   "Thermopyles : Léonidas tient le défilé trois jours avant d’être contourné."
+  ],
+  [
+   "Septembre 480 av. J.‑C.",
+   "Salamine : la flotte grecque, dirigée par Thémistocle, écrase la flotte perse."
+  ],
+  [
+   "479 av. J.‑C.",
+   "Platées : Pausanias et les Grecs battent Mardonios, qui est tué."
+  ],
+  [
+   "6 400 contre 192",
+   "Pertes perses et grecques à Marathon."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Flotte perse (env.)",
+   "valeur": 800,
+   "unite": "navires"
+  },
+  {
+   "libelle": "Flotte grecque (env.)",
+   "valeur": 370,
+   "unite": "navires"
+  },
+  {
+   "libelle": "Navires perses coulés (env.)",
+   "valeur": 300,
+   "unite": "navires"
+  },
+  {
+   "libelle": "Navires grecs perdus (env.)",
+   "valeur": 40,
+   "unite": "navires"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Marathon",
+   "Thermopyles",
+   "Salamine",
+   "Platées",
+   "Miltiade",
+   "Léonidas",
+   "Thémistocle"
+  ],
+  "liens": [
+   [
+    "Miltiade",
+    "Marathon",
+    "commande à"
+   ],
+   [
+    "Léonidas",
+    "Thermopyles",
+    "y meurt"
+   ],
+   [
+    "Thémistocle",
+    "Salamine",
+    "artisan de"
+   ],
+   [
+    "Marathon",
+    "Thermopyles",
+    "dix ans avant"
+   ],
+   [
+    "Thermopyles",
+    "Salamine",
+    "précède"
+   ],
+   [
+    "Salamine",
+    "Platées",
+    "précède"
+   ]
+  ]
+ },
+ "saviezVous": "À Istanbul, sur l’ancien hippodrome, subsiste la colonne de bronze aux trois serpents offerte à Apollon, à Delphes, après Platées : l’empereur Constantin l’y a fait transporter.",
+ "sources": [
+  [
+   "Encyclopædia Britannica · Battle of Marathon (en anglais)",
+   "https://www.britannica.com/event/Battle-of-Marathon"
+  ],
+  [
+   "Encyclopædia Britannica · Thermopylae (en anglais)",
+   "https://www.britannica.com/place/Thermopylae"
+  ],
+  [
+   "Encyclopædia Britannica · Leonidas (en anglais)",
+   "https://www.britannica.com/biography/Leonidas-king-of-Sparta"
+  ],
+  [
+   "Encyclopædia Britannica · The last Persian Wars (en anglais)",
+   "https://www.britannica.com/place/ancient-Greece/The-last-Persian-Wars"
+  ],
+  [
+   "Encyclopædia Britannica · Battle of Salamis (en anglais)",
+   "https://www.britannica.com/event/Battle-of-Salamis"
+  ],
+  [
+   "Encyclopædia Britannica · Battle of Plataea (en anglais)",
+   "https://www.britannica.com/event/Battle-of-Plataea"
+  ],
+  [
+   "Larousse · Guerres médiques",
+   "https://www.larousse.fr/encyclopedie/divers/guerres_m%C3%A9diques/132563"
+  ],
+  [
+   "Larousse · Marathon",
+   "https://www.larousse.fr/encyclopedie/ville/Marathon/131649"
+  ],
+  [
+   "Larousse · Les Thermopyles",
+   "https://www.larousse.fr/encyclopedie/divers/les_Thermopyles/146562"
+  ],
+  [
+   "Larousse · Bataille de Salamine",
+   "https://www.larousse.fr/encyclopedie/divers/bataille_de_Salamine/103179"
+  ],
+  [
+   "Larousse · Bataille de Platées",
+   "https://www.larousse.fr/encyclopedie/divers/bataille_de_Plat%C3%A9es/138412"
+  ],
+  [
+   "Larousse · Istanbul",
+   "https://www.larousse.fr/encyclopedie/ville/Istanbul/125316"
+  ],
+  [
+   "Encyclopædia Universalis · Guerres médiques, repères chronologiques",
+   "https://www.universalis.fr/encyclopedie/mediques-reperes-chronologiques/"
+  ],
+  [
+   "Encyclopædia Universalis Junior · Guerres médiques, grandes dates",
+   "https://junior.universalis.fr/document/guerres-mediques-grandes-dates"
+  ],
+  [
+   "Encyclopædia Universalis · Bataille de Salamine",
+   "https://www.universalis.fr/encyclopedie/bataille-de-salamine/"
+  ],
+  [
+   "Perseids, Perseus Digital Library · Hérodote, Histoires, VI, 105 (trad. A. D. Godley, en anglais)",
+   "https://fgh.perseids.org/read/greekLit/tlg0016/tlg001/perseus-eng2/6.105.1-6.105.2"
+  ],
+  [
+   "Perseids, Perseus Digital Library · Hérodote, Histoires, VI, 106 (trad. A. D. Godley, en anglais)",
+   "https://fgh.perseids.org/read/greekLit/tlg0016/tlg001/perseus-eng2/6.106.1-6.106.2"
+  ],
+  [
+   "Perseids, Perseus Digital Library · Hérodote, Histoires, VI, 117 (trad. A. D. Godley, en anglais)",
+   "https://fgh.perseids.org/read/greekLit/tlg0016/tlg001/perseus-eng2/6.117.1-6.117.2"
+  ],
+  [
+   "Musée de la guerre d’Athènes · Thermopylae, tourisme militaire (en anglais)",
+   "https://militarytourism.warmuseum.gr/en/attractions/thermopylae"
+  ],
+  [
+   "Livius.org · Thermopylae, 480 av. J.‑C. (en anglais)",
+   "https://www.livius.org/articles/battle/thermopylae-480-bce/"
+  ],
+  [
+   "Université de Chicago, Penelope · Encyclopaedia Romana, la colonne serpentine (en anglais)",
+   "https://penelope.uchicago.edu/encyclopaedia_romana/circusmaximus/serpentine.html"
+  ],
+  [
+   "The Medieval Review (Université d’Indiana) · Compte rendu de The Serpent Column, de Paul Stephenson (en anglais)",
+   "https://scholarworks.iu.edu/journals/index.php/tmr/article/view/23588"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Phidippidès et la course de Marathon",
+   "repere": 0,
+   "enonce": "D’après Hérodote, quel trajet le coureur Phidippidès accomplit-il à l’occasion de la bataille de Marathon ?",
+   "reponses": [
+    "De Marathon à Athènes, pour annoncer la victoire",
+    "De Sparte à Marathon, pour amener des renforts",
+    "D’Athènes à Delphes, pour consulter l’oracle",
+    "D’Athènes à Sparte, pour demander du secours"
+   ],
+   "bonne": 3,
+   "correction": "Hérodote envoie Phidippidès d’Athènes à Sparte, environ 240 km, demander du secours avant la bataille. La course de Marathon à Athènes, qui a inspiré le marathon moderne, relève de la légende.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · Battle of Marathon (en anglais)",
+     "https://www.britannica.com/event/Battle-of-Marathon"
+    ],
+    [
+     "Perseids, Perseus Digital Library · Hérodote, Histoires, VI, 105 (trad. A. D. Godley, en anglais)",
+     "https://fgh.perseids.org/read/greekLit/tlg0016/tlg001/perseus-eng2/6.105.1-6.105.2"
+    ],
+    [
+     "Perseids, Perseus Digital Library · Hérodote, Histoires, VI, 106 (trad. A. D. Godley, en anglais)",
+     "https://fgh.perseids.org/read/greekLit/tlg0016/tlg001/perseus-eng2/6.106.1-6.106.2"
+    ],
+    [
+     "Larousse · Marathon",
+     "https://www.larousse.fr/encyclopedie/ville/Marathon/131649"
+    ]
+   ],
+   "rivalJuste": "Juste. Tu as retenu Hérodote, pas la légende qu’on récite au départ des marathons.",
+   "rivalFaux": "Raté. La légende est plus jolie qu’Hérodote, mais c’est lui qui fait foi."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Les Spartiates ne sont pas seuls",
+   "repere": 1,
+   "affirmation": "Aux Thermopyles, les trois cents Spartiates de Léonidas ne sont pas seuls : plusieurs milliers d’autres Grecs tiennent d’abord le défilé avec eux.",
+   "vrai": true,
+   "correction": "Il disait vrai. Léonidas commande d’abord quelques milliers de Grecs (de 4 000 à 7 000 selon les sources), en renvoie la plupart avant la fin, et reste avec ses 300 Spartiates, leurs hilotes et 1 100 Béotiens.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · The last Persian Wars (en anglais)",
+     "https://www.britannica.com/place/ancient-Greece/The-last-Persian-Wars"
+    ],
+    [
+     "Encyclopædia Britannica · Thermopylae (en anglais)",
+     "https://www.britannica.com/place/Thermopylae"
+    ],
+    [
+     "Musée de la guerre d’Athènes · Thermopylae, tourisme militaire (en anglais)",
+     "https://militarytourism.warmuseum.gr/en/attractions/thermopylae"
+    ],
+    [
+     "Livius.org · Thermopylae, 480 av. J.‑C. (en anglais)",
+     "https://www.livius.org/articles/battle/thermopylae-480-bce/"
+    ]
+   ],
+   "rivalJuste": "Bien vu. La légende a gardé les trois cents et oublié les autres.",
+   "rivalFaux": "Je disais vrai. Léonidas avait du monde ; la légende l’a simplement oublié."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "L’ordre des grandes batailles",
+   "repere": 2,
+   "enonce": "Range ces quatre batailles du plus ancien au plus récent.",
+   "elements": [
+    "Bataille de Salamine",
+    "Bataille de Platées",
+    "Bataille de Marathon",
+    "Combat des Thermopyles"
+   ],
+   "ordre": [
+    "Bataille de Marathon",
+    "Combat des Thermopyles",
+    "Bataille de Salamine",
+    "Bataille de Platées"
+   ],
+   "correction": "Marathon se livre en septembre 490 av. J.‑C. En 480, les Perses forcent les Thermopyles en août, puis la flotte grecque l’emporte à Salamine en septembre ; Platées clôt la série en 479.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Universalis · Guerres médiques, repères chronologiques",
+     "https://www.universalis.fr/encyclopedie/mediques-reperes-chronologiques/"
+    ],
+    [
+     "Encyclopædia Universalis Junior · Guerres médiques, grandes dates",
+     "https://junior.universalis.fr/document/guerres-mediques-grandes-dates"
+    ],
+    [
+     "Larousse · Guerres médiques",
+     "https://www.larousse.fr/encyclopedie/divers/guerres_m%C3%A9diques/132563"
+    ],
+    [
+     "Larousse · Bataille de Salamine",
+     "https://www.larousse.fr/encyclopedie/divers/bataille_de_Salamine/103179"
+    ],
+    [
+     "Larousse · Bataille de Platées",
+     "https://www.larousse.fr/encyclopedie/divers/bataille_de_Plat%C3%A9es/138412"
+    ],
+    [
+     "Encyclopædia Britannica · Battle of Marathon (en anglais)",
+     "https://www.britannica.com/event/Battle-of-Marathon"
+    ],
+    [
+     "Encyclopædia Britannica · Battle of Salamis (en anglais)",
+     "https://www.britannica.com/event/Battle-of-Salamis"
+    ],
+    [
+     "Encyclopædia Britannica · Battle of Plataea (en anglais)",
+     "https://www.britannica.com/event/Battle-of-Plataea"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Xerxès aurait préféré une autre chronologie.",
+   "rivalFaux": "Mauvais ordre. Il faudra relire Hérodote, et vite.",
+   "valeurs": {
+    "Bataille de Marathon": "Septembre 490 av. J.‑C.",
+    "Combat des Thermopyles": "Août 480 av. J.‑C.",
+    "Bataille de Salamine": "Septembre 480 av. J.‑C.",
+    "Bataille de Platées": "479 av. J.‑C."
+   }
+  }
+ ]
+}

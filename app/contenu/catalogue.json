@@ -15,6 +15,30 @@
     "id": "hg-03",
     "numero": 3,
     "titre": "Les grands sommets du monde"
+   },
+   {
+    "id": "hg-04",
+    "numero": 4,
+    "titre": "Athènes et la démocratie",
+    "sujet": "La Grèce antique"
+   },
+   {
+    "id": "hg-05",
+    "numero": 5,
+    "titre": "Les guerres médiques",
+    "sujet": "La Grèce antique"
+   },
+   {
+    "id": "hg-06",
+    "numero": 6,
+    "titre": "L’Islande, terre de feu et de glace",
+    "sujet": "L’Islande"
+   },
+   {
+    "id": "hg-07",
+    "numero": 7,
+    "titre": "L’Islande des Vikings",
+    "sujet": "L’Islande"
    }
   ],
   "sn": [
@@ -32,6 +56,18 @@
     "id": "sn-03",
     "numero": 3,
     "titre": "Plaques tectoniques et volcans"
+   },
+   {
+    "id": "sn-04",
+    "numero": 4,
+    "titre": "Les étages de l’océan",
+    "sujet": "Les fonds marins"
+   },
+   {
+    "id": "sn-05",
+    "numero": 5,
+    "titre": "La vie des abysses",
+    "sujet": "Les fonds marins"
    }
   ],
   "ac": [
@@ -49,6 +85,18 @@
     "id": "ac-03",
     "numero": 3,
     "titre": "Le Boléro de Ravel"
+   },
+   {
+    "id": "ac-04",
+    "numero": 4,
+    "titre": "La naissance du cinéma",
+    "sujet": "Le cinéma"
+   },
+   {
+    "id": "ac-05",
+    "numero": 5,
+    "titre": "La Nouvelle Vague",
+    "sujet": "Le cinéma"
    }
   ],
   "gj": [

@@ -1,0 +1,294 @@
+{
+ "id": "ac-04",
+ "domaine": "ac",
+ "numero": 4,
+ "titre": "La naissance du cinéma",
+ "sujet": "Le cinéma",
+ "figure": null,
+ "essentiel": [
+  "Le 13 février 1895, Auguste et Louis Lumière déposent le brevet du Cinématographe, un appareil qui sert à la fois de caméra et de projecteur.",
+  "Le 28 décembre 1895, au Salon indien du Grand Café, boulevard des Capucines, à Paris, a lieu la première séance publique et payante : dix films d’environ cinquante secondes chacun.",
+  "Parmi les spectateurs, le magicien Georges Méliès, directeur du théâtre Robert‑Houdin, propose d’acheter l’appareil ; les Lumière refusent.",
+  "Éconduit, Méliès devient pourtant cinéaste : il bâtit en 1897 un studio vitré à Montreuil et réalise environ cinq cents films, dont Le Voyage dans la Lune (1902).",
+  "Côté industriels, Pathé Frères naît à Paris le 28 septembre 1896, et Léon Gaumont, qui a racheté en 1895 le Comptoir général de photographie, y ajoute la production de films pour vendre ses caméras."
+ ],
+ "reperes": [
+  [
+   "13 février 1895",
+   "Brevet du Cinématographe, déposé par Auguste et Louis Lumière."
+  ],
+  [
+   "28 décembre 1895",
+   "Première séance publique et payante au Salon indien du Grand Café, à Paris."
+  ],
+  [
+   "1895",
+   "Léon Gaumont rachète le Comptoir général de photographie, base de la future société Gaumont."
+  ],
+  [
+   "28 septembre 1896",
+   "Fondation de la société Pathé Frères, à Paris."
+  ],
+  [
+   "1902",
+   "Georges Méliès réalise Le Voyage dans la Lune."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Séance du 28 décembre 1895",
+   "valeur": 10,
+   "unite": "films"
+  },
+  {
+   "libelle": "Films de Méliès recensés",
+   "valeur": 503,
+   "unite": "films"
+  },
+  {
+   "libelle": "Catalogue Lumière",
+   "valeur": 1422,
+   "unite": "films"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Frères Lumière",
+   "Cinématographe",
+   "Grand Café",
+   "Méliès",
+   "Pathé",
+   "Gaumont"
+  ],
+  "liens": [
+   [
+    "Frères Lumière",
+    "Cinématographe",
+    "brevet 1895"
+   ],
+   [
+    "Cinématographe",
+    "Grand Café",
+    "première séance"
+   ],
+   [
+    "Méliès",
+    "Grand Café",
+    "spectateur"
+   ],
+   [
+    "Méliès",
+    "Frères Lumière",
+    "achat refusé"
+   ],
+   [
+    "Gaumont",
+    "Frères Lumière",
+    "s’en inspire"
+   ],
+   [
+    "Pathé",
+    "Gaumont",
+    "rivaux"
+   ]
+  ]
+ },
+ "saviezVous": "Le coq de Pathé, avec sa devise « Je chante haut et clair », a d’abord été la marque des phonographes de la maison.",
+ "sources": [
+  [
+   "Institut Lumière · Le Cinématographe Lumière",
+   "https://www.institut-lumiere.org/le-cinematographe-lumiere"
+  ],
+  [
+   "Lyon Capitale · Lyon : les frères Lumière ont breveté le cinéma, mais l’ont‑ils inventé ?",
+   "https://www.lyoncapitale.fr/actualite/lyon-les-freres-lumiere-ont-brevete-le-cinema-mais-l-ont-ils-invente"
+  ],
+  [
+   "Centre Pompidou · Projections au Cinématographe Lumière",
+   "https://www.centrepompidou.fr/en/program/calendar/event/cj67Ln"
+  ],
+  [
+   "Hérodote.net · 28 décembre 1895, première séance publique du 7e Art",
+   "https://www.herodote.net/28_decembre_1895-evenement-18951228.php"
+  ],
+  [
+   "History of Information · The First Public Commercial Screening of Films (en anglais)",
+   "https://historyofinformation.com/detail.php?id=2032"
+  ],
+  [
+   "Encyclopædia Britannica · Louis Lumière (en anglais)",
+   "https://www.britannica.com/biography/Louis-Lumiere"
+  ],
+  [
+   "Larousse · Georges Méliès",
+   "https://www.larousse.fr/encyclopedie/personnage/wd/126671"
+  ],
+  [
+   "La Cinémathèque française (Google Arts & Culture) · Georges Méliès, Magic and Cinema (en anglais)",
+   "https://artsandculture.google.com/story/AwURw-D7QTN0Kg"
+  ],
+  [
+   "Tourisme 93 · Georges Méliès (en anglais)",
+   "https://uk.tourisme93.com/georges-melies.html"
+  ],
+  [
+   "Encyclopædia Britannica · Georges Méliès (en anglais)",
+   "https://www.britannica.com/biography/Georges-Melies"
+  ],
+  [
+   "Science Museum Group · Société Pathé Frères 1896‑1897 (en anglais)",
+   "https://collection.sciencemuseumgroup.org.uk/people/cp122687"
+  ],
+  [
+   "France Today · The Rooster that Woke the World : The Pathé Brothers in Close‑up (en anglais)",
+   "https://francetoday.com/culture/cinema-film/the-pathe-brothers-in-close-up/"
+  ],
+  [
+   "Encyclopædia Universalis · Pathé",
+   "https://www.universalis.fr/encyclopedie/pathe/"
+  ],
+  [
+   "Science Museum Group · L Gaumont & Cie 1899 (en anglais)",
+   "https://collection.sciencemuseumgroup.org.uk/people/cp121898"
+  ],
+  [
+   "Gaumont · The history of Gaumont (en anglais)",
+   "https://www.gaumont.com/en/page-edito-histoire/the-history-of-gaumont"
+  ],
+  [
+   "Martin Loiperdinger · Lumière’s Arrival of the Train : Cinema’s Founding Myth (en anglais, copie de l’université de Zagreb)",
+   "https://komparativna.ffzg.unizg.hr/wp-content/uploads/2011/10/doc-205-4.1loiperdinger.pdf"
+  ],
+  [
+   "ACMI · The Arrival of a Train at La Ciotat (en anglais)",
+   "https://www.acmi.net.au/works/61157--the-arrival-of-a-train-at-la-ciotat/"
+  ],
+  [
+   "International Documentary Association · Lumiere Illuminated : ‘Moving Image’ Debunks Myths Surrounding ‘Arrival of the Train’ (en anglais)",
+   "https://www.documentary.org/node/34707"
+  ],
+  [
+   "Lyon Capitale · Lumière ! L’aventure commence : un hommage au 7e art",
+   "https://www.lyoncapitale.fr/?p=112317"
+  ],
+  [
+   "La Libre · Thierry Frémaux : « On a tout faux sur les Lumière »",
+   "https://www.lalibre.be/culture/cinema/2017/10/25/thierry-fremaux-on-a-tout-faux-sur-les-lumiere-3VTCNET7CRAVDFTAMVFV7IJJ2Q/"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le lieu de la première séance",
+   "repere": 1,
+   "enonce": "Où a lieu, le 28 décembre 1895, la première séance publique et payante du Cinématographe Lumière ?",
+   "reponses": [
+    "Au théâtre Robert‑Houdin, à Paris",
+    "Au Salon indien du Grand Café, à Paris",
+    "À la Société d’encouragement pour l’industrie nationale, à Paris",
+    "Dans l’usine Lumière, à Lyon"
+   ],
+   "bonne": 1,
+   "correction": "La première séance publique et payante se tient au Salon indien du Grand Café, boulevard des Capucines, à Paris. La démonstration du 22 mars 1895 s’était déroulée devant un public restreint.",
+   "figure": null,
+   "sources": [
+    [
+     "Centre Pompidou · Projections au Cinématographe Lumière",
+     "https://www.centrepompidou.fr/en/program/calendar/event/cj67Ln"
+    ],
+    [
+     "Hérodote.net · 28 décembre 1895, première séance publique du 7e Art",
+     "https://www.herodote.net/28_decembre_1895-evenement-18951228.php"
+    ],
+    [
+     "Institut Lumière · Le Cinématographe Lumière",
+     "https://www.institut-lumiere.org/le-cinematographe-lumiere"
+    ]
+   ],
+   "rivalJuste": "Boulevard des Capucines, en sous-sol. Tu as le sens de l’adresse.",
+   "rivalFaux": "Mauvaise salle. Le premier public, lui, a su trouver la bonne."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "La légende du train",
+   "repere": 1,
+   "affirmation": "Devant L’Arrivée d’un train en gare de La Ciotat, les premiers spectateurs des Lumière s’enfuient de la salle, pris de panique.",
+   "vrai": false,
+   "correction": "C’était un bluff. Les témoignages de l’époque ne signalent aucune panique : la scène des spectateurs en fuite est une légende fondatrice du cinéma, pas un fait attesté.",
+   "figure": null,
+   "sources": [
+    [
+     "Martin Loiperdinger · Lumière’s Arrival of the Train : Cinema’s Founding Myth (en anglais, copie de l’université de Zagreb)",
+     "https://komparativna.ffzg.unizg.hr/wp-content/uploads/2011/10/doc-205-4.1loiperdinger.pdf"
+    ],
+    [
+     "ACMI · The Arrival of a Train at La Ciotat (en anglais)",
+     "https://www.acmi.net.au/works/61157--the-arrival-of-a-train-at-la-ciotat/"
+    ],
+    [
+     "International Documentary Association · Lumiere Illuminated : ‘Moving Image’ Debunks Myths Surrounding ‘Arrival of the Train’ (en anglais)",
+     "https://www.documentary.org/node/34707"
+    ]
+   ],
+   "rivalJuste": "Repéré. La scène de panique est belle, dommage qu’aucun témoin de l’époque ne la rapporte.",
+   "rivalFaux": "La légende était trop belle, je te l’accorde. Elle reste une légende."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Les dates des débuts",
+   "repere": 0,
+   "enonce": "Range ces quatre événements du plus ancien au plus récent.",
+   "elements": [
+    "Fondation de Pathé Frères",
+    "Brevet du Cinématographe",
+    "Le Voyage dans la Lune de Méliès",
+    "Première séance du Grand Café"
+   ],
+   "ordre": [
+    "Brevet du Cinématographe",
+    "Première séance du Grand Café",
+    "Fondation de Pathé Frères",
+    "Le Voyage dans la Lune de Méliès"
+   ],
+   "correction": "Le brevet date du 13 février 1895, la séance du Grand Café du 28 décembre suivant. Pathé Frères naît le 28 septembre 1896, et Méliès réalise Le Voyage dans la Lune en 1902.",
+   "figure": null,
+   "sources": [
+    [
+     "Institut Lumière · Le Cinématographe Lumière",
+     "https://www.institut-lumiere.org/le-cinematographe-lumiere"
+    ],
+    [
+     "Lyon Capitale · Lyon : les frères Lumière ont breveté le cinéma, mais l’ont‑ils inventé ?",
+     "https://www.lyoncapitale.fr/actualite/lyon-les-freres-lumiere-ont-brevete-le-cinema-mais-l-ont-ils-invente"
+    ],
+    [
+     "Centre Pompidou · Projections au Cinématographe Lumière",
+     "https://www.centrepompidou.fr/en/program/calendar/event/cj67Ln"
+    ],
+    [
+     "Science Museum Group · Société Pathé Frères 1896‑1897 (en anglais)",
+     "https://collection.sciencemuseumgroup.org.uk/people/cp122687"
+    ],
+    [
+     "Larousse · Georges Méliès",
+     "https://www.larousse.fr/encyclopedie/personnage/wd/126671"
+    ],
+    [
+     "Encyclopædia Britannica · Georges Méliès (en anglais)",
+     "https://www.britannica.com/biography/Georges-Melies"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Le montage de ta mémoire est propre.",
+   "rivalFaux": "Un peu de montage s’impose. La chronologie, elle, ne se coupe pas.",
+   "valeurs": {
+    "Brevet du Cinématographe": "13 février 1895",
+    "Première séance du Grand Café": "28 décembre 1895",
+    "Fondation de Pathé Frères": "28 septembre 1896",
+    "Le Voyage dans la Lune de Méliès": "1902"
+   }
+  }
+ ]
+}

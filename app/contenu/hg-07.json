@@ -1,0 +1,286 @@
+{
+ "id": "hg-07",
+ "domaine": "hg",
+ "numero": 7,
+ "titre": "L’Islande des Vikings",
+ "sujet": "L’Islande",
+ "figure": null,
+ "essentiel": [
+  "Selon le Landnámabók, Ingólfur Arnarson quitte la Norvège pour s’installer à Reykjavik en 874 ; les datations modernes placent l’arrivée des premiers colons dans les années 870.",
+  "Vers 930, les colons se donnent un État sans roi : l’Althing, assemblée des hommes libres, se réunit chaque été à Þingvellir, où une quarantaine de chefs, les goðar, élaborent les lois.",
+  "Les sagas des Islandais, rédigées vers 1200, racontent les grandes familles de l’île entre 930 et 1030.",
+  "En 999 ou 1000, l’Althing décide que tous les Islandais deviendront chrétiens, sous l’influence du roi de Norvège Olaf Tryggvason.",
+  "Entre 1262 et 1264, les chefs islandais jurent fidélité au roi de Norvège, ce qui met fin à l’État libre."
+ ],
+ "reperes": [
+  [
+   "Vers 870–874",
+   "Arrivée des premiers colons ; la tradition retient 874 pour Ingólfur Arnarson, à Reykjavik."
+  ],
+  [
+   "Vers 930",
+   "Fondation de l’Althing, assemblée des hommes libres, à Þingvellir."
+  ],
+  [
+   "Vers 1200",
+   "Rédaction des sagas des Islandais, qui racontent les familles de l’île entre 930 et 1030."
+  ],
+  [
+   "999 ou 1000",
+   "L’Althing décide que tous les Islandais deviendront chrétiens."
+  ],
+  [
+   "1262–1264",
+   "Les chefs islandais jurent fidélité au roi de Norvège."
+  ]
+ ],
+ "chiffres": [
+  {
+   "libelle": "Peuplement (870–930)",
+   "valeur": 60,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Époque des sagas (930–1030)",
+   "valeur": 100,
+   "unite": "ans"
+  },
+  {
+   "libelle": "État libre (930–1262)",
+   "valeur": 332,
+   "unite": "ans"
+  },
+  {
+   "libelle": "Althing à Þingvellir (930–1798)",
+   "valeur": 868,
+   "unite": "ans"
+  }
+ ],
+ "notions": {
+  "noeuds": [
+   "Peuplement",
+   "Althing",
+   "Þingvellir",
+   "Goðar",
+   "Christianisation",
+   "Sagas",
+   "Norvège"
+  ],
+  "liens": [
+   [
+    "Peuplement",
+    "Althing",
+    "mène à"
+   ],
+   [
+    "Althing",
+    "Þingvellir",
+    "siège à"
+   ],
+   [
+    "Goðar",
+    "Althing",
+    "élaborent la loi"
+   ],
+   [
+    "Althing",
+    "Christianisation",
+    "décide de"
+   ],
+   [
+    "Norvège",
+    "Christianisation",
+    "pousse à"
+   ],
+   [
+    "Sagas",
+    "Peuplement",
+    "évoquent les colons"
+   ],
+   [
+    "Goðar",
+    "Norvège",
+    "jurent fidélité à"
+   ]
+  ]
+ },
+ "citation": {
+  "texte": "It will turn out to be true that if we tear asunder the law, we also tear asunder the peace.",
+  "auteur": "Þorgeir Ljósvetningagoði, selon Ari Þorgilsson",
+  "oeuvre": "Íslendingabók, vers 1130 (traduction anglaise)",
+  "source": [
+   "Cambridge Core (Boydell & Brewer) · Felicity Conditions and Conversion Confrontations (en anglais)",
+   "https://www.cambridge.org/core/books/discourse-in-old-norse-literature/felicity-conditions-and-conversion-confrontations/6C8295BCFDC191B5A6492C0C67B3699E"
+  ]
+ },
+ "saviezVous": "À Reykjavik, un mur de tourbe élevé juste avant 871 compte parmi les plus anciennes constructions humaines connues en Islande ; on le date grâce à une couche de cendres volcaniques, elle‑même datée de 871 à deux ans près.",
+ "sources": [
+  [
+   "Encyclopædia Britannica · History of Iceland (en anglais)",
+   "https://www.britannica.com/place/Iceland/History"
+  ],
+  [
+   "Encyclopædia Britannica · Icelanders’ sagas (en anglais)",
+   "https://www.britannica.com/art/Icelanders-sagas"
+  ],
+  [
+   "Encyclopædia Britannica · Althing (en anglais)",
+   "https://www.britannica.com/topic/Althing"
+  ],
+  [
+   "Encyclopædia Universalis · Islande",
+   "https://www.universalis.fr/encyclopedie/islande/"
+  ],
+  [
+   "UNESCO · Þingvellir National Park (en anglais)",
+   "https://whc.unesco.org/en/list/1152"
+  ],
+  [
+   "Parc national de Þingvellir · History (en anglais)",
+   "https://www.thingvellir.is/en/education/history/"
+  ],
+  [
+   "Parc national de Þingvellir · Christianity (en anglais)",
+   "https://www.thingvellir.is/en/education/history/christianity/"
+  ],
+  [
+   "USGS · This Dynamic Earth, Thingvellir (en anglais)",
+   "https://pubs.usgs.gov/gip/dynamic/Thingvellir.html"
+  ],
+  [
+   "Árni Magnússon Institute for Icelandic Studies · Iceland and Icelanders (en anglais)",
+   "https://www.arnastofnun.is/sites/default/files/2023-01/Iceland%20and%20Icelanders.pdf"
+  ],
+  [
+   "Journal of the North Atlantic · The Colonization of Iceland in Light of Isotope Analyses (en anglais)",
+   "https://eaglehill.us/JONAonline/articles/JONA-Sp-7/18-Vesteinsson.shtml"
+  ],
+  [
+   "Musée de la ville de Reykjavik · About The Settlement Exhibition (en anglais)",
+   "https://dev.borgarsogusafn.is/en/node/436"
+  ],
+  [
+   "Cambridge Core (Boydell & Brewer) · Felicity Conditions and Conversion Confrontations (en anglais)",
+   "https://www.cambridge.org/core/books/discourse-in-old-norse-literature/felicity-conditions-and-conversion-confrontations/6C8295BCFDC191B5A6492C0C67B3699E"
+  ]
+ ],
+ "exercices": [
+  {
+   "type": "qcm",
+   "lib": "Exercice 1 · question à choix",
+   "theme": "Le régime de l’État libre",
+   "repere": 1,
+   "enonce": "Quel régime les colons islandais se donnent‑ils vers 930 ?",
+   "reponses": [
+    "Un État sans roi, organisé autour d’une assemblée d’hommes libres, l’Althing",
+    "Un royaume héréditaire, fondé par les descendants d’Ingólfur Arnarson",
+    "Un comté dépendant du roi de Norvège, gouverné par un jarl",
+    "Une confédération de clans placée sous l’autorité d’un évêque"
+   ],
+   "bonne": 0,
+   "correction": "Vers 930, les colons forment un État sans roi : l’Althing, assemblée des hommes libres, se réunit à Þingvellir, et le pouvoir revient à une quarantaine de chefs, les goðar.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · History of Iceland (en anglais)",
+     "https://www.britannica.com/place/Iceland/History"
+    ],
+    [
+     "Encyclopædia Universalis · Islande",
+     "https://www.universalis.fr/encyclopedie/islande/"
+    ],
+    [
+     "UNESCO · Þingvellir National Park (en anglais)",
+     "https://whc.unesco.org/en/list/1152"
+    ],
+    [
+     "Parc national de Þingvellir · History (en anglais)",
+     "https://www.thingvellir.is/en/education/history/"
+    ]
+   ],
+   "rivalJuste": "Juste. Pas de roi, pas de couronne : l’Islande s’en passait très bien.",
+   "rivalFaux": "Non. Chercher un roi en Islande vers 930, c’était une belle ambition de ta part."
+  },
+  {
+   "type": "bluff",
+   "lib": "Exercice 2 · le Rival bluffe-t-il ?",
+   "theme": "Qui décide de la conversion",
+   "repere": 3,
+   "affirmation": "Vers l’an 1000, ce sont les Islandais eux‑mêmes, réunis à l’Althing, qui décident d’adopter le christianisme.",
+   "vrai": true,
+   "correction": "C’était vrai. En 999 ou 1000, l’Althing décide que tous les Islandais deviendront chrétiens : le diseur de loi Þorgeir, lui‑même alors païen, tranche, tandis que le roi de Norvège Olaf Tryggvason les y pousse.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · History of Iceland (en anglais)",
+     "https://www.britannica.com/place/Iceland/History"
+    ],
+    [
+     "Encyclopædia Universalis · Islande",
+     "https://www.universalis.fr/encyclopedie/islande/"
+    ],
+    [
+     "Parc national de Þingvellir · Christianity (en anglais)",
+     "https://www.thingvellir.is/en/education/history/christianity/"
+    ]
+   ],
+   "rivalJuste": "Juste. Cette fois, je disais vrai. Ne t’y habitue pas.",
+   "rivalFaux": "Je disais vrai, cette fois. Tu me soupçonnes trop vite."
+  },
+  {
+   "type": "frise",
+   "lib": "Exercice 3 · frise",
+   "theme": "Les dates de l’État libre",
+   "repere": 0,
+   "enonce": "Range ces quatre étapes du plus ancien au plus récent.",
+   "elements": [
+    "Adoption du christianisme",
+    "Soumission au roi de Norvège",
+    "Début du peuplement",
+    "Fondation de l’Althing"
+   ],
+   "ordre": [
+    "Début du peuplement",
+    "Fondation de l’Althing",
+    "Adoption du christianisme",
+    "Soumission au roi de Norvège"
+   ],
+   "correction": "Le peuplement commence dans les années 870, l’Althing naît vers 930 et adopte le christianisme en 999 ou 1000. Entre 1262 et 1264, les chefs islandais se soumettent au roi de Norvège.",
+   "figure": null,
+   "sources": [
+    [
+     "Encyclopædia Britannica · History of Iceland (en anglais)",
+     "https://www.britannica.com/place/Iceland/History"
+    ],
+    [
+     "Encyclopædia Universalis · Islande",
+     "https://www.universalis.fr/encyclopedie/islande/"
+    ],
+    [
+     "UNESCO · Þingvellir National Park (en anglais)",
+     "https://whc.unesco.org/en/list/1152"
+    ],
+    [
+     "USGS · This Dynamic Earth, Thingvellir (en anglais)",
+     "https://pubs.usgs.gov/gip/dynamic/Thingvellir.html"
+    ],
+    [
+     "Árni Magnússon Institute for Icelandic Studies · Iceland and Icelanders (en anglais)",
+     "https://www.arnastofnun.is/sites/default/files/2023-01/Iceland%20and%20Icelanders.pdf"
+    ],
+    [
+     "Journal of the North Atlantic · The Colonization of Iceland in Light of Isotope Analyses (en anglais)",
+     "https://eaglehill.us/JONAonline/articles/JONA-Sp-7/18-Vesteinsson.shtml"
+    ]
+   ],
+   "rivalJuste": "Dans l’ordre. Quatre siècles bien rangés : un scribe médiéval n’aurait pas fait mieux.",
+   "rivalFaux": "Pas tout à fait. Même un scribe médiéval aurait mieux rangé ses dates.",
+   "valeurs": {
+    "Début du peuplement": "vers 870",
+    "Fondation de l’Althing": "vers 930",
+    "Adoption du christianisme": "999 ou 1000",
+    "Soumission au roi de Norvège": "1262–1264"
+   }
+  }
+ ]
+}
