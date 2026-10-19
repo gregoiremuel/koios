@@ -12,6 +12,21 @@
 3. Moins d'appels : vérification par programme des nombres, dates et noms contre les extraits (sans IA) ; 2e IA seulement sur ce qui reste.
 4. Plan B payant (si Greg veut une formation entière en une nuit) : Workers Paid 5 $/mois + Gemma 4, plafond de dépense fixé.
 
+## Audit réel (20/10, 3 leçons de gemmologie)
+25 à 37 % des affirmations retirées par la 2e IA, leçons trouées, une généralisation fausse (4 C). Cause : petits vérificateurs gratuits sans sources, suppression au lieu de correction. Correctif en cours : ancrage sur extraits encyclopédiques en cache, verdicts vrai/faux/incertain avec correction, réécriture au-delà de 20 %, bouton admin « Réécrire les leçons faibles ».
+
+## Choix d'IA (prix vérifiés sur 2 sources le 20/10, à reconfirmer à l'achat)
+- Claude Haiku 5.5 : 0,10 $ / 0,50 $ par M jetons (< 100 k). Une leçon ≈ 10 k entrée + 6 k sortie ≈ 0,4 centime → 1 000 leçons ≈ 4 $. Meilleur rapport qualité/prix pour rédiger en français.
+- Gemini 3 Flash payant ≈ 0,75 $ / 3,75 $ (3.8 Flash) → ≈ 3 centimes la leçon. GLM-4.7 : 0,60 $ / 2,20 $.
+- Retenu : rédaction Claude Haiku 5.5 (secret serveur CLAUDE_API_KEY, plafond de dépense dans la console Anthropic), vérification Gemini (autre famille, gratuit Flash-Lite ou payant), repli sur les gratuits.
+
+## Programmes à la place de l'IA (zéro jeton)
+- Cartes de révision et questions à trous tirées des définitions et de « À retenir ».
+- Frises et chiffres depuis Wikidata (dates, mesures) avec la source.
+- Images Commons, glossaire, liens entre leçons, fiches de module : déjà programmés.
+- Contrôle des nombres, dates et noms contre les extraits.
+- L'IA n'écrit que la prose. Un programme seul écrit un texte robotique : pas retenu pour le cours.
+
 ## Ordre de travail
 1. Fournisseurs gratuits + Flash-Lite (Sonnet). Greg crée 3 clés gratuites.
 2. Audit des leçons réelles (export) ; correction des prompts (Opus, effort moyen).
