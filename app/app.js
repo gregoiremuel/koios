@@ -162,13 +162,15 @@
     [a.jours || {}, b.jours || {}].forEach(function (j) { Object.keys(j).forEach(function (d) { r.jours[d] = r.jours[d] || j[d]; }); });
     return r;
   }
+  var creation = null; // une seule création de compte à la fois
   function creerJoueur() {
     if (!serveur.base || !profil || profil.id) return Promise.resolve();
-    return api("POST", "joueur", { pseudo: profil.pseudo }).then(function (j) {
+    if (!creation) creation = api("POST", "joueur", { pseudo: profil.pseudo }).then(function (j) {
       profil.id = j.id; profil.cle = j.cle;
       S.ecrire("koios.profil", profil);
       pousser();
-    }, function () {});
+    }, function () { creation = null; });
+    return creation;
   }
   function synchroniser() {
     if (!profil) return Promise.resolve();

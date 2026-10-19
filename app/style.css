@@ -277,7 +277,7 @@ details.sources.depart summary .i { color: var(--or-fonce); }
 .graphe-reseau .relation { font-family: var(--livre); font-style: italic; font-size: 12px; fill: var(--encre-2); }
 .graphe-reseau .noeud { fill: var(--page); stroke: var(--ligne-forte); stroke-width: 1; }
 .graphe-reseau .noeud.centre { fill: var(--bordeaux); stroke: var(--bordeaux-fonce); }
-.graphe-reseau .nom-noeud { font-family: var(--ui); font-size: 12px; font-weight: 600; fill: var(--encre); }
+.graphe-reseau .nom-noeud { font-family: var(--ui); font-size: 13px; font-weight: 600; fill: var(--encre); }
 .graphe-reseau .nom-noeud.centre { fill: #fffaf0; }
 .citation { margin: 4px 0; padding: 14px 4px 12px; border-top: 1px solid var(--ligne-forte); border-bottom: 1px solid var(--ligne-forte); display: grid; gap: 8px; }
 .citation blockquote { margin: 0; }
