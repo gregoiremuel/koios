@@ -801,7 +801,7 @@
       api("POST", "admin", { action: "debloquer", parcours: p.id }, 30000).then(function (r) {
         afficherAdminFormation(p, zone, r);
         var n = r.ajoutees || 0, i2 = zone.querySelector(".info-nuit");
-        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent 2 par 2, toutes les 5 minutes." : "Tout est déjà en file."; i2.hidden = false; }
+        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent la nuit, de 2\u00a0h à 7\u00a0h (heure de Paris), 2 par 2." : "Tout est déjà en file."; i2.hidden = false; }
       }, function (e) { bouton.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
     });
     info.className = "meta info-nuit";
@@ -2854,40 +2854,35 @@
       seg, aide, el("label", { "for": "cle-ia", "class": "sr", text: "Clé IA" }), champ, etatCle, alerte,
       el("div", { "class": "boutons-ligne" }, [tester, retirer])]);
   }
-  /* Espace admin : la clé est gardée sur ce téléphone ; elle n'ouvre rien tant que le serveur ne la reconnaît pas. */
+  /* Espace admin : rien n'est visible dans le Profil tant que la clé n'est pas enregistrée sur ce téléphone (elle se saisit sur #/admin). */
   function sectionAdmin() {
+    if (!S.lire("koios.admin", "")) return null;
+    var sortir = el("button", { "class": "btn second", type: "button", text: "Oublier la clé admin" });
+    sortir.addEventListener("click", function () { try { localStorage.removeItem("koios.admin"); } catch (e) { /* mémoire seule */ } route(); });
+    return el("section", { "class": "pile" }, [el("h2", { text: "Espace admin" }), lienAvance("#/admin", "Ouvrir l’espace admin", "btn second"), sortir]);
+  }
+  /* Petit écran de saisie de la clé admin. Une clé refusée (403) est effacée. */
+  function ecranCleAdmin() {
     var champ = el("input", { "class": "champ", type: "password", autocomplete: "off", autocapitalize: "off", spellcheck: "false", "aria-label": "Clé admin", placeholder: "Clé admin" });
     var al = el("p", { "class": "alerte", hidden: "", role: "status" });
-    var zone = el("div", { "class": "pile" });
-    function oublier() { try { localStorage.removeItem("koios.admin"); } catch (e) { /* mémoire seule */ } }
-    function maj() {
-      zone.textContent = "";
-      if (S.lire("koios.admin", "")) {
-        var sortir = el("button", { "class": "btn second petit", type: "button", text: "Oublier la clé admin" });
-        sortir.addEventListener("click", function () { oublier(); maj(); });
-        zone.appendChild(lienAvance("#/admin", "Ouvrir l’espace admin", "btn second")); zone.appendChild(sortir);
-      } else {
-        var entrer = el("button", { "class": "btn second", type: "button", text: "Entrer" });
-        entrer.addEventListener("click", function () {
-          var c = champ.value.trim(); al.hidden = true;
-          if (!c) return;
-          entrer.disabled = true;
-          S.ecrire("koios.admin", c);
-          pretCompte().then(function () { return api("GET", "admin", null, 10000); }).then(function () { champ.value = ""; maj(); }, function (e) {
-            oublier(); entrer.disabled = false;
-            al.textContent = e.statut === 403 ? "Clé non reconnue." : messageErreur(e); al.hidden = false;
-          });
-        });
-        zone.appendChild(champ); zone.appendChild(entrer);
-      }
-      if (window.poserIcones) window.poserIcones(zone);
-    }
-    maj();
-    return el("details", { "class": "plier" }, [el("summary", { text: "Espace admin" }), el("div", { "class": "pile" }, [zone, al])]);
+    var entrer = el("button", { "class": "btn", type: "button", text: "Entrer" });
+    entrer.addEventListener("click", function () {
+      var c = champ.value.trim(); al.hidden = true;
+      if (!c) return;
+      entrer.disabled = true;
+      S.ecrire("koios.admin", c);
+      pretCompte().then(function () { return api("GET", "admin", null, 10000); }).then(function () { route(); }, function (e) {
+        if (e.statut === 403) { try { localStorage.removeItem("koios.admin"); } catch (x) { /* mémoire seule */ } }
+        entrer.disabled = false; al.textContent = e.statut === 403 ? "Clé non reconnue." : messageErreur(e); al.hidden = false;
+      });
+    });
+    montrer(el("div", { "class": "page" }, [
+      el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
+      el("div", { "class": "pile" }, [el("h1", { text: "Clé admin" }), champ, entrer, al])]), "profil", "Clé admin");
   }
   /* Génération de nuit : compteurs, pause et reprise. La page se rafraîchit toutes les 15 secondes tant qu'elle est ouverte. */
   function vueAdmin() {
-    if (!S.lire("koios.admin", "")) { location.hash = "#/profil"; return; }
+    if (!S.lire("koios.admin", "")) return ecranCleAdmin();
     var vive = vivante();
     montrer(attente("Ouverture de l’espace admin…"), "profil", "Espace admin");
     var corps = el("div", { "class": "pile ecart" }), alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
@@ -2900,16 +2895,16 @@
       var t = j.taches || {};
       corps.textContent = "";
       corps.appendChild(el("div", { "class": "pile serree" }, [
-        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": 2 tâches toutes les 5 minutes." }),
+        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit, de 2\u00a0h à 7\u00a0h (heure de Paris), 2 tâches toutes les 5 minutes, 150 par jour au plus." }),
         el("div", { "class": "chiffres-cles" }, [compteur((t.attente || 0) + (t.en_cours || 0), "En attente"), compteur(t.fait || 0, "Faites"), compteur(t.echec || 0, "Échecs")])]));
       var pause = el("button", { "class": j.pause ? "btn" : "btn second", type: "button", text: j.pause ? "Reprendre" : "Pause" });
       pause.addEventListener("click", function () { pause.disabled = true; agir(j.pause ? "reprendre" : "pause"); });
       var vider = el("button", { "class": "btn second", type: "button", text: "Vider la file d’attente" });
-      vider.addEventListener("click", function () { if (window.confirm("Retirer les tâches en attente ou en échec" + N + "?")) agir("vider"); });
+      vider.addEventListener("click", function () { if (window.confirm("Retirer les tâches en attente ou en échec" + F + "?")) agir("vider"); });
       corps.appendChild(el("div", { "class": "pile" }, [pause, vider]));
       var d = j.derniereErreur;
       corps.appendChild(el("div", { "class": "pile serree" }, [
-        el("p", { "class": "meta", text: d ? "Dernière erreur" + N + ": " + (d.type === "module" ? "module " : "leçon ") + d.numero + " de " + d.parcours + " · " + d.erreur : "Aucune erreur pour l’instant." }),
+        el("p", { "class": "meta derniere-erreur", text: d ? "Dernière erreur" + N + ": " + (d.type === "module" ? "module " : "leçon ") + d.numero + " de " + d.parcours + " · " + d.erreur : "Aucune erreur pour l’instant." }),
         el("p", { "class": "meta", text: j.epuises && j.epuises.length ? "Fournisseurs épuisés ou écartés" + N + ": " + j.epuises.join(", ") + "." : "Aucun fournisseur épuisé connu." })]));
     }
     function charger() { return api("GET", "admin", null, 10000); }

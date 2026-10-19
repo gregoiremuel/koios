@@ -18,7 +18,7 @@ binding = "DB"
 database_name = "koios"
 database_id = "a8c63c1f-f40c-4204-b201-0914846bd0db"
 
-# Génération de nuit : toutes les 5 minutes, au plus 2 tâches de la file (lib/nuit.js).
+# Génération de nuit : toutes les 5 minutes de 0 h à 5 h 55 UTC (2 h à 7 h, heure de Paris), au plus 2 tâches, 150 par jour de la file (lib/nuit.js).
 # Le secret ADMIN_KEY protège /api/admin (posé côté Cloudflare, jamais dans le dépôt).
 [triggers]
-crons = ["*/5 * * * *"]
+crons = ["*/5 0-5 * * *"]

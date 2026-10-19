@@ -12,8 +12,8 @@ import { COLONNES, ecrireLecon, ouvrirEtapeSuivante } from '../../lib/generation
 
 export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   await exigerBase(envServeur);
-  // Clé IA personnelle (en-tête x-cle-ia) : elle passe en premier pour la rédaction ; jamais enregistrée ni renvoyée.
-  const env = envAvecCle(request, envServeur);
+  // La lecture du cache n'a pas besoin de la clé personnelle : un en-tête x-cle-ia mal formé ne la casse pas.
+  let env = envServeur;
   const p = new URL(request.url).searchParams;
   const parcoursId = p.get('parcours');
   const brutN = p.get('n');
@@ -42,6 +42,12 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   // Seule l'étape (le module) qui suit le plan peut être écrite : pas de saut de plusieurs étapes.
   if (k > total + ETAPE_TAILLE) throw new ErreurHttp(404, 'Palier introuvable : lis d’abord les paliers précédents.');
 
+  // Une tâche de nuit écrit déjà cette leçon (depuis moins de 2 minutes) : on ne relance pas une deuxième génération.
+  const enCours = await env.DB.prepare(
+    `SELECT id FROM file_attente WHERE parcours = ? AND type = 'lecon' AND numero = ? AND etat = 'en_cours' AND maj > ?`,
+  ).bind(parcoursId, k, new Date(Date.now() - 2 * 60 * 1000).toISOString()).first();
+  if (enCours) throw new ErreurHttp(409, 'Cette leçon est en cours d’écriture, réessaie dans un instant.');
+
   const joueur = await auth(request, env);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
@@ -53,6 +59,9 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
     throw new ErreurHttp(429, 'La bibliothèque est débordée aujourd’hui. Reviens demain.');
   }
 
+  // Clé IA personnelle (en-tête x-cle-ia) : lue seulement ici, au moment de générer. Elle passe en premier pour la rédaction ; jamais enregistrée ni renvoyée.
+  env = envAvecCle(request, envServeur);
+
   // Un seul chronomètre pour le plan éventuel, les sources, la rédaction et la vérification.
   const horloge = demarrerChrono();
   if (k > total) {
@@ -63,5 +72,9 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   }
 
   // Deux lecteurs (ou la génération de nuit) peuvent lancer la même leçon en même temps : la première enregistrée gagne.
-  return json({ palier: await ecrireLecon(env, { parcours, numero: k, horloge }) });
+  const palier = await ecrireLecon(env, { parcours, numero: k, horloge });
+  if (palier.nonEnregistree) {
+    return json({ palier, message: 'Une seule IA a écrit cette leçon : elle n’est pas enregistrée dans la bibliothèque.' });
+  }
+  return json({ palier });
 });

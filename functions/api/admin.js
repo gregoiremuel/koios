@@ -6,27 +6,32 @@
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
 import {
-  ErreurHttp, enveloppe, exigerBase, json, lireJSON, secretsEgaux,
+  ErreurHttp, enveloppe, exigerBase, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import {
   debloquer, definirPause, etatFile, viderFile,
 } from '../../lib/nuit.js';
 
+// 20 essais par jour et par adresse, comptés avant la comparaison : une clé ne se devine pas à coups d'essais.
 async function exigerAdmin(request, env) {
+  if (env.DB) {
+    const ip = request.headers.get('cf-connecting-ip') || 'inconnue';
+    if (!(await quota(env, 'admin:ip:' + ip, 20))) throw new ErreurHttp(403, 'Accès refusé.');
+  }
   const fournie = request.headers.get('x-admin-cle') || '';
   if (!(await secretsEgaux(fournie, env.ADMIN_KEY))) throw new ErreurHttp(403, 'Accès refusé.');
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
-  await exigerAdmin(request, env);
   await exigerBase(env);
+  await exigerAdmin(request, env);
   const parcours = new URL(request.url).searchParams.get('parcours');
   return json(await etatFile(env, parcours || null));
 });
 
 export const onRequestPost = enveloppe(async ({ request, env }) => {
-  await exigerAdmin(request, env);
   await exigerBase(env);
+  await exigerAdmin(request, env);
   const corps = await lireJSON(request, 2048);
   if (corps.action === 'debloquer') {
     const ajoutees = await debloquer(env, corps.parcours);
@@ -40,5 +45,5 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     const retirees = await viderFile(env);
     return json({ ok: true, retirees, ...(await etatFile(env)) });
   }
-  throw new ErreurHttp(400, 'Action inconnue : debloquer, pause, reprendre ou vider.');
+  throw new ErreurHttp(400, 'Action inconnue : debloquer, pause, reprendre ou vider.');
 });

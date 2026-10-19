@@ -7281,6 +7281,10 @@ test('Claude (clé perso) : API Messages, en-têtes, system séparé, modèle cl
   assert.deepEqual(r.corps.palier.verification.ia, [CLAUDE_MODELE]);
   assert.equal(r.corps.palier.verification.retirees, 0);
   assert.ok(r.corps.palier.questions.length >= 3);
+  // Jamais dans la bibliothèque partagée : renvoyée seulement à celui qui l'a demandée, avec un message clair.
+  assert.equal(r.corps.palier.nonEnregistree, true);
+  assert.match(r.corps.message, /pas enregistrée dans la bibliothèque/);
+  assert.equal(lignes("SELECT id FROM paliers WHERE id = 'la-tour-eiffel:4'").length, 0, 'rien dans paliers');
   assert.ok(!JSON.stringify(r.corps).includes(CLE_CLAUDE) && !toutesLesTables().includes(CLE_CLAUDE));
   reinitExt();
 });
@@ -7544,6 +7548,78 @@ test('file de nuit : les tâches utilisent les clés du serveur', async () => {
   assert.equal(b.faites, 1);
   assert.equal(new Headers(ext.appels.find((a) => a.fournisseur === 'gemini').init.headers).get('x-goog-api-key'), CLE_GEMINI);
   reinitExt();
+});
+
+test('relecture lot 5 : module ouvert à la demande — ses leçons sont mises en file quand sa tâche de nuit existe', async () => {
+  const j = await prepareProgramme();
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  db.base.exec("DELETE FROM file_attente WHERE NOT (type = 'module' AND numero = 2)");
+  const sc = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  ok200(await lirePalier(j, 'la-tour-eiffel', 7, sc)); // 7 = première leçon du module 2 : le module s'ouvre à la demande
+  assert.equal(lignes("SELECT etat FROM file_attente WHERE type = 'module' AND numero = 2")[0].etat, 'fait');
+  assert.deepEqual(lignes("SELECT numero FROM file_attente WHERE type = 'lecon' AND etat = 'attente' ORDER BY numero").map((x) => x.numero), [8, 9, 10, 11, 12]);
+  assert.equal(lignes("SELECT etat FROM file_attente WHERE type = 'lecon' AND numero = 7")[0].etat, 'fait');
+});
+
+test('relecture lot 5 : une tâche de nuit en cours (moins de 2 min) bloque la génération à la demande ; plus vieille, elle ne bloque plus', async () => {
+  const j = await prepareProgramme();
+  const maintenantIso = new Date().toISOString();
+  db.base.prepare("INSERT INTO file_attente (parcours, type, numero, etat, essais, maj) VALUES ('la-tour-eiffel', 'lecon', 2, 'en_cours', 0, ?)").run(maintenantIso);
+  const sc = scenario(partiesStandard());
+  const r = await lirePalier(j, 'la-tour-eiffel', 2, sc);
+  erreurFr(r, 409, /en cours d’écriture, réessaie dans un instant/);
+  assert.equal(sc.par('lecon').length + sc.par('verif').length, 0, 'aucune génération relancée');
+  db.base.prepare("UPDATE file_attente SET maj = ? WHERE numero = 2").run(new Date(Date.now() - 3 * 60 * 1000).toISOString());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 2, sc));
+});
+
+test('relecture lot 5 : en-tête x-cle-ia mal formé ignoré en lecture du cache ; refusé seulement quand il faut générer', async () => {
+  const j = await prepareProgramme();
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, scenario(partiesStandard())));
+  const sc = scenario(partiesStandard());
+  const lu = await appel(palierGet, { env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'pas une clé valide !' }, requete: '?parcours=la-tour-eiffel&n=1' });
+  ok200(lu);
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'pas une clé valide !' }, requete: '?parcours=la-tour-eiffel&n=2' }), 400);
+});
+
+test('relecture lot 5 : une clé GLM personnelle n’essaie que les adresses z.ai, jamais open.bigmodel.cn', async () => {
+  const j = await prepareProgramme();
+  reinitExt();
+  ext.glm = () => new Response('oups', { status: 500 });
+  const sc = scenario(partiesStandard());
+  await appel(palierGet, { env: envDe(sc), jeton: j.jeton, entetes: { 'x-cle-ia': 'glm:abcdefgh.ijklmnop' }, requete: '?parcours=la-tour-eiffel&n=3' });
+  const glm = ext.appels.filter((a) => a.fournisseur === 'glm');
+  assert.ok(glm.length > 0);
+  assert.ok(glm.every((a) => String(a.url).includes('api.z.ai')), 'z.ai seulement');
+  reinitExt();
+});
+
+test('relecture lot 5 : admin — 20 essais par jour et par adresse ; diagnostic — clé par en-tête x-diag-cle, temps constant', async () => {
+  toutVoir();
+  const ip = '198.51.100.99';
+  let dernier;
+  for (let i = 0; i < 20; i++) dernier = await appel(adminGet, { env: envAdmin(), entetes: { 'x-admin-cle': 'mauvaise' }, ip });
+  erreurFr(dernier, 403, /^Accès refusé\.$/);
+  // 21e essai : refusé même avec la bonne clé, avec le même message.
+  erreurFr(await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin, ip }), 403, /^Accès refusé\.$/);
+  ok200(await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin, ip: '198.51.100.100' }));
+  const e = { ...env, DIAG_KEY: 'sésame' };
+  erreurFr(await appel(diagnosticGet, { env: e, entetes: { 'x-diag-cle': 'faux' } }), 404);
+  ok200(await appel(diagnosticGet, { env: e, entetes: { 'x-diag-cle': 'sésame' } }));
+  ok200(await appel(diagnosticGet, { env: e, requete: '?cle=sésame' }));
+});
+
+test('relecture lot 5 : plafond quotidien de 150 tâches de nuit', async () => {
+  await prepareProgramme();
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  const jour = new Date().toISOString().slice(0, 10);
+  db.base.prepare('INSERT OR REPLACE INTO quotas (cle, n, jour) VALUES (?, ?, ?)').run('file:jour', 150, jour);
+  const sc = scenario(partiesStandard());
+  brancher(sc);
+  const b = await traiterFile({ DB: db, AI: sc.ai });
+  assert.equal(b.prises, 0);
+  assert.equal(b.plafond, true);
+  assert.equal(lignes("SELECT etat FROM file_attente WHERE etat != 'attente'").length, 0, 'tout reste en attente');
 });
 
 // --- D. Bibliothèque et profondeur ---------------------------------------------------

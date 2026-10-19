@@ -595,6 +595,7 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
 @keyframes monte-toast { from { opacity: 0; transform: translateY(16px); } }
 
 /* Lot 5 : objectif et rappel en tête de leçon ; boutons de la clé IA */
-.objectif-lecon { padding: 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--ligne); }
+.objectif-lecon { padding: 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--bord); }
 .objectif-phrase { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.4; }
-.boutons-ligne { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.boutons-ligne { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; }
+.derniere-erreur { overflow-wrap: anywhere; }

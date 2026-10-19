@@ -3,7 +3,7 @@
 // Pour Gemini, `erreursModeles` donne l'erreur (code et message court) de CHAQUE modèle candidat essayé ; pour Grok, l'état « cle-invalide »
 // (401 sur tous les couples) vaut un fournisseur ignoré pendant 1 heure.
 // Protégé par le secret DIAG_KEY (aucune clé n'est affichée, ni dans les adresses, ni dans les erreurs).
-import { ErreurHttp, enveloppe, json } from '../../lib/api.js';
+import { ErreurHttp, enveloppe, json, secretsEgaux } from '../../lib/api.js';
 import {
   LLAMA, MISTRAL, cleGLM, cleGemini, cleGrok, nomsEpuises, nomsIgnores, tousLesFournisseurs,
 } from '../../lib/fournisseurs.js';
@@ -33,8 +33,9 @@ async function essai(f, secrets) {
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
-  const cle = new URL(request.url).searchParams.get('cle') || '';
-  if (!env.DIAG_KEY || cle !== env.DIAG_KEY) throw new ErreurHttp(404, 'Introuvable.');
+  // Clé par l'en-tête x-diag-cle (préféré) ou par l'adresse (conservé pour l'instant) ; comparaison à temps constant.
+  const cle = request.headers.get('x-diag-cle') || new URL(request.url).searchParams.get('cle') || '';
+  if (!(await secretsEgaux(cle, env.DIAG_KEY))) throw new ErreurHttp(404, 'Introuvable.');
   const secrets = [env.GEMINI_API_KEY, env.GLM_API_KEY, env.GROK_API_KEY].map((c) => (typeof c === 'string' ? c.trim() : ''));
   const resultats = [];
   for (const f of tousLesFournisseurs(env, { complet: true })) resultats.push(await essai(f, secrets));
