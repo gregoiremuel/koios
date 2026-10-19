@@ -25,7 +25,9 @@ import {
   GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini, etatModelesGemini, marquerModeleGemini, nomsEpuises,
   CLAUDE_MODELE, CLAUDE_URL, GEMINI_MODELES, corpsClaude, estIgnore, fournisseurPerso, marquerEpuise, tousEpuises,
   CEREBRAS_MODELES, CEREBRAS_URL, GROQ_MODELES, MISTRAL_MODELES, MISTRAL_URL, etatModelesCompat, nomsIgnores,
+  EPUISEMENT_MISTRAL_MS, cleClaude,
 } from '../lib/fournisseurs.js';
+import { DUREE_CACHE_MS, pageDeReference, pagesAncrees } from '../lib/sources.js';
 import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
 import {
   PLAFOND_JOUR, debloquer, definirJournee, definirPause, enJournee, etatFile, traiterFile as traiterFileReel,
@@ -44,6 +46,7 @@ import {
   TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
   validerMoitieA, validerMoitieB, validerRedaction, validerVerification,
+  SECTIONS_BASE, SEUIL_LECON, soutenue, sujetDefini, validerVerdicts,
 } from '../lib/paliers.js';
 import '../app/logique.js';
 import { onRequestPost as variantePost } from '../functions/api/variante.js';
@@ -8121,11 +8124,470 @@ test('aucun secret dans le code', async () => {
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
     '../functions/api/image.js', '../functions/api/quiz-general.js', '../functions/api/jour.js', '../functions/api/tournoi.js',
     '../lib/general.js', '../lib/groupes.js', '../lib/parties.js', '../functions/api/groupe.js', '../functions/api/partie.js', '../scripts/serveur_local.mjs', '../wrangler.toml',
-    '../lib/generation.js', '../lib/nuit.js', '../functions/api/admin.js', '../functions/api/cle-ia.js', '../functions/api/diagnostic.js'];
+    '../lib/generation.js', '../lib/sources.js', '../lib/nuit.js', '../functions/api/admin.js', '../functions/api/cle-ia.js', '../functions/api/diagnostic.js'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);
   }
+});
+
+// =============================================================================
+// Audit des leçons : ancrage sur sources, vérification à 3 verdicts, seuil et réécriture, admin « reecrire », rédacteur unique
+// =============================================================================
+
+// Vérificateur à verdicts : pour chaque affirmation dont le texte correspond à un motif, [motif, 'faux' | 'incertain', correction].
+const verdictsSi = (...regles) => ({ messages }) => {
+  const texte = messages[1].content;
+  const liste = texte.slice(texte.indexOf('Affirmations à vérifier :')).split('\n');
+  const verdicts = [];
+  for (const l of liste) {
+    const m = /^(\d+)\. (.*)$/.exec(l);
+    if (!m) continue;
+    const regle = regles.find(([motif]) => motif.test(m[2]));
+    if (regle) verdicts.push({ n: Number(m[1]), v: regle[1], ...(regle[2] ? { c: regle[2] } : {}) });
+  }
+  return { verdicts };
+};
+const verdictsNumeros = (verdict, ...numeros) => ({ verdicts: numeros.map((n) => ({ n, v: verdict })) });
+const CORRECTION_COMMENT = 'Les pièces de fer sont préparées en atelier à Levallois-Perret, puis assemblées sur le chantier.';
+
+test('validerVerdicts : trois verdicts, correction seulement pour « faux », « vrai » ignoré, ancienne forme acceptée', async () => {
+  const v = validerVerdicts({ verdicts: [
+    { n: 2, v: 'faux', c: '  Une   correction  ' }, { n: 5, v: 'incertain', c: 'ignorée' }, { n: 7, v: 'vrai' }, { n: 2, v: 'incertain' },
+    { n: 99, v: 'faux' }, { n: 0, v: 'faux' }, { n: '9', v: 'Fausse' }, { n: 11, v: 'bizarre' }, null, 'x',
+  ] }, 25).valeur;
+  assert.deepEqual(v, [
+    { n: 2, verdict: 'faux', correction: 'Une correction' },
+    { n: 5, verdict: 'incertain', correction: null },
+    { n: 9, verdict: 'faux', correction: null },
+    { n: 11, verdict: 'incertain', correction: null },
+  ]);
+  assert.deepEqual(validerVerdicts({ verdicts: [] }, 25).valeur, []);
+  assert.deepEqual(validerVerdicts({ nonConfirmees: [3, 1] }, 25).valeur, [{ n: 1, verdict: 'faux', correction: null }, { n: 3, verdict: 'faux', correction: null }]);
+  for (const mauvais of [null, [], 'rien', {}, { verdicts: 3 }, { autre: [] }]) assert.ok(validerVerdicts(mauvais, 25).raison, JSON.stringify(mauvais));
+});
+
+test('evaluer : « faux » remplace par la correction, sinon retire ; « incertain » garde si les extraits soutiennent, sinon retire', async () => {
+  const viable = (b) => b.sections.enBref !== null && b.questions.length >= 1;
+  const brouillon = () => validerRedaction(leconBrute(), { lecon: true }).valeur;
+  const textes = aplatir(brouillon()).flatMap((u) => u.textes);
+  assert.equal(textes.length, TOTAL_LECON);
+  const ev = (verdicts, options = {}) => evaluer(brouillon(), verdicts, 2, viable, options);
+  // faux + correction : la phrase est remplacée (même section, même rang), rien n'est retiré.
+  const a = ev([{ n: 4, verdict: 'faux', correction: CORRECTION_COMMENT }]);
+  assert.equal(a.brouillon.sections.comment[0], CORRECTION_COMMENT);
+  assert.equal(a.brouillon.sections.comment.length, 2);
+  assert.deepEqual([a.retirees, a.corrigees, a.affirmations], [0, 1, TOTAL_LECON]);
+  assert.equal(a.aRefaire, false);
+  assert.deepEqual(a.rejets, [`« ${textes[3]} » est faux. Correction : ${CORRECTION_COMMENT}`]);
+  // faux sans correction, ou correction invalide (trop courte) : la phrase est retirée.
+  for (const correction of [null, 'Trop court.']) {
+    const b = ev([{ n: 4, verdict: 'faux', correction }]);
+    assert.equal(b.brouillon.sections.comment.length, 1);
+    assert.deepEqual([b.retirees, b.corrigees], [1, 0]);
+  }
+  // Définition : la correction est la définition seule (le préfixe « terme : » est ignoré). Carte : le verso.
+  const d = ev([{ n: 8, verdict: 'faux', correction: 'Fer puddlé : Fer affiné en brassant la fonte en fusion jusqu’à en retirer le carbone.' }]);
+  assert.deepEqual(d.brouillon.definitions[0], { terme: 'Fer puddlé', definition: 'Fer affiné en brassant la fonte en fusion jusqu’à en retirer le carbone.' });
+  const iCarte = textes.findIndex((t) => t.startsWith('Carte : Qu’est-ce qu’un rivet'));
+  const c = ev([{ n: iCarte + 1, verdict: 'faux', correction: 'Une tige métallique à tête, écrasée à chaud pour assembler deux pièces.' }]);
+  assert.equal(c.brouillon.cartes[1].verso, 'Une tige métallique à tête, écrasée à chaud pour assembler deux pièces.');
+  assert.equal(c.brouillon.cartes[1].recto, 'Qu’est-ce qu’un rivet ?');
+  // Un chiffre ou une bonne réponse de question ne se corrigent pas : retirés.
+  assert.equal(ev([{ n: 13, verdict: 'faux', correction: 'Une phrase de correction assez longue.' }]).retirees >= 1, true);
+  // incertain : gardé si les extraits soutiennent la phrase, retiré sinon.
+  const pages = [{ langue: 'fr', titre: 'Rivet', texte: 'Les pièces de fer sont fabriquées en atelier, puis assemblées sur le chantier à Paris.' }];
+  const gardee = ev([{ n: 4, verdict: 'incertain', correction: null }], { pages });
+  assert.deepEqual([gardee.retirees, gardee.corrigees, gardee.rejets], [0, 0, []]);
+  const retiree = ev([{ n: 5, verdict: 'incertain', correction: null }], { pages });
+  assert.equal(retiree.brouillon.sections.comment.length, 1);
+  assert.equal(retiree.retirees, 1);
+  assert.equal(ev([{ n: 4, verdict: 'incertain', correction: null }]).retirees, 1, 'sans extraits : retiré');
+  assert.equal(soutenue('Le premier niveau est à 57 mètres de haut.', [{ texte: 'Le premier niveau est situé à 57 mètres de haut.' }]), true);
+  assert.equal(soutenue('Le premier niveau est à 58 mètres de haut.', [{ texte: 'Le premier niveau est situé à 57 mètres de haut.' }]), false, 'un nombre absent des extraits');
+  // Ancienne forme (liste de numéros) : « faux » sans correction.
+  assert.equal(ev([4]).retirees, 1);
+  // Seuil : plus de 20 % retirés ou corrigés -> à refaire (leçons) ; 40 % pour les anciennes formes.
+  const huit = [8, 9, 10, 11, 12, 13, 14, 15].map((n) => ({ n, verdict: 'faux', correction: null }));
+  assert.equal(ev(huit, { seuil: SEUIL_LECON }).aRefaire, true);
+  assert.equal(ev(huit).aRefaire, false, 'seuil de 40 % par défaut');
+  // Section de base vide : à refaire, et dit laquelle.
+  const vide = ev([4, 5].map((n) => ({ n, verdict: 'faux', correction: null })), { sectionsBase: SECTIONS_BASE });
+  assert.deepEqual(vide.basesVides, ['comment']);
+  assert.equal(vide.aRefaire, true);
+  assert.match(vide.rejets[0], /La section « comment » est vide/);
+  // Phrase centrale (première phrase de enBref) : jamais retirée sans remplacement. Gardée, elle oblige à réécrire.
+  const centrale = ev([{ n: 1, verdict: 'faux', correction: null }], { proteger: true });
+  assert.equal(centrale.brouillon.sections.enBref.length, 3);
+  assert.deepEqual([centrale.retirees, centrale.centrales, centrale.aRefaire], [0, 1, true]);
+  assert.equal(ev([{ n: 1, verdict: 'faux', correction: null }]).brouillon.sections.enBref.length, 2, 'sans protection (paliers, quiz) : retirée');
+  const remplacee = ev([{ n: 1, verdict: 'faux', correction: 'La tour Eiffel est une tour de fer puddlé, haute de 300 mètres à l’origine.' }], { proteger: true });
+  assert.match(remplacee.brouillon.sections.enBref[0], /300 mètres/);
+  assert.deepEqual([remplacee.centrales, remplacee.corrigees], [0, 1]);
+  // Définition du titre : protégée aussi.
+  const defTitre = ev([{ n: 8, verdict: 'faux', correction: null }], { proteger: true, titre: 'Qu’est-ce que le fer puddlé ?' });
+  assert.deepEqual([defTitre.brouillon.definitions.length, defTitre.centrales], [2, 1]);
+});
+
+test('leçon : un verdict « faux » avec correction remplace la phrase dans la leçon publiée ; une seule rédaction et une seule vérification', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario({ ...partiesStandard(), verif: [verdictsSi([/^Les pièces de fer sont fabriquées en atelier/, 'faux', CORRECTION_COMMENT], [/^Rappel : Un ingénieur/, 'vrai'])] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  const p = r.corps.palier;
+  assert.ok(p.sections.comment.includes('Levallois-Perret'), 'la correction est dans la leçon');
+  assert.ok(!p.sections.comment.includes('fabriquées en atelier'), 'la phrase fausse a disparu');
+  assert.deepEqual([p.verification.retirees, p.verification.corrigees, p.verification.statut], [0, 1, 'recoupe']);
+  assert.ok(!p.verification.aRevoir);
+  assert.equal(sc.par('lecon').length, 1, 'pas de réécriture : 1 phrase sur 35 corrigée');
+  assert.equal(sc.par('verif').length, 1);
+  assert.match(sc.par('verif')[0].entree.messages[0].content, /incertain/);
+});
+
+test('leçon : plus de 20 % retiré -> réécrite une fois avec la liste des erreurs ; encore mauvaise -> publiée « à revoir » et remise en file', async () => {
+  const j = await prepareProgramme();
+  // 1er tour : 9 affirmations sur 35 (26 %) retirées ; 2e tour : tout est bon.
+  const sc = scenario({ ...partiesStandard(), verif: [verdictsNumeros('faux', 8, 9, 10, 11, 12, 13, 14, 15, 16), verdictsNumeros('faux')] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  assert.equal(sc.par('lecon').length, 2, 'écrite deux fois');
+  assert.equal(sc.par('verif').length, 2);
+  assert.match(sc.par('lecon')[1].entree.messages[1].content, /Une première rédaction contenait des affirmations introuvables dans les extraits, fausses/);
+  assert.match(sc.par('lecon')[1].entree.messages[1].content, /- Fer puddlé : Fer obtenu en brassant/);
+  assert.deepEqual([r.corps.palier.verification.statut, r.corps.palier.verification.retirees], ['recoupe', 0]);
+  assert.ok(!r.corps.palier.verification.aRevoir);
+  assert.equal(lignes("SELECT * FROM file_attente WHERE type = 'reecriture'").length, 0);
+
+  // Encore mauvaise au 2e tour : publiée, marquée « à revoir », et la file de nuit la reprendra.
+  const sc2 = scenario({ ...partiesStandard(), verif: [verdictsNumeros('faux', 8, 9, 10, 11, 12, 13, 14, 15, 16)] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.equal(sc2.par('lecon').length, 2, 'une seule réécriture');
+  assert.deepEqual([r2.corps.palier.verification.aRevoir, r2.corps.palier.verification.statut], [true, 'partiel']);
+  assert.ok(r2.corps.palier.verification.retirees >= 9);
+  assert.deepEqual(lignes("SELECT numero, etat FROM file_attente WHERE type = 'reecriture'"), [{ numero: 2, etat: 'attente' }]);
+  assert.equal(lignes("SELECT COUNT(*) AS n FROM paliers WHERE id = 'la-tour-eiffel:2'")[0].n, 1);
+
+  // Section de base vide (comment) : même chemin, même issue.
+  const sc3 = scenario({ ...partiesStandard(), verif: [verdictsNumeros('faux', 4, 5)] });
+  const r3 = await lirePalier(j, 'la-tour-eiffel', 3, sc3);
+  ok200(r3);
+  assert.equal(sc3.par('lecon').length, 2);
+  assert.match(sc3.par('lecon')[1].entree.messages[1].content, /La section « comment » est vide/);
+  assert.equal(r3.corps.palier.verification.aRevoir, true);
+  assert.equal(r3.corps.palier.sections.comment, null);
+
+  // Phrase centrale fausse sans correction : gardée (jamais retirée sans remplacement), la leçon est « à revoir ».
+  const sc4 = scenario({ ...partiesStandard(), verif: [verdictsNumeros('faux', 1)] });
+  const r4 = await lirePalier(j, 'la-tour-eiffel', 4, sc4);
+  ok200(r4);
+  assert.match(r4.corps.palier.sections.enBref, /^La tour Eiffel est une tour de fer puddlé/);
+  assert.equal(r4.corps.palier.verification.aRevoir, true);
+  // Avec une correction : remplacée, rien à revoir.
+  const sc5 = scenario({ ...partiesStandard(), verif: [verdictsSi([/^La tour Eiffel est une tour de fer puddlé/, 'faux', 'La tour Eiffel est une tour de fer puddlé, haute de 300 mètres à l’origine.'])] });
+  const r5 = await lirePalier(j, 'la-tour-eiffel', 5, sc5);
+  ok200(r5);
+  assert.match(r5.corps.palier.sections.enBref, /^La tour Eiffel est une tour de fer puddlé, haute de 300 mètres/);
+  assert.ok(!r5.corps.palier.verification.aRevoir);
+});
+
+test('leçon : les prompts interdisent les généralisations ; première leçon « Qu’est-ce que X ? » du niveau Bases : enBref définit X', async () => {
+  for (const prompt of [PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_B, PROMPT_PALIER]) {
+    assert.match(prompt, /Pas de généralisation/);
+    assert.match(prompt, /toutes les pierres/);
+    assert.match(prompt, /4 C du diamant/);
+  }
+  assert.match(PROMPT_VERIFICATION, /généralise sans source/);
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc));
+  const premier = sc.par('lecon')[0].entree.messages[1].content;
+  assert.match(premier, /Consigne de cette leçon : c’est la première leçon d’un module « Qu’est-ce que… » au niveau Bases\. La première phrase de enBref définit « la tour Eiffel » en une phrase simple/);
+  const second = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 2, second));
+  assert.ok(!second.par('lecon')[0].entree.messages[1].content.includes('Consigne de cette leçon'), 'seulement la première leçon du module');
+  assert.equal(sujetDefini({ numero: 2 }, { titre: 'Qu’est-ce que X ?', paliers: [{ numero: 1 }] }, { numero: 1 }), null, 'seulement le niveau Bases');
+  assert.equal(sujetDefini({ numero: 1 }, { titre: 'Les phares', paliers: [{ numero: 1 }] }, { numero: 1 }), null);
+  assert.equal(sujetDefini({ numero: 1 }, { titre: 'Qu’est-ce qu’une gemme ?', paliers: [{ numero: 4 }] }, { numero: 4 }), 'une gemme');
+});
+
+test('sources : extraits FR puis EN si le français est maigre, mis en cache 30 jours dans sources_cache', async () => {
+  toutVoir();
+  const e = { DB: db };
+  assert.equal(DUREE_CACHE_MS, 30 * 24 * 60 * 60 * 1000);
+  // Français maigre (800 caractères) : la page anglaise s'ajoute.
+  const a = await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel');
+  assert.deepEqual(a.map((p) => p.langue), ['fr', 'en']);
+  const n1 = wiki.appels.length;
+  assert.ok(n1 >= 4);
+  const lignesCache = lignes('SELECT cle, cree FROM sources_cache');
+  assert.equal(lignesCache.length, 1);
+  assert.equal(lignesCache[0].cle, 'ancre:tour eiffel|tour eiffel');
+  // Deuxième demande : servie par le cache, aucune requête Wikipédia.
+  const b = await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel');
+  assert.deepEqual(b, a);
+  assert.equal(wiki.appels.length, n1);
+  // Plus de 30 jours : relue et réécrite.
+  db.base.prepare('UPDATE sources_cache SET cree = ?').run(new Date(Date.now() - 31 * 24 * 3600 * 1000).toISOString());
+  await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel');
+  assert.ok(wiki.appels.length > n1);
+  assert.ok(Date.now() - Date.parse(lignes('SELECT cree FROM sources_cache')[0].cree) < 60000);
+  // Moins de 30 jours : encore servie par le cache.
+  db.base.prepare('UPDATE sources_cache SET cree = ?').run(new Date(Date.now() - 29 * 24 * 3600 * 1000).toISOString());
+  const n2 = wiki.appels.length;
+  await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel');
+  assert.equal(wiki.appels.length, n2);
+  // Français riche : pas de page anglaise.
+  db.base.exec('DELETE FROM sources_cache');
+  wiki.pages['Tour Eiffel'].extract = texteWiki('La tour Eiffel', 3000);
+  wiki.appels.length = 0;
+  assert.deepEqual((await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel')).map((p) => p.langue), ['fr']);
+  assert.ok(wiki.appels.every((x) => x.url.hostname === 'fr.wikipedia.org'), 'aucune requête anglaise');
+  // Réseau coupé : rien n'est mis en cache (un échec passager ne dure pas 30 jours).
+  db.base.exec('DELETE FROM sources_cache');
+  wiki.panne = 500;
+  assert.deepEqual(await pagesAncrees(e, 'Tour Eiffel', 'Tour Eiffel'), []);
+  assert.equal(lignes('SELECT * FROM sources_cache').length, 0);
+  wiki.panne = null;
+  // Page de référence : mise en cache à part.
+  db.base.exec('DELETE FROM sources_cache');
+  wiki.appels.length = 0;
+  const ref = await pageDeReference(e, { langue: 'fr', titre: 'Gustave Eiffel' });
+  assert.equal(ref.titre, 'Gustave Eiffel');
+  assert.deepEqual(lignes('SELECT cle FROM sources_cache').map((x) => x.cle), ['page:fr:gustave eiffel']);
+  const n3 = wiki.appels.length;
+  assert.equal((await pageDeReference(e, { langue: 'fr', titre: 'Gustave Eiffel' })).titre, 'Gustave Eiffel');
+  assert.equal(wiki.appels.length, n3);
+  // Sans base : on lit Wikipédia sans cache, sans erreur.
+  assert.equal((await pagesAncrees({}, 'Tour Eiffel', 'Tour Eiffel')).length >= 1, true);
+  reinitWiki();
+});
+
+test('leçon : le rédacteur et le vérificateur reçoivent les mêmes extraits ; la 2e leçon réutilise le cache des sources', async () => {
+  const j = await prepareProgramme();
+  db.base.exec('DELETE FROM sources_cache');
+  wiki.appels.length = 0;
+  const sc = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc));
+  const redaction = sc.par('lecon')[0].entree.messages[1].content;
+  const verif = sc.par('verif')[0].entree.messages[1].content;
+  const extraits = (t) => [...t.matchAll(/=== Extrait \d+ · ([^,]+), page « ([^»]+) » ===/g)].map((m) => m[1] + '/' + m[2].trim());
+  assert.ok(extraits(redaction).length >= 2);
+  assert.deepEqual(extraits(verif), extraits(redaction));
+  assert.ok(lignes('SELECT * FROM sources_cache').length >= 2, 'recherche et page de référence en cache');
+  const premiere = wiki.appels.length;
+  assert.ok(premiere > 0);
+  wiki.appels.length = 0;
+  const sc2 = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 2, sc2));
+  assert.ok(wiki.appels.length < premiere, 'les pages de référence ne sont plus relues');
+  assert.ok(!wiki.appels.some((a) => ['Tour Eiffel', 'Eiffel Tower'].includes(a.url.searchParams.get('titles'))), 'ni la page française ni la page anglaise du sujet');
+});
+
+test('admin « reecrire » : met en file les leçons partiel > 20 % ou « à revoir » ; la nouvelle version remplace l’ancienne (vues gardées)', async () => {
+  await prepareProgramme();
+  const poster = (corps, e = envAdmin()) => appel(adminPost, { env: e, methode: 'POST', entetes: enteteAdmin, corps });
+  const verif = { 1: { statut: 'partiel', affirmations: 35, retirees: 12 }, 2: { statut: 'partiel', affirmations: 35, retirees: 3 }, 3: { statut: 'partiel', affirmations: 35, retirees: 2, aRevoir: true }, 4: { statut: 'recoupe', affirmations: 35, retirees: 0 }, 5: { statut: 'partiel', affirmations: 35, retirees: 7 } };
+  for (const [n, v] of Object.entries(verif)) {
+    insererPalierTest('la-tour-eiffel', Number(n));
+    const c = JSON.parse(lignes('SELECT contenu FROM paliers WHERE numero = ?', Number(n))[0].contenu);
+    db.base.prepare('UPDATE paliers SET contenu = ?, vues = ? WHERE numero = ?').run(JSON.stringify({ ...c, verification: { ia: ['a', 'b'], ...v } }), 7, Number(n));
+  }
+  const avant = (n) => lignes('SELECT contenu FROM paliers WHERE numero = ?', n)[0].contenu;
+  const [c2, c4, c5] = [avant(2), avant(4), avant(5)];
+  // Accès refusé sans clé ; paramètres invalides.
+  erreurFr(await appel(adminPost, { env: envAdmin(), methode: 'POST', corps: { action: 'reecrire', parcours: 'la-tour-eiffel' } }), 403);
+  erreurFr(await poster({ action: 'reecrire' }), 400);
+  erreurFr(await poster({ action: 'reecrire', parcours: 'inconnu' }), 404);
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM file_attente')[0].n, 0);
+  // 12/35 = 34 % et « à revoir » sont faibles ; 3/35 = 9 % non ; 7/35 = 20 % pile non (il faut dépasser 20 %).
+  const r = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' });
+  ok200(r);
+  assert.deepEqual([r.corps.ajoutees, r.corps.faibles], [2, [1, 3]]);
+  assert.deepEqual(lignes("SELECT type, numero, etat FROM file_attente ORDER BY numero"), [{ type: 'reecriture', numero: 1, etat: 'attente' }, { type: 'reecriture', numero: 3, etat: 'attente' }]);
+  assert.equal(r.corps.formation.enFile, 2);
+  assert.equal((await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' })).corps.ajoutees, 0, 'pas de doublon');
+  // Le cron les écrit avec les clés du serveur : la nouvelle version remplace l'ancienne.
+  const sc = scenario(partiesStandard());
+  brancher(sc);
+  const b = await traiterFile({ DB: db, AI: sc.ai });
+  assert.deepEqual([b.prises, b.faites, b.echecs], [2, 2, 0]);
+  const l1 = JSON.parse(avant(1));
+  assert.deepEqual(Object.keys(l1), CLES_LECON);
+  assert.equal(l1.verification.statut, 'recoupe');
+  assert.equal(lignes('SELECT vues FROM paliers WHERE numero = 1')[0].vues, 7, 'les vues sont conservées');
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM paliers WHERE parcours = ?', 'la-tour-eiffel')[0].n, 5, 'aucune leçon en double');
+  assert.equal(JSON.parse(avant(3)).verification.aRevoir, undefined);
+  assert.deepEqual([avant(2), avant(4), avant(5)], [c2, c4, c5], 'les leçons non faibles ne sont pas touchées');
+  assert.deepEqual(lignes('SELECT numero, etat FROM file_attente ORDER BY numero'), [{ numero: 1, etat: 'fait' }, { numero: 3, etat: 'fait' }]);
+  // Plus aucune leçon faible : rien à remettre en file.
+  const r2 = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' });
+  assert.deepEqual([r2.corps.ajoutees, r2.corps.faibles], [0, []]);
+  // Une réécriture « à revoir » et plus abîmée que l'ancienne ne l'écrase pas.
+  db.base.prepare('UPDATE paliers SET contenu = ? WHERE numero = 3').run(JSON.stringify({ ...JSON.parse(avant(3)), verification: { ia: ['a', 'b'], statut: 'partiel', affirmations: 35, retirees: 2, aRevoir: true } }));
+  const ancien3 = avant(3);
+  assert.equal((await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' })).corps.ajoutees, 1, 'une tâche faite est remise en attente');
+  const pire = scenario({ ...partiesStandard(), verif: [verdictsNumeros('faux', 8, 9, 10, 11, 12, 13, 14, 15, 16)] });
+  brancher(pire);
+  assert.equal((await traiterFile({ DB: db, AI: pire.ai })).faites, 1);
+  assert.equal(avant(3), ancien3, 'la version pire n’écrase pas l’ancienne');
+  // Avec le bouton d'export : la vérification montre « à revoir ».
+  const exp = await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin, requete: '?export=la-tour-eiffel' });
+  assert.equal(exp.corps.lecons.find((x) => x.numero === 3).verification.aRevoir, true);
+});
+
+test('rédacteur : une leçon n’a qu’un seul modèle pour les parties A et B (jamais de mélange), le meilleur disponible', async () => {
+  const j = await prepareProgramme();
+  const modeleDe = (u) => /\/([^/:]+):generateContent$/.exec(u.pathname)[1];
+  // Gemini : la partie B reçoit un 429 de gemini-3-flash-preview et descendrait la cascade ; B est refaite avec le modèle de A.
+  const sc = scenario(partiesStandard());
+  const vers = geminiVers(sc);
+  let dejaRefusee = false;
+  ext.gemini = async (u, init) => {
+    const messages = messagesDeGemini(JSON.parse(init.body));
+    if (messages[0].content === PROMPT_LECON_B && modeleDe(u) === 'gemini-3-flash-preview' && !dejaRefusee) {
+      dejaRefusee = true;
+      return new Response('RESOURCE_EXHAUSTED', { status: 429 });
+    }
+    return vers(u, init);
+  };
+  const r = await appel(palierGet, { env: envDe(sc, { GEMINI_API_KEY: CLE_GEMINI }), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1' });
+  ok200(r);
+  const gem = ext.appels.filter((a) => a.fournisseur === 'gemini').map((a) => [messagesDeGemini(JSON.parse(a.init.body))[0].content === PROMPT_LECON_B ? 'B' : 'A', modeleDe(a.url)]);
+  assert.deepEqual(gem.filter(([p]) => p === 'A'), [['A', 'gemini-3-flash-preview']]);
+  assert.deepEqual(gem.filter(([p]) => p === 'B').pop(), ['B', 'gemini-3-flash-preview'], 'B refaite avec le modèle de A');
+  assert.ok(gem.filter(([p]) => p === 'B').some(([, m]) => m === 'gemini-2.5-flash'), 'B avait d’abord été écrite par un autre modèle');
+  assert.deepEqual(r.corps.palier.verification.ia, ['gemini-3-flash-preview', NOM_MISTRAL]);
+  reinitExt();
+  // La partie B ne peut pas être refaite par le modèle de A : on passe au fournisseur suivant (Llama écrit A et B), jamais un mélange.
+  const sc2 = scenario(partiesStandard());
+  const vers2 = geminiVers(sc2);
+  let premiereB = true;
+  ext.gemini = async (u, init) => {
+    const messages = messagesDeGemini(JSON.parse(init.body));
+    if (messages[0].content === PROMPT_LECON_B && modeleDe(u) === 'gemini-3-flash-preview') {
+      if (premiereB) { premiereB = false; return new Response('RESOURCE_EXHAUSTED', { status: 429 }); }
+      return new Response('boom', { status: 503 });
+    }
+    return vers2(u, init);
+  };
+  const r2 = await appel(palierGet, { env: envDe(sc2, { GEMINI_API_KEY: CLE_GEMINI }), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=2' });
+  ok200(r2);
+  assert.equal(r2.corps.palier.verification.ia[0], NOM_LLAMA);
+  const parAi = sc2.appels.filter((a) => a.via === 'ai' && a.etape !== 'verif');
+  assert.deepEqual(parAi.map((a) => a.etape).sort(), ['lecon', 'leconB']);
+  assert.ok(parAi.every((a) => a.modele === LLAMA));
+  reinitExt();
+});
+
+test('Mistral (API) : un 429 écarte le modèle 60 s (limite par seconde du palier gratuit), pas 10 min ; « par jour » reste 3 h ; Cerebras reste 10 min', async () => {
+  reinitExt();
+  const etat = (famille, modele) => etatModelesCompat()[famille].find((m) => m.modele === modele).etat;
+  const [m0, m1] = COMPAT_TEST.mistral.modeles;
+  ext.mistral = fauxCompat({ [m0]: () => new Response('{"message":"Rate limit exceeded"}', { status: 429 }) });
+  assert.deepEqual(extraireObjet(await appelCompat('mistral')), { ok: 1 });
+  assert.deepEqual(modelesDe('mistral'), [m0, m1]);
+  assert.equal(EPUISEMENT_MISTRAL_MS, 60000);
+  assert.equal(etat('mistral', m0), 'epuise');
+  horloge.t += 59000;
+  assert.equal(etat('mistral', m0), 'epuise', 'encore écarté après 59 s');
+  horloge.t += 2000;
+  assert.equal(etat('mistral', m0), 'ok', 'de nouveau utilisable après 61 s');
+  ext.appels.length = 0;
+  await appelCompat('mistral');
+  assert.deepEqual(modelesDe('mistral'), [m0, m1], 'on repart du meilleur modèle');
+  // Quota « par jour » : 3 h.
+  reinitExt();
+  ext.mistral = fauxCompat({ [m0]: () => new Response('{"message":"tokens per day exceeded"}', { status: 429 }) });
+  await appelCompat('mistral');
+  horloge.t += 61000;
+  assert.equal(etat('mistral', m0), 'epuise');
+  // Cerebras : toujours 10 minutes.
+  reinitExt();
+  const [c0] = COMPAT_TEST.cerebras.modeles;
+  ext.cerebras = fauxCompat({ [c0]: () => new Response('quota', { status: 429 }) });
+  await appelCompat('cerebras');
+  horloge.t += 61000;
+  assert.equal(etat('cerebras', c0), 'epuise');
+  reinitExt();
+});
+
+test('Claude (clé du serveur CLAUDE_API_KEY) : actif seulement avec la clé, PREMIER pour la rédaction, vérifié par une autre famille', async () => {
+  reinitExt();
+  const fam = (l) => l.map((f) => f.famille);
+  const AVEC = { ...TOUS, CLAUDE_API_KEY: CLE_CLAUDE };
+  assert.equal(cleClaude({}), false);
+  assert.equal(cleClaude({ CLAUDE_API_KEY: ' ' }), false);
+  assert.equal(cleClaude(AVEC), true);
+  // Sans la clé : aucun Claude nulle part.
+  assert.ok(!fam(redacteurs(TOUS)).includes('claude'));
+  assert.ok(!fam(tousLesFournisseurs(TOUS)).includes('claude'));
+  // Avec la clé : premier rédacteur, avant Gemini.
+  const rl = redacteurs(AVEC);
+  assert.deepEqual(fam(rl), ['claude', 'gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai']);
+  assert.equal(rl[0].modele, CLAUDE_MODELE);
+  assert.deepEqual(fam(tousLesFournisseurs(AVEC)).slice(0, 2), ['claude', 'gemini']);
+  // Vérification : une autre famille, Gemini d'abord, Claude jamais en vérificateur d'un autre ni de lui-même.
+  assert.deepEqual(fam(verificateurs(AVEC, rl[0])), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.ok(!fam(verificateurs(AVEC, rl[1])).includes('claude'));
+  // La clé personnelle Claude passe avant celle du serveur ; la clé du serveur ne s'affiche pas.
+  const avecPerso = redacteurs({ ...AVEC, clePerso: { fournisseur: 'claude', cle: 'sk-ant-api03-perso-de-test' } });
+  assert.deepEqual(fam(avecPerso).slice(0, 3), ['claude', 'claude', 'gemini']);
+  // Appel : API Messages, clé dans x-api-key, modèle claude-haiku-5-5.
+  const sc = scenario(partiesStandard());
+  ext.claude = claudeVers(sc);
+  const j = await prepareProgramme();
+  ext.claude = claudeVers(sc);
+  const r = await appel(palierGet, { env: envDe(sc, { CLAUDE_API_KEY: CLE_CLAUDE }), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1' });
+  ok200(r);
+  const a = ext.appels.filter((x) => x.fournisseur === 'claude');
+  assert.equal(a.length, 2, 'les deux moitiés de la leçon');
+  assert.equal(new Headers(a[0].init.headers).get('x-api-key'), CLE_CLAUDE);
+  assert.equal(JSON.parse(a[0].init.body).model, 'claude-haiku-5-5');
+  assert.deepEqual(r.corps.palier.verification.ia, ['claude-haiku-5-5', NOM_MISTRAL], 'vérifiée par une autre famille');
+  assert.ok(!JSON.stringify(r.corps).includes(CLE_CLAUDE));
+  assert.ok(!toutesLesTables().includes(CLE_CLAUDE));
+  // 429 : Claude est mis de côté 10 min, les autres prennent le relais ; 401 : ignoré 1 h.
+  reinitExt();
+  ext.claude = () => new Response('{"type":"error","error":{"type":"rate_limit_error"}}', { status: 429 });
+  await assert.rejects(() => redacteurs(AVEC)[0].appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.epuise === true && e.fournisseur === 'Claude');
+  assert.equal(estEpuise('claude'), true);
+  assert.ok(nomsEpuises().includes('Claude'));
+  assert.ok(!fam(redacteurs(AVEC)).includes('claude') || fam(redacteurs(AVEC))[0] !== 'claude', 'épuisé : il ne passe plus en premier');
+  oublierEpuisements();
+  ext.claude = () => new Response('{"type":"error","error":{"type":"authentication_error"}}', { status: 401 });
+  await assert.rejects(() => redacteurs(AVEC)[0].appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.cleRefusee === true && e.cleInvalide === true);
+  assert.equal(estIgnore('claude'), true);
+  assert.ok(!fam(redacteurs(AVEC)).includes('claude'));
+  reinitExt();
+});
+
+test('diagnostic : Claude apparaît en premier (clé présente, état), jamais sa clé', async () => {
+  reinitExt();
+  ext.claude = (u, init) => reponseWiki({ content: [{ type: 'text', text: '{"ok":true}' }], echo: new Headers(init.headers).get('x-api-key') });
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  const env = { ...TOUTES, CLAUDE_API_KEY: CLE_CLAUDE, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } };
+  const r = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  ok200(r);
+  assert.equal(r.corps.claudeCle, true);
+  assert.deepEqual(r.corps.resultats.slice(0, 2).map((x) => [x.famille, x.etat]), [['claude', 'ok'], ['gemini', 'ok']]);
+  assert.equal(r.corps.resultats[0].nom, 'claude-haiku-5-5');
+  const texte = JSON.stringify(r.corps);
+  assert.ok(!texte.includes(CLE_CLAUDE), 'aucune clé dans le diagnostic');
+  // Clé refusée : « cle-invalide », Claude ignoré 1 h. Sans clé : annoncé absent et pas essayé.
+  reinitExt();
+  ext.claude = () => new Response('Invalid ' + CLE_CLAUDE, { status: 401 });
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  const r2 = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  assert.equal(r2.corps.resultats[0].etat, 'cle-invalide');
+  assert.ok(r2.corps.ignores.includes('Claude'));
+  assert.ok(!JSON.stringify(r2.corps).includes(CLE_CLAUDE));
+  reinitExt();
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  const r3 = await appel(diagnosticGet, { env: { ...TOUTES, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } }, requete: '?cle=sésame' });
+  assert.equal(r3.corps.claudeCle, false);
+  assert.ok(!r3.corps.resultats.some((x) => x.famille === 'claude'));
+  reinitExt();
 });
 
 // --- Exécution -------------------------------------------------------------
