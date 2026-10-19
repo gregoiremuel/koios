@@ -27,10 +27,10 @@ import {
 } from '../lib/images.js';
 import {
   EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
-  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION,
+  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION,
   TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
-  validerRedaction, validerVerification,
+  validerMoitieA, validerMoitieB, validerRedaction, validerVerification,
 } from '../lib/paliers.js';
 import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
@@ -197,7 +197,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets', 'variantes']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
@@ -1969,13 +1969,18 @@ function scenario(parts) {
   const n = {};
   const etapeDe = (systeme) => ({
     [PROMPT_ETAPE]: 'etape', [PROMPT_PALIER]: 'palier', [PROMPT_VERIFICATION]: 'verif', [PROMPT_QUIZ]: 'quiz',
-    [PROMPT_PROGRAMME]: 'programme', [PROMPT_MODULE]: 'module', [PROMPT_LECON]: 'lecon', [PROMPT_PROLONGER]: 'prolonger',
+    [PROMPT_PROGRAMME]: 'programme', [PROMPT_PROGRAMME_COURT]: 'programme2', [PROMPT_MODULE]: 'module', [PROMPT_LECON]: 'lecon',
+    // Une leçon = deux moitiés (A : « lecon », B : « leconB »), chacune avec sa version courte (« leconA2 », « leconB2»).
+    [PROMPT_LECON_A]: 'lecon', [PROMPT_LECON_B]: 'leconB', [PROMPT_LECON_A_COURT]: 'leconA2', [PROMPT_LECON_B_COURT]: 'leconB2',
+    [PROMPT_PROLONGER]: 'prolonger',
   })[systeme] || 'inconnu';
+  // Sans réponse prévue pour une étape : « programme2 » reprend « programme » ; « leconB », « leconA2 » et « leconB2 » reprennent « lecon ».
+  const repli = { programme2: 'programme', leconB: 'lecon', leconA2: 'lecon', leconB2: 'lecon' };
   function repondre(via, modele, messages) {
     const etape = etapeDe(messages[0].content);
     const i = n[etape] = (n[etape] ?? -1) + 1;
     appels.push({ via, modele, etape, entree: { messages }, i });
-    const v = parts[etape];
+    const v = parts[etape] !== undefined ? parts[etape] : parts[repli[etape]];
     if (v === undefined) throw new Error('étape non prévue : ' + etape);
     const choix = Array.isArray(v) ? v[Math.min(i, v.length - 1)] : v;
     const valeur = typeof choix === 'function' ? choix({ modele, via, messages, i }) : choix;
@@ -3425,13 +3430,14 @@ test('parcours POST : aucune source (422), programme ou module invalide, IA en p
   trois.niveaux.pop();
   const sc1 = scenario({ ...partiesStandard(), programme: [trois] });
   erreurFr(await post(sc1), 502, /n’a pas réussi/);
-  assert.deepEqual(sc1.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme', MISTRAL]]);
+  // Chaque rédacteur essaie le programme complet, puis le programme court.
+  assert.deepEqual(sc1.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme2', LLAMA], ['programme', MISTRAL], ['programme2', MISTRAL]]);
   const sc2 = scenario({ ...partiesStandard(), programme: ['Désolé, je ne peux pas.', new Error('panne')] });
   erreurFr(await post(sc2), 502);
-  assert.equal(sc2.appels.length, 2);
+  assert.equal(sc2.appels.length, 3, 'Llama illisible (complet, court), Mistral en panne : pas de programme court');
   const repli = scenario({ ...partiesStandard(), programme: [trois, programmeBrut()] });
   ok200(await post(repli));
-  assert.deepEqual(repli.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme', MISTRAL], ['module', LLAMA]]);
+  assert.deepEqual(repli.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme2', LLAMA], ['programme', MISTRAL], ['module', LLAMA]]);
   assert.equal(lignes('SELECT * FROM parcours').length, 1);
   // Liste de leçons invalide (4 titres) deux fois : rien n'est enregistré, même si le programme était bon.
   viderBibliotheque();
@@ -4000,9 +4006,11 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   assert.equal(p.sections.enBref, EXEMPLE_PALIER.sections.enBref.join(' '));
   assert.deepEqual(p.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: TOTAL_LECON, retirees: 0, statut: 'recoupe' });
   // Deux appels : rédaction de la leçon (prompt de leçon, Llama), vérification (Mistral).
-  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['lecon', 'ai', LLAMA], ['verif', 'ai', MISTRAL]]);
-  const [ecriture, verif] = sc.appels;
-  assert.equal(ecriture.entree.messages[0].content, PROMPT_LECON);
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['lecon', 'ai', LLAMA], ['leconB', 'ai', LLAMA], ['verif', 'ai', MISTRAL]]);
+  const [ecriture, ecritureB, verif] = sc.appels;
+  assert.equal(ecriture.entree.messages[0].content, PROMPT_LECON_A);
+  assert.equal(ecritureB.entree.messages[0].content, PROMPT_LECON_B);
+  assert.match(ecritureB.entree.messages[1].content, /Écris la partie B de la leçon en JSON : seulement les champs demandés\.$/);
   const demande = ecriture.entree.messages[1].content;
   assert.match(demande, /Parcours : « La tour Eiffel »/);
   assert.match(demande, /Niveau n° 1 : « Bases\s: les repères »\nConsigne de ton : Bases : pars de zéro\. Le lecteur ne connaît rien au sujet\. Définis tout mot technique\. Phrases très simples/);
@@ -4025,12 +4033,12 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   assert.ok(!/\n36\. /.test(v));
   assert.deepEqual(JSON.parse(lignes('SELECT contenu FROM paliers')[0].contenu), p);
   assert.deepEqual(quotasPalier(), [{ cle: 'palier:joueur:' + j.id, n: 1 }, { cle: 'palier:total', n: 1 }]);
-  // Budget de la leçon : 5000 jetons (3 500 pour un palier de l'ancien format).
+  // Budget de la leçon : deux appels de 2 200 jetons au plus (3 500 pour un palier de l'ancien format), vérification de 400.
   const jetons = [];
   const scJ = scenario(partiesStandard());
   const ai = { run: (modele, entree) => { jetons.push(entree.max_tokens); return scJ.ai.run(modele, entree); } };
   ok200(await lirePalier(j, 'la-tour-eiffel', 2, scJ, { AI: ai }));
-  assert.deepEqual(jetons, [5000, 600]);
+  assert.deepEqual(jetons, [2200, 2200, 400], 'deux moitiés de 2 200 jetons, vérification de 400');
 });
 
 test('leçon : les termes déjà définis par les leçons précédentes sont fournis (200 au plus, noms seulement), pas les suivantes', async () => {
@@ -4081,21 +4089,21 @@ test('leçon : « à retenir » et moyen mnémotechnique passent par la vérific
   assert.equal(p.mnemo, null);
   assert.deepEqual(p.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: TOTAL_LECON, retirees: 2, statut: 'partiel' });
   assert.ok(!JSON.stringify(p).includes('LUNE'));
-  assert.equal(sc.appels.length, 2, 'moins de 40 % retiré : pas de nouvelle rédaction');
+  assert.equal(sc.appels.length, 3, 'moins de 40 % retiré : pas de nouvelle rédaction (deux moitiés + vérification)');
   // Mnémo confirmé : il reste. Mnémo invalide dès la rédaction : null, sans refus.
   const sc2 = scenario({ ...partiesStandard(), lecon: [{ ...leconBrute(), mnemo: 'Court' }] });
   const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
   ok200(r2);
   assert.equal(r2.corps.palier.mnemo, null);
   assert.equal(r2.corps.palier.verification.affirmations, TOTAL_LECON - 1);
-  // Sans « à retenir » valable : rédaction refusée, on essaie l'autre modèle (Mistral).
+  // Sans « à retenir » valable : la leçon est publiée sans ce bloc (il ne fait pas échouer la moitié A).
   const sans = leconBrute();
   delete sans.aRetenir;
-  const sc3 = scenario({ ...partiesStandard(), lecon: [sans, leconBrute()] });
+  const sc3 = scenario({ ...partiesStandard(), lecon: [sans] });
   const r3 = await lirePalier(j, 'la-tour-eiffel', 3, sc3);
   ok200(r3);
-  assert.deepEqual(sc3.appels.map((a) => [a.etape, a.modele]), [['lecon', LLAMA], ['lecon', MISTRAL], ['verif', LLAMA]]);
-  assert.equal(r3.corps.palier.aRetenir.length, 3);
+  assert.deepEqual(sc3.appels.map((a) => [a.etape, a.modele]), [['lecon', LLAMA], ['leconB', LLAMA], ['verif', MISTRAL]]);
+  assert.deepEqual(r3.corps.palier.aRetenir, []);
 });
 
 test('module : la leçon suivante hors plan ouvre le module suivant (numéros qui continuent, niveau, objectif), un seul quota', async () => {
@@ -4104,7 +4112,7 @@ test('module : la leçon suivante hors plan ouvre le module suivant (numéros qu
   const sc = scenario({ ...partiesStandard(), module: [module2Brut()] });
   const r = await lirePalier(j, 'la-tour-eiffel', 7, sc);
   ok200(r);
-  assert.deepEqual(sc.appels.map((a) => a.etape), ['module', 'lecon', 'verif']);
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['module', 'lecon', 'leconB', 'verif']);
   const mod = sc.par('module')[0].entree.messages;
   assert.equal(mod[0].content, PROMPT_MODULE);
   assert.match(mod[1].content, /Module à écrire : n° 2, « Le vocabulaire de la tour »/);
@@ -4323,7 +4331,7 @@ test('délais : aucun appel d’IA ne dépasse 60 s et le temps restant les racc
     ok200(await lirePalier(j, 'la-tour-eiffel', 2, lente));
     const apres = delais.filter((d) => d > 1000);
     assert.equal(apres.length, 2);
-    assert.ok(apres[1] <= 35000 && apres[1] > 30000, 'vérification : ' + apres[1]);
+    assert.ok(apres[1] <= REGLAGES.delaiVerifMs && apres[1] > 24000, 'vérification : ' + apres[1] + ' (25 s au plus)');
     // Wikipédia déjà trop lent : plus de temps pour écrire, aucun appel d’IA.
     horloge.t = 0;
     wiki.avance = 82000;
@@ -4412,7 +4420,7 @@ test('leçon : avant, exemple et cartes passent par la vérification (non confir
   assert.equal(p.exemple, null);
   assert.equal(p.cartes.length, 2);
   assert.ok(!JSON.stringify(p).includes('LUNE'));
-  assert.equal(sc.appels.length, 2, 'peu de retraits : pas de nouvelle rédaction');
+  assert.equal(sc.appels.length, 3, 'peu de retraits : pas de nouvelle rédaction');
   // Champs invalides dès la rédaction : retirés sans refuser la leçon.
   const sc2 = scenario({ ...partiesStandard(), lecon: [{ ...leconBrute(), avant: 'rien', exemple: 12, cartes: [{ recto: 'x', verso: 'y' }] }] });
   const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
@@ -4423,22 +4431,231 @@ test('leçon : avant, exemple et cartes passent par la vérification (non confir
 test('délais : une leçon complète (5 000 jetons) tient sous 85 s ; une rédaction de 50 s laisse 35 s à la vérification, sans réécriture', async () => {
   const j = await prepareProgramme();
   try {
-    const lente = scenario({ ...partiesStandard(), lecon: [() => { horloge.t += 50000; return leconBrute(); }], verif: [() => { horloge.t += 20000; return verifNumeros(...nombres(4, 22)); }] });
+    const lente = scenario({ ...partiesStandard(), lecon: [() => { horloge.t += 50000; return leconBrute(); }], leconB: [leconBrute()], verif: [() => { horloge.t += 20000; return verifNumeros(...nombres(4, 22)); }] });
     const r = await lirePalier(j, 'la-tour-eiffel', 1, lente);
     ok200(r);
     // 50 s + 20 s = 70 s écoulés : 15 s restent, pas de seconde rédaction même avec plus de 40 % retiré ; la meilleure est gardée.
-    assert.equal(lente.appels.length, 2);
+    assert.equal(lente.appels.length, 3);
     assert.equal(r.corps.palier.verification.statut, 'partiel');
     assert.ok(horloge.t <= 85000);
     horloge.t = 0;
-    const vive = scenario({ ...partiesStandard(), lecon: [() => { horloge.t += 15000; return leconBrute(); }], verif: [() => { horloge.t += 10000; return verifNumeros(...nombres(4, 22)); }, verifNumeros()] });
+    const vive = scenario({ ...partiesStandard(), lecon: [() => { horloge.t += 15000; return leconBrute(); }], leconB: [leconBrute()], verif: [() => { horloge.t += 10000; return verifNumeros(...nombres(4, 22)); }, verifNumeros()] });
     const r2 = await lirePalier(j, 'la-tour-eiffel', 2, vive);
     ok200(r2);
-    assert.equal(vive.appels.length, 4);
+    assert.equal(vive.appels.length, 6, 'deux tours : deux moitiés + vérification, deux fois');
     assert.equal(r2.corps.palier.verification.statut, 'recoupe');
   } finally {
     horloge.t = 0;
   }
+});
+
+// --- Leçon en deux moitiés (A et B en parallèle), repli court, causes d'échec ---
+
+// IA dont certains prompts ne répondent jamais (ou mettent trop de temps) : les autres passent par le scénario.
+const aiBloquee = (sc, ...prompts) => ({
+  run: (modele, entree) => (prompts.includes(entree.messages[0].content) ? new Promise(() => {}) : sc.ai.run(modele, entree)),
+});
+const avecDelaisCourts = async (fn) => {
+  const avant = { ...REGLAGES };
+  REGLAGES.delaiIaMs = 30;
+  REGLAGES.delaiMoitieMs = 30;
+  REGLAGES.delaiProgrammeMs = 30;
+  REGLAGES.delaiVerifMs = 30;
+  REGLAGES.delaiMinMs = 5;
+  try {
+    await fn();
+  } finally {
+    Object.assign(REGLAGES, avant);
+  }
+};
+
+test('leçon en deux moitiés : A (sections, avant, exemple, définitions…) et B (frise, chiffres, notions, cartes, questions)', async () => {
+  const brut = leconBrute();
+  const a = validerMoitieA(brut).valeur;
+  assert.deepEqual(Object.keys(a).sort(), ['aRetenir', 'avant', 'definitions', 'exemple', 'histoire', 'mnemo', 'sections']);
+  const b = validerMoitieB(brut).valeur;
+  assert.deepEqual(Object.keys(b).sort(), ['cartes', 'chiffres', 'frise', 'notions', 'questions']);
+  assert.equal(b.questions.length, 4);
+  // A : sections et définitions obligatoires ; le reste ne bloque jamais.
+  assert.ok(validerMoitieA({ ...brut, sections: { enBref: ['Une seule phrase assez longue.'] } }).raison);
+  assert.ok(validerMoitieA({ ...brut, definitions: [] }).raison);
+  const nu = validerMoitieA({ sections: brut.sections, definitions: brut.definitions }).valeur;
+  assert.deepEqual([nu.avant, nu.exemple, nu.mnemo, nu.histoire, nu.aRetenir], [[], null, null, null, []]);
+  const court = validerMoitieA(brut, { court: true }).valeur;
+  assert.deepEqual([court.avant, court.exemple, court.mnemo, court.histoire], [[], null, null, null]);
+  // B : au moins une question qcm valide ; frise, chiffres, notions et cartes ne bloquent jamais.
+  assert.ok(validerMoitieB({ ...brut, questions: [] }).raison);
+  assert.ok(validerMoitieB({ ...brut, questions: [brut.questions[2]] }).raison, 'un vrai ou faux seul ne suffit pas');
+  const un = validerMoitieB({ questions: [brut.questions[0], { type: 'qcm' }] }).valeur;
+  assert.deepEqual([un.questions.length, un.frise, un.chiffres, un.notions, un.cartes], [1, [], [], null, []]);
+  const courtB = validerMoitieB(brut, { court: true }).valeur;
+  assert.deepEqual([courtB.frise, courtB.chiffres, courtB.notions, courtB.cartes], [[], [], null, []]);
+  // Les prompts des moitiés ne demandent que leurs champs.
+  for (const champ of ['avant', 'sections', 'exemple', 'definitions', 'histoire', 'aRetenir', 'mnemo']) assert.ok(PROMPT_LECON_A.includes(`- ${champ} :`), champ);
+  for (const champ of ['frise', 'chiffres', 'notions', 'cartes', 'questions']) assert.ok(PROMPT_LECON_B.includes(`- ${champ} :`), champ);
+  assert.ok(!PROMPT_LECON_A.includes('- questions :') && !PROMPT_LECON_B.includes('- sections :'));
+  assert.ok(!PROMPT_LECON_A_COURT.includes('- avant :') && !PROMPT_LECON_A_COURT.includes('- exemple :'));
+  assert.ok(PROMPT_LECON_B_COURT.includes('exactement 2 objets') && !PROMPT_LECON_B_COURT.includes('- notions :'));
+});
+
+test('leçon : une moitié A qui ne répond pas est retentée avec un prompt court (sans avant ni exemple) ; la leçon est publiée', async () => {
+  await avecDelaisCourts(async () => {
+    const j = await prepareProgramme();
+    const sc = scenario(partiesStandard());
+    const r = await lirePalier(j, 'la-tour-eiffel', 1, sc, { AI: aiBloquee(sc, PROMPT_LECON_A) });
+    ok200(r);
+    const p = r.corps.palier;
+    assert.deepEqual([p.avant, p.exemple, p.mnemo, p.histoire], [[], null, null, null]);
+    assert.ok(p.sections.enBref && p.definitions.length >= 1 && p.questions.length === 4 && p.cartes.length === 3);
+    const etapes = sc.appels.map((a) => a.etape);
+    assert.ok(etapes.includes('leconB') && etapes.includes('leconA2') && etapes.includes('verif'), etapes.join());
+    assert.ok(!etapes.includes('leconB2'));
+    assert.equal(sc.par('leconA2')[0].entree.messages[0].content, PROMPT_LECON_A_COURT);
+    // Même A court en échec : pas de leçon, et la cause est affichée.
+    db.base.prepare('DELETE FROM paliers').run();
+    const sc2 = scenario(partiesStandard());
+    const r2 = await lirePalier(j, 'la-tour-eiffel', 1, sc2, { AI: aiBloquee(sc2, PROMPT_LECON_A, PROMPT_LECON_A_COURT) });
+    erreurFr(r2, 502, /\(cause : délai dépassé\)/);
+    assert.equal(lignes('SELECT * FROM paliers').length, 0);
+  });
+});
+
+test('leçon : une moitié B lente ou invalide ne bloque pas ; au moins une question qcm valide suffit, sinon B court (2 questions)', async () => {
+  const j = await prepareProgramme();
+  // B sans aucune question valide : B court, 2 questions, ni frise, ni cartes, ni notions.
+  const sansQuestion = { ...leconBrute(), questions: [{ type: 'qcm', enonce: 'x' }] };
+  const court = { ...leconBrute(), questions: leconBrute().questions.slice(0, 2) };
+  const sc = scenario({ ...partiesStandard(), leconB: [sansQuestion], leconB2: [court] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['lecon', 'leconB', 'leconB', 'leconB2', 'verif'], 'B essaie Llama puis Mistral, puis la version courte');
+  const p = r.corps.palier;
+  assert.equal(p.questions.length, 2);
+  assert.deepEqual([p.frise, p.chiffres, p.notions, p.cartes], [[], [], null, []]);
+  assert.equal(sc.par('leconB2')[0].entree.messages[0].content, PROMPT_LECON_B_COURT);
+  assert.ok(p.sections.enBref && p.avant.length && p.exemple, 'la moitié A est conservée');
+  // Une seule question qcm valide dans B : publiée telle quelle (frise, cartes… restent), sans B court.
+  const une = { ...leconBrute(), questions: [leconBrute().questions[0], { type: 'qcm', enonce: 'x' }, 'n’importe quoi'] };
+  const sc2 = scenario({ ...partiesStandard(), leconB: [une] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.equal(r2.corps.palier.questions.length, 1);
+  assert.equal(r2.corps.palier.cartes.length, 3);
+  assert.ok(!sc2.appels.some((a) => a.etape === 'leconB2'));
+  // B court en échec aussi : pas de leçon (aucune question), cause « réponse illisible ».
+  const sc3 = scenario({ ...partiesStandard(), leconB: [sansQuestion], leconB2: ['pas du json'] });
+  erreurFr(await lirePalier(j, 'la-tour-eiffel', 3, sc3), 502, /\(cause : réponse illisible\)/);
+  // B qui ne répond pas (délai) : B court répond ; la leçon est publiée.
+  await avecDelaisCourts(async () => {
+    const sc4 = scenario({ ...partiesStandard(), leconB2: [court] });
+    const r4 = await lirePalier(j, 'la-tour-eiffel', 4, sc4, { AI: aiBloquee(sc4, PROMPT_LECON_B) });
+    ok200(r4);
+    assert.equal(r4.corps.palier.questions.length, 2);
+    assert.deepEqual(r4.corps.palier.cartes, []);
+  });
+});
+
+test('leçon : les deux moitiés partent ensemble (parallèle), même contexte ; le badge ne garde que ce qui est confirmé', async () => {
+  const j = await prepareProgramme();
+  const vues = [];
+  const sc = scenario({ ...partiesStandard() });
+  let enCours = 0;
+  let max = 0;
+  const ai = {
+    async run(modele, entree) {
+      const sys = entree.messages[0].content;
+      if (sys === PROMPT_LECON_A || sys === PROMPT_LECON_B) {
+        enCours += 1;
+        max = Math.max(max, enCours);
+        vues.push(entree.messages[1].content.replace(/\nÉcris la partie [AB][^\n]*$/, ''));
+        await new Promise((r) => setTimeout(r, 20));
+        enCours -= 1;
+      }
+      return sc.ai.run(modele, entree);
+    },
+  };
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc, { AI: ai }));
+  assert.equal(max, 2, 'A et B en même temps');
+  assert.equal(vues.length, 2);
+  assert.equal(vues[0], vues[1], 'même plan, même glossaire, mêmes extraits');
+  // Une carte et une question de B non confirmées sont retirées ; le badge est « partiel ».
+  const brut = leconBrute();
+  brut.cartes[0] = { recto: 'Qui habite sur la LUNE selon les sources ?', verso: 'Les ouvriers du chantier, chaque soir.' };
+  brut.avant[0] = 'Les ouvriers boivent du vin rouge LUNE chaque soir sur le chantier.';
+  const sc2 = scenario({ ...partiesStandard(), leconB: [brut], verif: [verifSi(/LUNE/)] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.ok(!JSON.stringify(r2.corps.palier).includes('LUNE'));
+  assert.equal(r2.corps.palier.cartes.length, 2);
+  assert.equal(r2.corps.palier.verification.statut, 'partiel');
+  assert.equal(r2.corps.palier.verification.retirees, 1, 'seule la carte de B est dans l’appel B ; le rappel vient de A (sain)');
+});
+
+test('leçon : la vérification est légère (400 jetons, extraits tronqués à 5 000 caractères)', async () => {
+  const j = await prepareProgramme();
+  const grosse = 'Phrase longue sur la tour. '.repeat(500); // 13 500 caractères
+  for (const cle of Object.keys(wiki.pages)) wiki.pages[cle].texte = grosse;
+  const sc = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc));
+  const verif = sc.par('verif')[0].entree.messages[1].content;
+  const extraits = [...verif.matchAll(/=== Extrait \d+[^\n]*===\n([\s\S]*?)\n=== Fin de l’extrait/g)].map((m) => m[1]);
+  assert.ok(extraits.length >= 1 && extraits.every((t) => t.length <= 5000), extraits.map((t) => t.length).join());
+  const redaction = sc.par('lecon')[0].entree.messages[1].content;
+  const entiers = [...redaction.matchAll(/=== Extrait \d+[^\n]*===\n([\s\S]*?)\n=== Fin de l’extrait/g)].map((m) => m[1].length);
+  assert.ok(Math.max(...entiers) > 5000, 'la rédaction garde les extraits entiers : ' + entiers.join());
+});
+
+test('leçon : la cause de l’échec s’affiche dans le message 502 (délai, réponse illisible, contrôle de la 2e IA, trop de retraits)', async () => {
+  const j = await prepareProgramme();
+  const message = (r) => JSON.parse(JSON.stringify(r.corps)).erreur;
+  // Réponse illisible : A comme B ne rendent pas de JSON.
+  const sc1 = scenario({ ...partiesStandard(), lecon: ['Désolé, je ne peux pas.'] });
+  const r1 = await lirePalier(j, 'la-tour-eiffel', 1, sc1);
+  erreurFr(r1, 502, /ce palier \(cause : réponse illisible\)\. Réessaie dans un moment\.$/);
+  // Contrôle de la 2e IA en panne.
+  const sc2 = scenario({ ...partiesStandard(), verif: [new Error('panne')] });
+  erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, sc2), 502, /\(cause : contrôle de la 2e IA indisponible\)/);
+  // Tout est retiré (même après une 2e rédaction) : trop d'affirmations non confirmées.
+  const sc3 = scenario({ ...partiesStandard(), verif: [verifNumeros(...nombres(1, TOTAL_LECON))] });
+  erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, sc3), 502, /\(cause : trop d’affirmations non confirmées\)/);
+  // Délai dépassé.
+  await avecDelaisCourts(async () => {
+    const sc4 = scenario(partiesStandard());
+    const r4 = await lirePalier(j, 'la-tour-eiffel', 1, sc4, { AI: aiBloquee(sc4, PROMPT_LECON_A, PROMPT_LECON_B, PROMPT_LECON_A_COURT, PROMPT_LECON_B_COURT) });
+    erreurFr(r4, 502, /\(cause : délai dépassé\)/);
+    assert.ok(!/undefined|Error|stack/i.test(message(r4)), 'texte seulement, rien de technique');
+  });
+  // Sources injoignables.
+  wiki.panne = 500;
+  erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, scenario(partiesStandard())), 502, /\(cause : sources injoignables\)/);
+  wiki.panne = null;
+  assert.equal(lignes('SELECT * FROM paliers').length, 0);
+});
+
+test('programme : si le programme complet échoue (délai, illisible), un programme plus court (6 + 5 + 5 + 5 modules) est tenté avant d’abandonner', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const post = (sc, extra = {}) => appel(parcoursPost, { env: envDe(sc, extra), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
+  assert.ok(PROMPT_PROGRAMME_COURT.includes('Programme court : Bases compte exactement 6 modules') && !PROMPT_PROGRAMME_COURT.includes('Bases compte de 6 à 10'));
+  assert.ok(PROMPT_PROGRAMME_COURT.includes(JSON.stringify(EXEMPLE_PROGRAMME)));
+  // Programme complet illisible : le court réussit, avec le même rédacteur.
+  const sc = scenario({ ...partiesStandard(), programme: ['Désolé, je ne peux pas.'], programme2: [programmeBrut()] });
+  ok200(await post(sc));
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme2', LLAMA], ['module', LLAMA]]);
+  assert.equal(sc.par('programme2')[0].entree.messages[0].content, PROMPT_PROGRAMME_COURT);
+  assert.match(sc.par('programme2')[0].entree.messages[1].content, /Écris le programme d’ensemble en JSON/);
+  // Programme complet qui ne répond pas (délai) : le court répond.
+  await avecDelaisCourts(async () => {
+    viderBibliotheque();
+    const sc2 = scenario(partiesStandard());
+    ok200(await post(sc2, { AI: aiBloquee(sc2, PROMPT_PROGRAMME) }));
+    assert.ok(sc2.appels.some((a) => a.etape === 'programme2'));
+    // Tout échoue : 502 avec la cause.
+    viderBibliotheque();
+    const sc3 = scenario(partiesStandard());
+    erreurFr(await post(sc3, { AI: aiBloquee(sc3, PROMPT_PROGRAMME, PROMPT_PROGRAMME_COURT) }), 502, /ce parcours \(cause : délai dépassé\)\. Réessaie, ou change la formulation\.$/);
+    assert.equal(lignes('SELECT * FROM parcours').length, 0);
+  });
 });
 
 // --- « Aller plus loin » : POST /api/parcours { id, prolonger: true } ---

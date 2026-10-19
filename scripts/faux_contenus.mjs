@@ -355,6 +355,7 @@ export function palierSimule(demande) {
   };
 }
 
+// Les deux moitiés d'une leçon (A et B) et leurs versions courtes reçoivent cette même réponse : chacune ne retient que ses champs.
 // Leçon d'un parcours à programme : le palier, plus « à retenir », moyen mnémotechnique, rappels, exemple et cartes.
 // Une leçon sur six porte un moyen mnémotechnique que la vérification ne confirme pas (il devient null), une sur sept
 // un exemple non confirmé (null), une sur cinq une carte non confirmée (retirée).

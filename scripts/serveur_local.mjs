@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import worker from '../worker.js';
 import { PROMPT_CHAPITRE, PROMPT_PLAN } from '../lib/sujets.js';
 import {
-  PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION,
+  PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROGRAMME_COURT, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION,
 } from '../lib/paliers.js';
 import { fauxD1 } from './faux_d1.mjs';
 import {
@@ -168,10 +168,11 @@ function reponseDe(systeme, demande) {
     return chapitreV1(sujet, titre, Number(numero));
   }
   if (systeme === PROMPT_ETAPE) return planSimule(demande);
-  if (systeme === PROMPT_PROGRAMME) return programmeSimule(demande);
+  if (systeme === PROMPT_PROGRAMME || systeme === PROMPT_PROGRAMME_COURT) return programmeSimule(demande);
   if (systeme === PROMPT_MODULE) return moduleSimule(demande);
   if (systeme === PROMPT_PROLONGER) return prolongementSimule(demande);
-  if (systeme === PROMPT_LECON) return leconSimulee(demande);
+  // Une leçon s'écrit en deux moitiés (A et B, ou leurs versions courtes) : chacune ne retient que ses champs.
+  if ([PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_B, PROMPT_LECON_A_COURT, PROMPT_LECON_B_COURT].includes(systeme)) return leconSimulee(demande);
   if (systeme === PROMPT_PALIER) return palierSimule(demande);
   if (systeme === PROMPT_QUIZ) return quizSimule(demande);
   if (systeme === PROMPT_VARIANTE) return varianteSimulee(demande);
