@@ -113,7 +113,7 @@
   var LOGO = "<svg viewBox='0 0 64 64' width='24' height='24' aria-hidden='true' focusable='false'><rect width='64' height='64' rx='14' style='fill:var(--encre)'/><text x='32' y='44' text-anchor='middle' font-weight='700' font-size='36' style='fill:#fff;font-family:var(--ui)'>K</text><rect x='20' y='49' width='24' height='3' rx='1.5' style='fill:var(--or)'/></svg>";
   function marque(sansLien) { var contenu = [el("span", { "class": "logo", html: LOGO }), "Koîos"]; return sansLien ? el("span", { "class": "marque" }, contenu) : el("a", { "class": "marque", href: "#/" }, contenu); }
   /* Bouton ou lien qui fait avancer : flèche à droite. */
-  function lienAvance(href, texte, cls) { return el("a", { "class": cls || "btn", href: href }, [el("span", { text: texte }), icone("chevron")]); }
+  function lienAvance(href, texte, cls) { return el("a", { "class": cls || "btn", href: href }, [el("span", { text: texte }), icone("fleche")]); }
   /* État vide : icône de 32 px, une phrase, un bouton utile. */
   function etatVide(nomIcone, texte, action) { return el("div", { "class": "vide" }, [icone(nomIcone), el("p", { text: texte }), action]); }
   function partager(titre, texte, url, repli) {
@@ -384,9 +384,9 @@
     var recherche = el("section", { "class": "pile", "aria-labelledby": "titre-recherche" }, [el("h1", { id: "titre-recherche", text: "Que veux‑tu apprendre" + F + "?" }), el("div", { "class": "recherche" }, [champ, bouton]), alerte, lien("#/aide", "Comment ça marche", "lien discret")]);
     var alerteIdees = el("p", { "class": "alerte", hidden: "", role: "status" }), statutIdees = el("p", { "class": "meta", hidden: "", role: "status" });
     var grille = el("div", { "class": "idees" });
-    IDEES.forEach(function (idee) {
-      var cadre = cadrePhoto(idee[0], "r43");
-      var b = el("button", { "class": "idee", type: "button" }, [cadre, el("span", { "class": "idee-titre" }, [icone(categorie(idee[0])), el("b", { text: idee[0] })])]);
+    IDEES.forEach(function (idee, i) {
+      var cadre = cadrePhoto(idee[0], i < 2 ? "r21" : "r43");
+      var b = el("button", { "class": "idee" + (i < 2 ? " grande" : ""), type: "button", style: "--i:" + i }, [cadre, el("span", { "class": "idee-titre" }, [icone(categorie(idee[0])), el("b", { text: idee[0] })])]);
       b.addEventListener("click", function () { champ.value = idee[0]; creerParcours(idee[0], bouton, alerteIdees, statutIdees); });
       grille.appendChild(b);
       photoDansCadre(cadre, idee[1], idee[0], credits);
@@ -424,45 +424,109 @@
       el("span", { "class": "meta", text: pluriel(p.paliers, "leçon", "leçons") + (s.fait ? " · " + s.fait + (s.fait > 1 ? " faites" : " faite") : "") }),
       el("span", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + pct + "%" })])])])]);
   }
+  /* Accueil en grille « bento » : chaque tuile repose sur une donnée réelle de l’état du joueur (XP, jours joués, erreurs, glossaire, formation en cours). */
+  var JOURS_COURTS = ["L", "M", "M", "J", "V", "S", "D"];
+  function pctNiveau(n) { return Math.max(0, Math.min(100, Math.round(((etat.xp || 0) - n.base) / (n.suivant - n.base) * 100))); }
+  function anneauHtml(pct, centre) {
+    return "<svg viewBox='0 0 120 120' focusable='false' aria-hidden='true'><circle class='piste' cx='60' cy='60' r='52' pathLength='100'/><circle class='arc" + (pct ? "" : " zero") + "' cx='60' cy='60' r='52' pathLength='100' style='stroke-dashoffset:" + (100 - pct) + "'/></svg><div class='anneau-centre' aria-hidden='true'>" + centre + "</div>";
+  }
+  function coin() { return el("span", { "class": "coin" }, [icone("chevron")]); }
+  function ronde(nom) { return el("span", { "class": "tuile ronde", "aria-hidden": "true" }, [icone(nom)]); }
+  function tuileNiveau() {
+    var xp = etat.xp || 0, n = niveau(xp), pct = pctNiveau(n);
+    return el("a", { "class": "tb niveau", href: "#/profil", "aria-label": "Niveau " + n.niveau + ", " + xp + N + "XP, " + pct + F + "% du chemin vers le niveau " + (n.niveau + 1) }, [
+      coin(),
+      el("div", { "class": "anneau mini", "aria-hidden": "true", html: anneauHtml(pct, "<span class='sur'>Niv.</span><strong>" + n.niveau + "</strong>") }),
+      el("span", { "class": "tb-bas", "aria-hidden": "true" }, [el("b", { text: xp + N + "XP" }), el("span", { "class": "meta", text: "encore " + (n.suivant - xp) + N + "XP" })])
+    ]);
+  }
+  /* Série : jours d'affilée où la question du jour a été jouée, et la semaine en cours (lundi à dimanche). */
+  function tuileSerie() {
+    var n = serieJours(), d = new Date(), dow = (d.getDay() + 6) % 7, faits = 0;
+    var semaine = el("div", { "class": "semaine", role: "img" });
+    for (var k = 0; k < 7; k++) {
+      var fait = !!etat.jours[jour(new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow + k))];
+      if (fait) faits += 1;
+      semaine.appendChild(el("span", { "class": "jr" + (fait ? " fait" : "") + (k === dow ? " auj" : "") }, [el("i"), el("span", { text: JOURS_COURTS[k] })]));
+    }
+    semaine.setAttribute("aria-label", "Question du jour cette semaine" + N + ": " + pluriel(faits, "jour joué", "jours joués"));
+    return el("div", { "class": "tb serie" }, [
+      el("span", { "class": "sur", text: "Série" }),
+      el("span", { "class": "ligne-gros" }, [el("span", { "class": "gros", text: String(n) }), el("span", { "class": "meta", text: n > 1 ? "jours de suite" : "jour de suite" })]),
+      semaine
+    ]);
+  }
+  function tuileJour() {
+    var fait = etat.jours[aujourdhui()];
+    return el("section", { "class": "tb jour", "aria-label": "Question du jour" }, [
+      el("div", { "class": "tb-tete" }, [ronde("ampoule"), el("span", { "class": "tb-texte" }, [el("b", { text: "Question du jour" }),
+        el("span", { "class": "meta", text: fait ? (fait === "juste" ? "Réussie aujourd’hui. La suivante arrive demain." : "Manquée aujourd’hui. La suivante arrive demain.") : "La même pour tous." })])]),
+      fait ? el("span", { "class": "fait-tag" }, [icone("juste"), "Faite"]) : lienAvance("#/jeu/jour", "Répondre", "btn second")
+    ]);
+  }
+  function tuileCompte(href, nomIcone, nombre, singulier, pluriels) {
+    return el("a", { "class": "tb fin", href: href }, [coin(), ronde(nomIcone), el("span", { "class": "tb-bas" }, [el("span", { "class": "gros", text: String(nombre) }), el("span", { "class": "meta", text: nombre > 1 ? pluriels : singulier })])]);
+  }
+  function tuileEclair() {
+    return el("a", { "class": "tb fin", href: "#/jeu/melange" }, [coin(), ronde("eclair"), el("span", { "class": "tb-bas" }, [el("b", { text: "Quiz éclair" }), el("span", { "class": "meta", text: "10 questions" })])]);
+  }
+  /* Tuile « Reprendre » : photo de la formation en cours, titre, progression, un seul bouton noir. */
+  function tuileReprendre(r, credits) {
+    var photoR = cadrePhoto(r.s.titre, "photo-r r169");
+    if (r.s.image && r.s.image.src) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
+    else photoDansCadre(photoR, r.s.titre, r.s.titre, credits, function (im) { memoriserImage(r.id, im); });
+    var q = quizEnAttente(r.s), avance = !(termine(r.s) && !q);
+    return el("section", { "class": "tb reprendre", "aria-labelledby": "titre-reprendre" }, [
+      photoR,
+      el("div", { "class": "reprendre-corps" }, [
+        el("span", { "class": "sur", text: "Reprendre" }),
+        el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
+        el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + avanceJalon(r.s) + "%" })]),
+        el("span", { "class": "meta", text: detailSuivi(r.s) }),
+        (avance ? lienAvance : lien)("#/p/" + encodeURIComponent(r.id) + (q ? (q % 10 === 0 ? "/defi/" : "/quiz/") + q : ""), q ? "Passer le " + (q % 10 === 0 ? "défi d’étape" : "quiz") : (termine(r.s) ? "Revoir le parcours" : r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
+      ])
+    ]);
+  }
   function vueMaison() {
     var credits = blocCredits();
     var miens = Object.keys(etat.parcours).map(function (id) { return { id: id, s: etat.parcours[id] }; }).filter(function (x) { return x.s.titre; }).sort(function (a, b) { return (b.s.date || "") > (a.s.date || "") ? 1 : -1; });
     var rech = carteRecherche(credits);
-    var bandes = [bande([entete(), rech.recherche], false), bande([rech.idees], true)];
-    var suite = [];
-    if (miens.length) {
-      var r = miens[0];
-      var photoR = cadrePhoto(r.s.titre, "photo-r r169");
-      if (r.s.image && r.s.image.src) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
-      else photoDansCadre(photoR, r.s.titre, r.s.titre, credits, function (im) { memoriserImage(r.id, im); });
-      var q = quizEnAttente(r.s), avance = !(termine(r.s) && !q);
-      suite.push(el("section", { "class": "carte reprendre", "aria-labelledby": "titre-reprendre" }, [
-        photoR,
-        el("div", { "class": "reprendre-corps" }, [
-          el("span", { "class": "sur", text: "Reprendre" }),
-          el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
-          el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + avanceJalon(r.s) + "%" })]),
-          el("span", { "class": "meta", text: detailSuivi(r.s) }),
-          (avance ? lienAvance : lien)("#/p/" + encodeURIComponent(r.id) + (q ? (q % 10 === 0 ? "/defi/" : "/quiz/") + q : ""), q ? "Passer le " + (q % 10 === 0 ? "défi d’étape" : "quiz") : (termine(r.s) ? "Revoir le parcours" : r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
-        ])
-      ]));
-      if (miens.length > 1) {
-        var ul = el("ul", { "class": "liste" });
-        miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, x.s.image, detailSuivi(x.s))); });
-        suite.push(el("section", { "class": "pile serree" }, [el("h2", { text: "Tes sujets" }), ul]));
-      }
-    } else {
-      var ecrire = el("button", { "class": "btn second petit", type: "button", text: "Écrire un sujet" });
-      ecrire.addEventListener("click", function () { var c = document.getElementById("sujet"); if (c) { c.scrollIntoView({ block: "center" }); c.focus(); } });
-      suite.push(el("section", { "class": "pile serree", "aria-labelledby": "titre-sujets" }, [el("h2", { id: "titre-sujets", text: "Tes sujets" }), etatVide("livres", "Tu n’as pas encore de sujet. Écris-en un, ou choisis une idée ci-dessus.", ecrire)]));
+    var tuiles = [], nbErreurs = etat.erreurs.length;
+    if (miens.length) tuiles.push(tuileReprendre(miens[0], credits));
+    else {
+      var premiere = el("button", { "class": "tb premiere", type: "button" }, [icone("livres"), el("span", { "class": "tb-texte" }, [el("b", { text: "Lance ta première formation" }), el("span", { "class": "meta", text: "Écris un sujet, ou choisis une idée plus bas." })]), icone("fleche")]);
+      premiere.addEventListener("click", function () { var c = document.getElementById("sujet"); if (c) { c.scrollIntoView({ block: "center" }); c.focus(); } });
+      tuiles.push(premiere);
     }
-    bandes.push(bande(suite, false));
+    tuiles.push(tuileNiveau(), tuileSerie(), tuileJour());
+    if (nbErreurs) tuiles.push(tuileCompte("#/jeu/erreurs", "cerveau", nbErreurs, "question à revoir", "questions à revoir"));
+    var eclair = tuileEclair();
+    tuiles.push(eclair);
+    var bento = el("div", { "class": "bento" + (miens.length ? "" : " sans-form") }, tuiles);
+    function ranger() {
+      var fin = bento.querySelectorAll(".tb.fin");
+      Array.prototype.forEach.call(fin, function (t) { t.classList.toggle("seul", fin.length === 1); });
+      Array.prototype.forEach.call(bento.children, function (t, k) { t.style.setProperty("--i", Math.min(k, 8)); });
+    }
+    ranger();
+    // Pas d'erreur à revoir : la tuile Glossaire (termes déjà rencontrés dans la formation en cours) prend la place, si elle a des termes.
+    if (!nbErreurs && miens.length && miens[0].s.fait >= 1) {
+      glossaireJusqua({ id: miens[0].id }, miens[0].s.fait).then(function (termes) {
+        if (!termes.length || !bento.isConnected) return;
+        bento.insertBefore(tuileCompte("#/p/" + encodeURIComponent(miens[0].id) + "/glossaire", "carnet", termes.length, "terme appris", "termes appris"), eclair);
+        ranger();
+      }, function () {});
+    }
+    var haut = [entete(), rech.recherche, bento];
+    if (miens.length > 1) {
+      var ul = el("ul", { "class": "liste" });
+      miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, x.s.image, detailSuivi(x.s))); });
+      haut.push(el("section", { "class": "pile serree" }, [el("h2", { text: "Tes sujets" }), ul]));
+    }
     var piste = el("ul", { "class": "carrousel", role: "list" });
-    bandes.push(bande([el("div", { "class": "ligne-titre" }, [el("h2", { text: "Parcours vérifiés" }), el("span", { "class": "meta", text: "2 sources par notion" })]), piste], true));
-    var jourFait = etat.jours[aujourdhui()];
-    bandes.push(bande([el("section", { "class": "carte" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Question du jour" }), el("span", { "class": "meta", text: serieJours() ? "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") : "La même pour tous" })]),
-      jourFait ? el("p", { "class": "meta", text: jourFait === "juste" ? "Réussie aujourd’hui. La suivante arrive demain." : "Manquée aujourd’hui. La suivante arrive demain." }) : lien("#/jeu/jour", "Répondre", "btn second")]), credits.noeud], false));
-    montrer(el("div", { "class": "page bandes" }, bandes), "accueil", "Accueil");
+    var bandes = [bande(haut, false), bande([rech.idees], true),
+      bande([el("div", { "class": "ligne-titre" }, [el("h2", { text: "Parcours vérifiés" }), el("span", { "class": "meta", text: "2 sources par notion" })]), piste, credits.noeud], false)];
+    montrer(el("div", { "class": "page bandes accueil" }, bandes), "accueil", "Accueil");
     chargerListeVerifies().then(function (l) {
       l.forEach(function (p) { piste.appendChild(carteVerifiee(p, credits)); });
     }, function () {});

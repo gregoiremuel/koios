@@ -137,7 +137,7 @@ figcaption a, .credits-liste a { color: var(--encre-2); padding: 12px 0; }
 .mosaique .m3 { grid-column: 1; grid-row: 2; }
 .mosaique .m4 { grid-column: 2; grid-row: 2; }
 .idees { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.idee { display: grid; align-content: start; padding: 0; border: 1px solid var(--ligne); border-radius: 12px; background: var(--fond); text-align: left; cursor: pointer; overflow: hidden; transition: transform 150ms ease-out; -webkit-tap-highlight-color: transparent; }
+.idee { display: grid; align-content: start; padding: 0; border: 1px solid var(--ligne); border-radius: 16px; background: var(--fond); text-align: left; cursor: pointer; overflow: hidden; transition: transform 150ms ease-out; -webkit-tap-highlight-color: transparent; }
 .idee:active, .carte-v:active { transform: scale(0.98); }
 .idee .cadre { border-radius: 0; }
 .idee-titre { display: flex; align-items: flex-start; gap: 8px; padding: 12px; }
@@ -146,13 +146,66 @@ figcaption a, .credits-liste a { color: var(--encre-2); padding: 12px 0; }
 .carrousel { list-style: none; margin: -4px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) 0 calc(-1 * var(--marge)); padding: 4px max(16px, env(safe-area-inset-right, 0px)) 6px var(--marge); display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-padding-inline: var(--marge); scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .carrousel::-webkit-scrollbar { display: none; }
 .carrousel > li { flex: 0 0 240px; scroll-snap-align: start; }
-.carte-v { display: grid; align-content: start; height: 100%; border: 1px solid var(--ligne); border-radius: 12px; background: var(--fond); overflow: hidden; text-decoration: none; transition: transform 150ms ease-out; -webkit-tap-highlight-color: transparent; }
+.carte-v { display: grid; align-content: start; height: 100%; border: 1px solid var(--ligne); border-radius: 16px; background: var(--fond); overflow: hidden; text-decoration: none; transition: transform 150ms ease-out; -webkit-tap-highlight-color: transparent; }
 .carte-v .cadre { border-radius: 0; }
 .carte-v-corps { display: grid; gap: 6px; padding: 12px; }
 .carte-v b { font-size: 16px; font-weight: 600; line-height: 1.3; }
 .reprendre { padding: 0; gap: 0; overflow: hidden; }
 .reprendre .photo-r { border-radius: 0; }
 .reprendre-corps { display: grid; gap: 12px; padding: 16px; }
+
+/* Accueil en grille « bento » : 2 colonnes à 390 px, 4 au-delà de 720 px. Tuiles --surface ou photo, filet --ligne, coins 16 px, aucune ombre. */
+.bento { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.tb { position: relative; display: grid; align-content: space-between; gap: 12px; min-width: 0; padding: 16px; border: 1px solid var(--ligne); border-radius: 16px; background: var(--surface); color: var(--encre); text-decoration: none; text-align: left; font: inherit; -webkit-tap-highlight-color: transparent; }
+a.tb, button.tb { cursor: pointer; transition: transform 150ms ease-out; }
+a.tb:active, button.tb:active { transform: scale(0.98); }
+.bento > .tb, .idees > .idee { animation: entree 250ms ease-out backwards; animation-delay: calc(var(--i, 0) * 50ms); }
+.tb .tuile { background: var(--fond); }
+.tb .coin { position: absolute; top: 14px; right: 14px; color: var(--encre-2); }
+.tb .coin .i { width: 20px; height: 20px; }
+.tb-bas { display: grid; gap: 2px; align-content: end; }
+.tb-bas b { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.tb .gros { font-size: 30px; line-height: 1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tb .ligne-gros { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.tb .progres { background: var(--ligne); }
+.tb.reprendre { grid-column: span 2; padding: 0; gap: 0; align-content: start; overflow: hidden; }
+.tb.reprendre .reprendre-corps { background: var(--surface); }
+.tb.premiere { grid-column: span 2; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; align-content: center; gap: 14px; min-height: 96px; }
+.tb.premiere > .ic .i { width: 32px; height: 32px; color: var(--encre-2); }
+.tb.premiere > .ic:last-child .i { width: 20px; height: 20px; color: var(--encre); }
+.tb-texte { display: grid; gap: 2px; min-width: 0; }
+.tb-texte b { font-size: 17px; font-weight: 600; line-height: 1.3; }
+.tb.jour { grid-column: span 2; gap: 14px; }
+.tb-tete { display: flex; align-items: center; gap: 12px; }
+.tb.jour .btn { background: var(--fond); }
+.fait-tag { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-weight: 600; font-size: 16px; color: var(--encre-2); }
+.fait-tag .i { width: 20px; height: 20px; }
+.tb.niveau { justify-items: start; }
+.anneau.mini { width: 72px; height: 72px; }
+.anneau.mini circle { stroke-width: 9; }
+.anneau.mini .piste { stroke: var(--ligne-forte); }
+.anneau.mini .anneau-centre { gap: 0; }
+.anneau.mini .anneau-centre strong { font-size: 24px; }
+.anneau.mini .anneau-centre .sur { line-height: 1; font-size: 12px; letter-spacing: 0.04em; }
+.semaine { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; justify-items: center; }
+.jr { display: grid; justify-items: center; gap: 4px; font-size: 12px; line-height: 1; color: var(--encre-2); }
+.jr i { width: 12px; height: 12px; border-radius: 6px; border: 1.5px solid var(--ligne-forte); background: var(--fond); }
+.jr.fait i { background: var(--encre); border-color: var(--encre); }
+.jr.auj { color: var(--encre); font-weight: 600; }
+.jr.auj i { border-color: var(--encre); }
+.tb.fin.seul { grid-column: span 2; }
+.tb.fin.seul { grid-template-columns: auto minmax(0, 1fr); align-items: center; align-content: center; gap: 14px; min-height: 88px; }
+.tb.fin.seul .coin { top: 50%; margin-top: -10px; }
+.cadre.r21 { aspect-ratio: 2 / 1; }
+.idee.grande { grid-column: span 2; }
+@media (min-width: 720px) {
+  .page.accueil .colonne { max-width: 46rem; }
+  .bento, .idees { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .tb.reprendre { grid-row: span 2; }
+  .tb.fin { grid-column: span 2; }
+  .tb.fin.seul { grid-column: span 4; }
+  .bento.sans-form .tb.fin.seul { grid-column: span 2; }
+}
 .credits summary { display: flex; align-items: center; min-height: 44px; font-size: 14px; color: var(--encre-2); cursor: pointer; }
 .credits-liste { list-style: none; margin: 0; padding: 0 0 8px; display: grid; gap: 6px; font-size: 12px; line-height: 1.4; color: var(--encre-2); }
 
