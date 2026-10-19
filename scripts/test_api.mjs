@@ -24,6 +24,7 @@ import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, oublierEpuisements, redacteurs, verificateurs,
   GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini, etatModelesGemini, marquerModeleGemini, nomsEpuises,
   CLAUDE_MODELE, CLAUDE_URL, GEMINI_MODELES, corpsClaude, estIgnore, fournisseurPerso, marquerEpuise, tousEpuises,
+  CEREBRAS_MODELES, CEREBRAS_URL, GROQ_MODELES, MISTRAL_MODELES, MISTRAL_URL, etatModelesCompat, nomsIgnores,
 } from '../lib/fournisseurs.js';
 import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
 import {
@@ -717,7 +718,7 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
 // Fournisseurs externes simulés (GLM, Unsplash, Commons) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null, claude: null };
+const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null, cerebras: null, mistral: null, claude: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -749,6 +750,8 @@ function reinitExt() {
   ext.gemini = null;
   ext.grok = null;
   ext.groq = null;
+  ext.cerebras = null;
+  ext.mistral = null;
   ext.claude = null;
   oublierEpuisements();
   horloge.t = 0;
@@ -772,7 +775,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'open.bigmodel.cn': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.anthropic.com': 'claude', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'open.bigmodel.cn': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.cerebras.ai': 'cerebras', 'api.mistral.ai': 'mistral', 'api.anthropic.com': 'claude', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -2209,12 +2212,12 @@ test('fournisseurs : chaînes de rédaction et de vérification avec Gemini et G
   assert.equal(rl[2].nom, 'grok-3-mini');
   assert.deepEqual(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI }).map((f) => f.famille), ['gemini', 'workers-ai']);
   assert.deepEqual(redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK }).map((f) => f.famille), ['grok', 'workers-ai']);
-  // Vérification : [grok, gemini, glm, mistral, llama] moins la famille du rédacteur.
+  // Vérification : [cerebras, groq, mistral, gemini, glm, grok, mistral WAI, llama WAI] moins la famille du rédacteur.
   const fam = (l) => l.map((f) => f.famille);
-  assert.deepEqual(fam(verificateurs(TOUTES, rl[0])), ['grok', 'glm', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(fam(verificateurs(TOUTES, rl[1])), ['grok', 'gemini', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUTES, rl[0])), ['glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUTES, rl[1])), ['gemini', 'grok', 'workers-ai', 'workers-ai']);
   assert.deepEqual(fam(verificateurs(TOUTES, rl[2])), ['gemini', 'glm', 'workers-ai', 'workers-ai']);
-  assert.deepEqual(noms(verificateurs(TOUTES, rl[3])).map((n) => n.split(':')[0]), ['grok', 'gemini', 'glm', 'workers-ai']);
+  assert.deepEqual(noms(verificateurs(TOUTES, rl[3])).map((n) => n.split(':')[0]), ['gemini', 'glm', 'grok', 'workers-ai']);
   assert.ok(!noms(verificateurs(TOUTES, rl[3])).includes('workers-ai:' + NOM_LLAMA), 'Llama ne se vérifie pas lui-même');
   for (const r of rl) for (const v of verificateurs(TOUTES, r)) assert.ok(v.famille !== r.famille || r.famille === 'workers-ai');
   assert.deepEqual(tousLesFournisseurs(TOUTES).map((f) => f.famille), ['gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
@@ -2330,6 +2333,225 @@ test('diagnostic : protégé par DIAG_KEY, teste tous les fournisseurs configur�
   assert.equal(r.corps.resultats[1].quota, 'épuisé');
   const texte = JSON.stringify(r.corps);
   for (const c of [CLE_GEMINI, CLE_GLM, CLE_GROK, 'sésame']) assert.ok(!texte.includes(c), 'aucune clé dans la réponse');
+  reinitExt();
+});
+
+// --- Cerebras, Groq, Mistral (API officielles compatibles OpenAI) : ordre, cascade, mémoire, aucune clé dans les sorties ---
+
+const CLE_CEREBRAS = 'csk-cle-cerebras-de-test';
+const CLE_GROQ = 'gsk_cle-groq-de-test';
+const CLE_MISTRAL = 'cle-mistral-de-test';
+const TOUS = { ...TOUTES, CEREBRAS_API_KEY: CLE_CEREBRAS, GROQ_API_KEY: CLE_GROQ, MISTRAL_API_KEY: CLE_MISTRAL };
+const COMPAT_TEST = {
+  cerebras: { env: { AI: {}, CEREBRAS_API_KEY: CLE_CEREBRAS }, cle: CLE_CEREBRAS, url: CEREBRAS_URL, modeles: CEREBRAS_MODELES },
+  groq: { env: { AI: {}, GROQ_API_KEY: CLE_GROQ }, cle: CLE_GROQ, url: GROQ_URL, modeles: GROQ_MODELES },
+  mistral: { env: { AI: {}, MISTRAL_API_KEY: CLE_MISTRAL }, cle: CLE_MISTRAL, url: MISTRAL_URL, modeles: MISTRAL_MODELES },
+};
+const corpsDe = (a) => JSON.parse(a.init.body);
+const modelesDe = (famille) => ext.appels.filter((a) => a.fournisseur === famille).map((a) => corpsDe(a).model);
+// Faux fournisseur compatible OpenAI : `pannes` = { modèle: (corps) => Response } ; les autres modèles répondent {"ok":1}.
+const fauxCompat = (pannes) => (u, init) => {
+  const corps = JSON.parse(init.body);
+  return pannes[corps.model] ? pannes[corps.model](corps) : reponseOpenAI('{"ok":1}');
+};
+const appelCompat = (famille, env = COMPAT_TEST[famille].env) => tousLesFournisseurs(env).find((f) => f.famille === famille).appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+
+test('fournisseurs : ordre de rédaction gemini, cerebras, groq, mistral, glm, grok, llama ; vérification cerebras, groq, mistral, gemini, glm, grok, workers-ai', async () => {
+  reinitExt();
+  const fam = (l) => l.map((f) => f.famille);
+  const rl = redacteurs(TOUS);
+  assert.deepEqual(fam(rl), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai']);
+  assert.deepEqual(rl.map((f) => f.nom).slice(1, 4), ['gpt-oss-120b', 'llama-3.3-70b-versatile', 'mistral-medium-latest']);
+  assert.equal(rl[6].modele, LLAMA);
+  assert.deepEqual(fam(tousLesFournisseurs(TOUS)), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  // Vérification : autre famille que le rédacteur, dans l'ordre fixé.
+  assert.deepEqual(fam(verificateurs(TOUS, rl[0])), ['cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[1])), ['groq', 'mistral', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[2])), ['cerebras', 'mistral', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[3])), ['cerebras', 'groq', 'gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUS, rl[5])), ['cerebras', 'groq', 'mistral', 'gemini', 'glm', 'workers-ai', 'workers-ai']);
+  // Workers AI : son Mistral reste dans la famille 'workers-ai', distincte de la famille 'mistral' (API) : il ne vérifie pas le Llama de Workers AI
+  // sous le même nom, et le Mistral de l'API ne vérifie pas un autre modèle Mistral de l'API.
+  const verifLlama = verificateurs(TOUS, rl[6]);
+  assert.deepEqual(verifLlama.map((f) => f.famille + ':' + f.modele), ['cerebras:gpt-oss-120b', 'groq:llama-3.3-70b-versatile', 'mistral:mistral-medium-latest', 'gemini:gemini-3-flash-preview', 'glm:glm-4.7-flash', 'grok:grok-3-mini', 'workers-ai:' + MISTRAL]);
+  assert.ok(!fam(verificateurs(TOUS, rl[3])).includes('mistral'));
+  // Clé absente : fournisseur absent (rédaction, vérification, diagnostic).
+  for (const f of ['cerebras', 'groq', 'mistral']) {
+    const sans = { ...TOUS };
+    delete sans[{ cerebras: 'CEREBRAS_API_KEY', groq: 'GROQ_API_KEY', mistral: 'MISTRAL_API_KEY' }[f]];
+    assert.ok(!fam(redacteurs(sans)).includes(f), f + ' sans clé : absent des rédacteurs');
+    assert.ok(!fam(verificateurs(sans, redacteurs(sans)[0])).includes(f), f + ' sans clé : absent des vérificateurs');
+    assert.ok(!fam(tousLesFournisseurs(sans)).includes(f));
+  }
+  assert.deepEqual(fam(redacteurs({ AI: {}, GROQ_API_KEY: '  ' })), ['workers-ai', 'workers-ai'], 'clé vide = pas de clé');
+  assert.deepEqual(fam(redacteurs({ AI: {}, GROQ_API_KEY: CLE_GROQ, MISTRAL_API_KEY: CLE_MISTRAL })), ['groq', 'mistral', 'workers-ai']);
+  reinitExt();
+});
+
+test('Cerebras, Groq, Mistral : adresse, Bearer, response_format json_object, modèles en cascade, sortie lisible', async () => {
+  for (const [famille, c] of Object.entries(COMPAT_TEST)) {
+    reinitExt();
+    ext[famille] = () => reponseOpenAI('Voici {"ok": 7}');
+    const [f] = redacteurs(c.env);
+    assert.equal(f.famille, famille);
+    assert.deepEqual(extraireObjet(await f.appeler(MSG, { maxTokens: 33, temperature: 0.2, delaiMs: 1000 })), { ok: 7 });
+    const a = ext.appels[0];
+    assert.equal(a.url.href, c.url);
+    assert.equal(a.url.search, '', 'jamais de clé dans l’adresse');
+    assert.equal(new Headers(a.init.headers).get('authorization'), 'Bearer ' + c.cle);
+    assert.deepEqual(corpsDe(a), { model: c.modeles[0], messages: MSG, max_tokens: 33, temperature: 0.2, stream: false, response_format: { type: 'json_object' }, ...(/gpt-oss/.test(c.modeles[0]) ? { reasoning_effort: 'low' } : {}), ...(/qwen/.test(c.modeles[0]) && famille === 'groq' ? { reasoning_format: 'hidden' } : {}) });
+    assert.deepEqual(f.couple(), { url: c.url, modele: c.modeles[0] });
+    assert.equal(f.nom, c.modeles[0]);
+  }
+  reinitExt();
+});
+
+test('Cerebras, Groq, Mistral : 429 -> modèle suivant et mémoire PAR modèle ; « par jour » 3 h ; 404 ou 400 modèle inconnu 24 h ; 5xx sans marquer', async () => {
+  for (const [famille, c] of Object.entries(COMPAT_TEST)) {
+    reinitExt();
+    const [m0, m1, m2] = c.modeles;
+    const etats = () => Object.fromEntries(etatModelesCompat()[famille].map((m) => [m.modele, m.etat]));
+    ext[famille] = fauxCompat({ [m0]: () => new Response('quota', { status: 429 }) });
+    assert.deepEqual(extraireObjet(await appelCompat(famille)), { ok: 1 });
+    assert.deepEqual(modelesDe(famille), [m0, m1]);
+    assert.equal(etats()[m0], 'epuise');
+    assert.equal(estEpuise(famille), false, 'un modèle reste : famille pas épuisée');
+    assert.deepEqual(nomsEpuises(), [], 'et surtout pas marquée par la mémoire de famille');
+    // 2e appel : le modèle marqué n'est pas rappelé.
+    ext.appels.length = 0;
+    await appelCompat(famille);
+    assert.deepEqual(modelesDe(famille), [m1]);
+    // Après 10 minutes on repart du meilleur.
+    horloge.t += MIN10 + 1000;
+    ext.appels.length = 0;
+    await appelCompat(famille);
+    assert.deepEqual(modelesDe(famille), [m0, m1]);
+    // Quota « par jour » : 3 h. Modèle inconnu (404, 400) : 24 h. 5xx : suivant sans marquer.
+    reinitExt();
+    ext[famille] = fauxCompat({
+      [m0]: () => new Response('{"error":{"message":"Rate limit reached ... on tokens per day (TPD)"}}', { status: 429 }),
+      [m1]: () => new Response('{"error":{"message":"The model `x` does not exist","code":"model_not_found"}}', { status: c.modeles.length > 2 ? 404 : 400 }),
+      ...(m2 ? { [m2]: () => new Response('boom', { status: 503 }) } : {}),
+    });
+    await assert.rejects(() => appelCompat(famille), (e) => e.fournisseur === NOMS_AFF[famille] && !e.cleRefusee && e.details.length === c.modeles.length);
+    assert.equal(etats()[m0], 'epuise');
+    assert.equal(etats()[m1], 'indisponible');
+    if (m2) assert.equal(etats()[m2], 'ok', 'le 5xx n’est pas marqué');
+    horloge.t += MIN10 + 1000;
+    assert.equal(etats()[m0], 'epuise', '3 h pour un quota par jour');
+    horloge.t += 3 * 60 * 60 * 1000;
+    assert.deepEqual([etats()[m0], etats()[m1]], ['ok', 'indisponible']);
+    horloge.t += 21 * 60 * 60 * 1000;
+    assert.equal(etats()[m1], 'ok');
+  }
+  reinitExt();
+});
+
+const NOMS_AFF = { cerebras: 'Cerebras', groq: 'Groq', mistral: 'Mistral' };
+
+test('Cerebras, Groq, Mistral : famille épuisée seulement si tous les modèles le sont (chacune sa mémoire) ; le suivant de la chaîne prend le relais', async () => {
+  reinitExt();
+  ext.cerebras = fauxCompat(Object.fromEntries(CEREBRAS_MODELES.map((m) => [m, () => new Response('quota', { status: 429 })])));
+  ext.groq = fauxCompat({});
+  await assert.rejects(() => appelCompat('cerebras'), (e) => e.epuise === true && e.statut === 429 && e.details.length === 3);
+  assert.equal(modelesDe('cerebras').length, 3);
+  assert.equal(estEpuise('cerebras'), true);
+  assert.equal(estEpuise('groq'), false);
+  assert.equal(estEpuise('mistral'), false);
+  assert.deepEqual(nomsEpuises(), ['Cerebras']);
+  // Tout est écarté : un nouvel appel échoue tout de suite, sans toucher au réseau.
+  ext.appels.length = 0;
+  await assert.rejects(() => appelCompat('cerebras'), (e) => e.epuise === true);
+  assert.equal(ext.appels.length, 0);
+  // La rédaction saute Cerebras et passe à Groq (la vérification aussi).
+  const env = { AI: {}, CEREBRAS_API_KEY: CLE_CEREBRAS, GROQ_API_KEY: CLE_GROQ, MISTRAL_API_KEY: CLE_MISTRAL };
+  assert.deepEqual(redacteurs(env).map((f) => f.famille), ['groq', 'mistral', 'workers-ai']);
+  assert.deepEqual(verificateurs(env, redacteurs(env)[0]).map((f) => f.famille), ['mistral', 'workers-ai', 'workers-ai']);
+  assert.equal(tousEpuises({ AI: undefined, CEREBRAS_API_KEY: CLE_CEREBRAS }), true);
+  assert.equal(tousEpuises({ AI: undefined, CEREBRAS_API_KEY: CLE_CEREBRAS, GROQ_API_KEY: CLE_GROQ }), false);
+  // Un modèle libéré après 10 minutes : la famille repart avec lui.
+  horloge.t += MIN10 + 1000;
+  assert.equal(estEpuise('cerebras'), false);
+  reinitExt();
+});
+
+test('Cerebras, Groq, Mistral : 401 ou 403 -> famille ignorée 1 h (clé jamais dans le message) ; 400 hors modèle -> repli sans response_format, retenu', async () => {
+  for (const [famille, c] of Object.entries(COMPAT_TEST)) {
+    reinitExt();
+    ext[famille] = () => new Response('bad key ' + c.cle, { status: 401 });
+    await assert.rejects(() => appelCompat(famille), (e) => e.cleRefusee === true && e.cleInvalide === true && e.statut === 401
+      && !e.message.includes(c.cle) && !JSON.stringify(e.details).includes(c.cle));
+    assert.equal(ext.appels.length, 1, 'clé refusée : on ne tente pas les autres modèles');
+    assert.equal(estIgnore(famille), true);
+    assert.deepEqual(nomsIgnores(), [NOMS_AFF[famille]]);
+    assert.ok(!redacteurs(c.env).some((f) => f.famille === famille), 'ignorée dans la rédaction');
+    assert.ok(!verificateurs({ ...c.env, GEMINI_API_KEY: CLE_GEMINI }, redacteurs({ ...c.env, GEMINI_API_KEY: CLE_GEMINI })[0]).some((f) => f.famille === famille), 'et dans la vérification');
+    horloge.t += 60 * 60 * 1000 + 1000;
+    assert.equal(estIgnore(famille), false, 'reprise après 1 h');
+    reinitExt();
+    ext[famille] = () => new Response('forbidden', { status: 403 });
+    await assert.rejects(() => appelCompat(famille), (e) => e.cleRefusee === true && e.statut === 403);
+    assert.equal(estIgnore(famille), true);
+    // 400 (response_format refusé) : même modèle sans ce champ, puis retenu pour ce modèle.
+    reinitExt();
+    ext[famille] = (u, init) => (JSON.parse(init.body).response_format ? new Response('{"error":{"message":"response_format is not allowed"}}', { status: 400 }) : reponseOpenAI('{"ok":8}'));
+    assert.deepEqual(extraireObjet(await appelCompat(famille)), { ok: 8 });
+    assert.deepEqual(ext.appels.map((a) => [corpsDe(a).model, !!corpsDe(a).response_format]), [[c.modeles[0], true], [c.modeles[0], false]]);
+    ext.appels.length = 0;
+    await appelCompat(famille);
+    assert.deepEqual(ext.appels.map((a) => [corpsDe(a).model, !!corpsDe(a).response_format]), [[c.modeles[0], false]], 'plus de response_format pour ce modèle');
+    assert.equal(estEpuise(famille) || estIgnore(famille), false);
+  }
+  reinitExt();
+});
+
+test('Cerebras, Groq, Mistral : fournisseurs indépendants (Groq épuisé ne touche ni Cerebras, ni Grok qui peut utiliser Groq)', async () => {
+  reinitExt();
+  ext.groq = fauxCompat(Object.fromEntries(GROQ_MODELES.map((m) => [m, () => new Response('quota', { status: 429 })])));
+  await assert.rejects(() => appelCompat('groq'), (e) => e.epuise === true);
+  assert.deepEqual([estEpuise('groq'), estEpuise('cerebras'), estEpuise('mistral'), estEpuise('grok')], [true, false, false, false]);
+  reinitExt();
+});
+
+test('diagnostic : Cerebras, Groq, Mistral apparaissent (clé présente, état, couple, modèles) et jamais leurs clés, même coupées dans un message d’erreur', async () => {
+  reinitExt();
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  ext.glm = () => reponseOpenAI('{"ok":true}');
+  ext.grok = () => new Response('non', { status: 401 });
+  // Cerebras : 1er modèle 429 avec la clé dans le message, 2e répond. Groq : clé refusée (401) avec la clé dans le message.
+  // Mistral : une clé que le message d'erreur place à cheval sur la coupure de 150 caractères.
+  ext.cerebras = fauxCompat({ 'gpt-oss-120b': () => new Response('quota ' + CLE_CEREBRAS, { status: 429 }) });
+  ext.groq = () => new Response('Invalid API Key ' + CLE_GROQ, { status: 401 });
+  ext.mistral = () => new Response('x'.repeat(140) + CLE_MISTRAL + ' fin', { status: 503 });
+  const env = { ...TOUS, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } };
+  const r = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  ok200(r);
+  assert.deepEqual(r.corps.resultats.map((x) => x.famille), ['gemini', 'cerebras', 'groq', 'mistral', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual([r.corps.cerebrasCle, r.corps.groqCle, r.corps.mistralCle], [true, true, true]);
+  const [, cer, grq, mis] = r.corps.resultats;
+  assert.equal(cer.etat, 'ok');
+  assert.deepEqual(cer.couple, { url: CEREBRAS_URL, modele: 'llama-3.3-70b' });
+  assert.deepEqual(cer.erreursModeles.map((x) => [x.modele, x.code]), [['gpt-oss-120b', 429]]);
+  assert.equal(grq.etat, 'cle-invalide');
+  assert.match(grq.erreur, /clé refusée/);
+  assert.equal(mis.etat, 'echec');
+  assert.deepEqual(r.corps.ignores.sort(), ['Grok', 'Groq']);
+  assert.deepEqual(r.corps.modelesCompat.cerebras.map((m) => [m.modele, m.etat]), [['gpt-oss-120b', 'epuise'], ['llama-3.3-70b', 'ok'], ['qwen-3-32b', 'ok']]);
+  assert.deepEqual(r.corps.modelesCompat.mistral.map((m) => m.etat), ['ok', 'ok']);
+  const texte = JSON.stringify(r.corps);
+  for (const cle of [CLE_CEREBRAS, CLE_GROQ, CLE_MISTRAL, CLE_GEMINI, CLE_GLM, CLE_GROK, 'sésame']) assert.ok(!texte.includes(cle), 'aucune clé dans le diagnostic');
+  assert.ok(!texte.includes(CLE_MISTRAL.slice(0, 8)), 'pas même un début de clé');
+  // Sans clé : la clé est annoncée absente et le fournisseur n'est pas essayé.
+  reinitExt();
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  const r2 = await appel(diagnosticGet, { env: { ...TOUTES, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } }, requete: '?cle=sésame' });
+  ok200(r2);
+  assert.deepEqual([r2.corps.cerebrasCle, r2.corps.groqCle, r2.corps.mistralCle], [false, false, false]);
+  assert.ok(!r2.corps.resultats.some((x) => ['cerebras', 'groq', 'mistral'].includes(x.famille)));
+  // Aucune clé non plus dans les messages des erreurs (journaux) : clé coupée à la limite des 150 caractères.
+  reinitExt();
+  ext.mistral = () => new Response('y'.repeat(145) + CLE_MISTRAL, { status: 503 });
+  await assert.rejects(() => appelCompat('mistral'), (e) => !e.message.includes(CLE_MISTRAL.slice(0, 5)) && !JSON.stringify(e.details).includes(CLE_MISTRAL.slice(0, 5)));
   reinitExt();
 });
 
@@ -3755,8 +3977,8 @@ test('palier GET : Gemini 429 -> GLM rédige, Grok vérifie ; Gemini mis de côt
   ok200(r);
   assert.deepEqual(r.corps.palier.verification.ia, ['glm-4.7-flash', 'grok-3-mini']);
   assert.equal(estEpuise('gemini'), true);
-  // Gemini essaie ses 6 modèles (chacun a son quota), puis plus rien : il est mis de côté.
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), ['gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'glm', 'grok']);
+  // Gemini essaie ses 9 modèles (chacun a son quota), puis plus rien : il est mis de côté.
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), ['gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'glm', 'grok']);
   reinitExt();
 });
 
@@ -7115,8 +7337,8 @@ async function captant(fn) {
 
 // --- A. Gemini rapide, diagnostic lisible --------------------------------------
 
-test('Gemini (lot 5) : cascade des 6 modèles, du meilleur au moins bon ; réflexion coupée sur toute la série flash', async () => {
-  assert.deepEqual(GEMINI_MODELES, ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']);
+test('Gemini (lot 5) : cascade des 9 modèles, du meilleur au moins bon ; réflexion coupée sur toute la série flash', async () => {
+  assert.deepEqual(GEMINI_MODELES, ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']);
   const cfg = (modele, extra = {}) => corpsGemini(MSG, { maxTokens: 5, temperature: 0, modele, ...extra }).generationConfig.thinkingConfig;
   assert.deepEqual(cfg('gemini-2.5-flash'), { thinkingBudget: 0 });
   assert.deepEqual(cfg('gemini-flash-latest'), { thinkingLevel: 'minimal' });
@@ -7685,18 +7907,19 @@ test('cascade Gemini : quota « par jour » = 3 h ; modèle inconnu (404 ou 400)
     'gemini-3-flash-preview': () => new Response('{"error":{"message":"Quota exceeded ... GenerateRequestsPerDayPerProjectPerModel-FreeTier"}}', { status: 429 }),
     'gemini-2.5-flash': () => new Response('not found', { status: 404 }),
     'gemini-flash-latest': () => new Response('{"error":{"message":"models/gemini-flash-latest is not found for API version v1beta"}}', { status: 400 }),
-    'gemini-2.5-flash-lite': () => new Response('boom', { status: 503 }),
+    'gemini-flash-lite-latest': () => new Response('boom', { status: 503 }),
   });
   await appelGemini();
-  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']);
+  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.5-flash-lite']);
   assert.deepEqual(etatsGemini(), {
     'gemini-3-flash-preview': 'epuise', 'gemini-2.5-flash': 'indisponible', 'gemini-flash-latest': 'indisponible',
-    'gemini-2.5-flash-lite': 'ok', 'gemini-2.0-flash': 'ok', 'gemini-2.0-flash-lite': 'ok',
+    'gemini-flash-lite-latest': 'ok', 'gemini-3.5-flash-lite': 'ok', 'gemini-3.1-flash-lite': 'ok', 'gemini-2.5-flash-lite': 'ok',
+    'gemini-2.0-flash': 'ok', 'gemini-2.0-flash-lite': 'ok',
   });
   // Le 5xx n'est pas marqué : il est retenté à l'appel suivant, les autres sont sautés.
   ext.appels.length = 0;
   await appelGemini();
-  assert.deepEqual(modelesAppeles(), ['gemini-2.5-flash-lite', 'gemini-2.0-flash']);
+  assert.deepEqual(modelesAppeles(), ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite']);
   // Après 3 h (et 10 min), le modèle « par jour » revient ; l'indisponible reste écarté jusqu'à 24 h.
   horloge.t += MIN10 + 1000;
   assert.equal(etatsGemini()['gemini-3-flash-preview'], 'epuise');
@@ -7711,8 +7934,8 @@ test('cascade Gemini : famille épuisée seulement si tous les modèles le sont 
   reinitExt();
   const toutes429 = Object.fromEntries(GEMINI_MODELES.map((m) => [m, () => new Response('quota', { status: 429 })]));
   ext.gemini = fauxGemini(toutes429);
-  await assert.rejects(() => appelGemini(), (e) => e.epuise === true && e.details.length === 6);
-  assert.equal(modelesAppeles().length, 6);
+  await assert.rejects(() => appelGemini(), (e) => e.epuise === true && e.details.length === 9);
+  assert.equal(modelesAppeles().length, 9);
   assert.equal(estEpuise('gemini'), true);
   assert.deepEqual(nomsEpuises(), ['Gemini']);
   assert.equal(tousEpuises({ AI: undefined, GEMINI_API_KEY: CLE_GEMINI }), true);
@@ -7730,7 +7953,7 @@ test('cascade Gemini : famille épuisée seulement si tous les modèles le sont 
   // Un seul modèle libéré : la famille repart avec lui.
   horloge.t += MIN10 + 1000;
   ext.gemini = fauxGemini({ ...toutes429, 'gemini-2.0-flash-lite': () => reponseGemini('{"ok":2}') });
-  marquerModeleGemini('gemini-3-flash-preview', 'epuise', MIN10); // un seul modèle écarté parmi les six
+  marquerModeleGemini('gemini-3-flash-preview', 'epuise', MIN10); // un seul modèle écarté parmi les neuf
   assert.equal(estEpuise('gemini'), false);
   reinitExt();
 });
