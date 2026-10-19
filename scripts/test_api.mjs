@@ -2295,7 +2295,7 @@ test('images : Commons — requête, User-Agent, licence non libre écartée, pe
   assert.equal(p.format, 'json');
   assert.equal(p.generator, 'search');
   assert.equal(p.gsrnamespace, '6');
-  assert.equal(p.gsrsearch, 'Eiffel Tower filetype:bitmap');
+  assert.equal(p.gsrsearch, 'Eiffel Tower filetype:bitmap -hastemplate:"PD-algorithm"');
   assert.equal(p.prop, 'imageinfo');
   assert.equal(p.iiprop.split('|').sort().join('|'), 'extmetadata|mime|size|url');
   assert.equal(p.iiurlwidth, '1200');
@@ -2305,7 +2305,7 @@ test('images : Commons — requête, User-Agent, licence non libre écartée, pe
   // Pas d'opérateur de recherche venu du visiteur.
   ext.appels.length = 0;
   await chercherCommons('tour "insource:x" -Eiffel incategory:Paris', 'T');
-  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch'), 'tour insource x Eiffel incategory Paris filetype:bitmap');
+  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch'), 'tour insource x Eiffel incategory Paris filetype:bitmap -hastemplate:"PD-algorithm"');
   reinitExt();
 });
 
@@ -2419,7 +2419,7 @@ test('image GET : source commons ou unsplash seule, défaut auto, source inconnu
   ext.commons = sansResultat;
   ext.unsplash = () => reponseWiki({ results: [] });
   await appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE('mot '.repeat(40)) });
-  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch').replace(' filetype:bitmap', '').length <= 80, true);
+  assert.equal(ext.appels[0].url.searchParams.get('gsrsearch').replace(' filetype:bitmap -hastemplate:"PD-algorithm"', '').length <= 80, true);
   reinitExt();
 });
 
@@ -2482,35 +2482,38 @@ test('image GET : chercherImage — auto signale une panne seulement si rien n�
   reinitExt();
 });
 
-test('images : photo de tête = Pexels, sinon Unsplash, sinon image de la page Wikipédia ; un fournisseur sans résultat passe la main', async () => {
+test('images : photo de tête = Unsplash, sinon image de la page Wikipédia complétée par Commons (auteur, licence, lien) ; sinon rien', async () => {
   reinitExt();
   reinitWiki();
   const pages = [await lirePage('Tour Eiffel', OPTIONS_FR)];
-  const pexelsOk = () => reponseWiki({ photos: [photoPexels()] });
-  const unsplashOk = () => reponseWiki({ results: [photoUnsplash()] });
-  const cles = { PEXELS_KEY: 'p', UNSPLASH_KEY: 'u' };
+  const cles = { UNSPLASH_KEY: 'u' };
   const tete = (env) => imageDeTete(env, { motImage: 'Eiffel Tower Paris', titre: 'La tour Eiffel', pages });
-  ext.pexels = pexelsOk;
-  ext.unsplash = unsplashOk;
-  assert.match((await tete(cles)).credit, /sur Pexels$/);
-  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['pexels'], 'Pexels suffit : Unsplash n’est pas appelé');
-  assert.match((await tete({ UNSPLASH_KEY: 'u' })).credit, /sur Unsplash$/);
-  ext.pexels = () => reponseWiki({ photos: [] });
-  assert.match((await tete(cles)).credit, /sur Unsplash$/, 'Pexels sans résultat : Unsplash');
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  assert.match((await tete(cles)).credit, /sur Unsplash$/);
   ext.unsplash = () => new Response('panne', { status: 500 });
+  ext.commons = () => reponseCommons(fichierCommons(7, { meta: { Artist: { value: '<a>Jeanne</a>' } } }));
   const wikimedia = await tete(cles);
-  assert.deepEqual(wikimedia, {
-    src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg',
-    alt: 'Illustration de « Tour Eiffel »',
-    credit: 'Image : Wikimédia',
-    lien: 'https://fr.wikipedia.org/wiki/Fichier:Tour_Eiffel_Wikimedia_Commons.jpg',
-  });
-  assert.equal(CREDIT_WIKIMEDIA, 'Image : Wikimédia');
-  ext.appels.length = 0;
-  assert.deepEqual(await tete({}), wikimedia, 'sans clé : image Wikipédia, aucun appel');
-  assert.equal(ext.appels.length, 0);
+  assert.equal(wikimedia.credit, 'Jeanne · CC BY-SA 4.0 · Wikimédia Commons');
+  assert.equal(wikimedia.source, 'commons');
+  assert.equal(wikimedia.alt, 'Illustration de « Tour Eiffel »');
+  assert.match(wikimedia.lien, /^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+  const c = ext.appels.filter((x) => x.fournisseur === 'commons').at(-1).url.searchParams;
+  assert.equal(c.get('titles'), 'File:Tour Eiffel Wikimedia Commons.jpg');
+  // Sans fiche libre (licence non libre, pas d'auteur, panne, fichier local à Wikipédia) : l'image n'est pas utilisée.
+  for (const rep of [
+    () => reponseCommons(fichierCommons(7, { meta: { LicenseShortName: { value: 'CC BY-NC 4.0' } } })),
+    () => reponseCommons(fichierCommons(7, { meta: { Artist: { value: '' } } })),
+    () => reponseCommons(fichierCommons(7, { meta: { Categories: { value: 'Photos|AI-generated images' } } })),
+    () => reponseCommons(fichierCommons(7, { meta: { ImageDescription: { value: 'Image made with PD-algorithm' } } })),
+    () => reponseWiki({ query: { pages: { '-1': { title: 'File:X', missing: '' } } } }),
+    () => new Response('panne', { status: 500 }),
+  ]) {
+    ext.commons = rep;
+    assert.equal(await tete(cles), null);
+  }
   assert.equal(await imageDeTete({}, { motImage: 'x', titre: 'T', pages: [{ titre: 'Sans image', image: null }] }), null);
-  assert.equal(await imageDeTete({}, { motImage: 'x', titre: 'T', pages: [] }), null);
+  assert.equal(await imageDesPages([]), null);
+  assert.equal(await imageWikipedia({ lien: 'https://fr.wikipedia.org/wiki/Tour_Eiffel' }), null);
   // Requête : motImage, sinon le titre ; nettoyée.
   assert.equal(requeteImage('  Eiffel   Tower: Paris!! ', 'Titre'), 'Eiffel Tower Paris');
   assert.equal(requeteImage(null, 'La tour Eiffel'), 'La tour Eiffel');
@@ -3089,6 +3092,7 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   toutVoir();
   const j = await creerJoueur();
   const sc = scenario(partiesStandard());
+  ext.commons = () => reponseCommons(fichierCommons(1));
   const r = await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre: '  La tour   Eiffel ' } });
   ok200(r);
   assert.deepEqual(Object.keys(r.corps), ['parcours']);
@@ -3113,12 +3117,9 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   assert.deepEqual([p.etapes[0].numero, p.etapes[0].titre, p.etapes[0].niveau], [1, 'Définitions et repères', 1]);
   assert.equal(p.etapes[0].objectif, EXEMPLE_PROGRAMME.niveaux[0].modules[0].objectif);
   assert.deepEqual(p.etapes[0].paliers, EXEMPLE_MODULE.lecons.map((titre, i) => ({ numero: i + 1, titre })));
-  assert.deepEqual(p.image, {
-    src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg',
-    alt: 'Illustration de « Tour Eiffel »',
-    credit: 'Image : Wikimédia',
-    lien: 'https://fr.wikipedia.org/wiki/Fichier:Tour_Eiffel_Wikimedia_Commons.jpg',
-  });
+  assert.equal(p.image.credit, 'Jeanne Dupont · CC BY-SA 4.0 · Wikimédia Commons');
+  assert.equal(p.image.source, 'commons');
+  assert.equal(p.image.alt, 'Illustration de « Tour Eiffel »');
   assert.deepEqual(p.sources, [
     ['Wikipédia · Tour Eiffel', 'https://fr.wikipedia.org/wiki/Tour_Eiffel'],
     ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower'],
@@ -3146,7 +3147,7 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   assert.match(m1, /Objectif du module : Poser le vocabulaire/);
   assert.ok(!m1.includes('déjà publiés'), 'aucun titre publié pour le module 1');
   assert.match(m1, /Extrait 1 · Wikipédia \(fr\)/);
-  assert.deepEqual(ext.appels, [], 'ni GLM, ni Pexels, ni Unsplash sans clé');
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), [], 'ni GLM ni Unsplash sans clé');
   // Base et quotas : un seul quota pour toute la création.
   const [ligne] = lignes('SELECT id, titre, auteur, vues FROM parcours');
   assert.deepEqual(ligne, { id: 'la-tour-eiffel', titre: 'La tour Eiffel', auteur: j.id, vues: 0 });
@@ -3160,48 +3161,42 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   ]);
 });
 
-test('parcours POST : GLM écrit programme et module (modèle choisi par GLM_MODELE), la photo de tête vient de Pexels', async () => {
+test('parcours POST : GLM écrit programme et module (modèle choisi par GLM_MODELE), la photo de tête vient d’Unsplash', async () => {
   toutVoir();
   const j = await creerJoueur();
   const sc = scenario(partiesStandard());
   ext.glm = sc.glm;
-  ext.pexels = () => reponseWiki({ photos: [photoPexels()] });
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
   const e = envDe(sc, { ...AVEC_GLM, GLM_MODELE: 'glm-4.5-air', PEXELS_KEY: 'cle-pexels', UNSPLASH_KEY: 'cle-unsplash' });
   const r = await appel(parcoursPost, { env: e, methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
   assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['programme', 'glm', 'glm-4.5-air'], ['module', 'glm', 'glm-4.5-air']]);
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'pexels'], 'Unsplash n’est pas appelé quand Pexels répond');
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'unsplash']);
   assert.equal(ext.appels[2].url.searchParams.get('query'), 'Eiffel Tower Paris', 'requête d’image en anglais (motImage)');
-  assert.deepEqual(r.corps.parcours.image, {
-    src: 'https://images.pexels.com/photos/1/landscape.jpeg',
-    alt: 'Photo illustrant « La tour Eiffel »',
-    credit: 'Photo : Jeanne Dupont sur Pexels',
-    lien: 'https://www.pexels.com/photo/tour-1/',
-  });
+  assert.equal(r.corps.parcours.image.source, 'unsplash');
+  assert.equal(r.corps.parcours.image.credit, 'Photo : Paul Martin sur Unsplash');
   assert.equal(r.corps.parcours.resume, EXEMPLE_PROGRAMME.resume);
 });
 
-test('parcours POST : GLM en panne (repli sur Llama) et Unsplash quand Pexels n’a rien', async () => {
+test('parcours POST : GLM en panne (repli sur Llama), Unsplash sans résultat puis image Wikipédia créditée par Commons', async () => {
   toutVoir();
   const j = await creerJoueur();
   const sc = scenario({ ...partiesStandard(), programme: [new Error('GLM saturé'), programmeBrut()] });
   ext.glm = sc.glm;
-  ext.pexels = () => reponseWiki({ photos: [] });
-  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
-  const e = envDe(sc, { ...AVEC_GLM, PEXELS_KEY: 'p', UNSPLASH_KEY: 'u' });
+  ext.unsplash = () => reponseWiki({ results: [] });
+  ext.commons = () => reponseCommons(fichierCommons(1));
+  const e = envDe(sc, { ...AVEC_GLM, UNSPLASH_KEY: 'u' });
   const r = await appel(parcoursPost, { env: e, methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
   assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['programme', 'glm', 'glm-4.7-flash'], ['programme', 'ai', LLAMA], ['module', 'glm', 'glm-4.7-flash']]);
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'pexels', 'unsplash']);
-  assert.equal(r.corps.parcours.image.credit, 'Photo : Paul Martin sur Unsplash');
-  assert.equal(r.corps.parcours.image.lien, 'https://unsplash.com/photos/u1?utm_source=koios&utm_medium=referral');
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'unsplash', 'commons']);
+  assert.equal(r.corps.parcours.image.credit, 'Jeanne Dupont · CC BY-SA 4.0 · Wikimédia Commons');
   // Aucune photo en ligne ni image Wikipédia : image nulle, le parcours existe quand même.
   viderBibliotheque();
   wiki.pages['Tour Eiffel'].image = null;
   wiki.pagesEn['Eiffel Tower'].image = null;
-  ext.pexels = () => new Response('panne', { status: 500 });
   ext.unsplash = () => new Response('panne', { status: 500 });
-  const sans = await appel(parcoursPost, { env: envDe(scenario(partiesStandard()), { PEXELS_KEY: 'p', UNSPLASH_KEY: 'u' }), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
+  const sans = await appel(parcoursPost, { env: envDe(scenario(partiesStandard()), { UNSPLASH_KEY: 'u' }), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(sans);
   assert.equal(sans.corps.parcours.image, null);
 });
@@ -3277,9 +3272,9 @@ test('parcours POST : un motImage invalide est retiré (la photo est cherchée a
   const j = await creerJoueur();
   const brut = programmeBrut();
   brut.motImage = 'Tour Eiffel à Paris, très belle !';
-  ext.pexels = () => reponseWiki({ photos: [photoPexels()] });
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
   const sc = scenario({ ...partiesStandard(), programme: [brut] });
-  const r = await appel(parcoursPost, { env: envDe(sc, { PEXELS_KEY: 'p' }), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
+  const r = await appel(parcoursPost, { env: envDe(sc, { UNSPLASH_KEY: 'u' }), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
   assert.equal(ext.appels[0].url.searchParams.get('query'), 'La tour Eiffel');
   assert.equal(r.corps.parcours.etapes[0].titre, 'Définitions et repères', 'le titre de l’étape est celui du module');
@@ -3427,6 +3422,7 @@ test('palier GET : paramètres invalides 400, parcours ou palier hors plan 404, 
 test('palier GET : génération (Llama écrit, Mistral vérifie) : forme, appels, sources, image, base et quotas', async () => {
   const j = await prepare();
   const sc = scenario(partiesStandard());
+  ext.commons = () => reponseCommons(fichierCommons(1));
   const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
   ok200(r);
   assert.deepEqual(Object.keys(r.corps), ['palier']);
@@ -3437,9 +3433,9 @@ test('palier GET : génération (Llama écrit, Mistral vérifie) : forme, appels
   assert.equal(p.numero, 1);
   assert.equal(p.etape, 1);
   assert.equal(p.titre, EXEMPLE_ETAPE.paliers[0]);
-  assert.deepEqual(Object.keys(p.image), ['src', 'alt', 'credit', 'lien']);
-  assert.equal(p.image.credit, 'Image : Wikimédia');
-  assert.equal(p.image.lien, 'https://fr.wikipedia.org/wiki/Fichier:Tour_Eiffel_Wikimedia_Commons.jpg');
+  assert.deepEqual(Object.keys(p.image), ['src', 'alt', 'largeur', 'hauteur', 'credit', 'lien', 'source']);
+  assert.equal(p.image.credit, 'Jeanne Dupont · CC BY-SA 4.0 · Wikimédia Commons');
+  assert.equal(p.image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_1.jpg');
   assert.deepEqual(Object.keys(p.sections), ['enBref', 'comment', 'pourquoi', 'ouQuand']);
   assert.equal(p.sections.enBref, EXEMPLE_PALIER.sections.enBref.join(' '));
   assert.equal(p.sections.comment, EXEMPLE_PALIER.sections.comment.join(' '));
@@ -3482,7 +3478,7 @@ test('palier GET : génération (Llama écrit, Mistral vérifie) : forme, appels
   assert.match(v, /\n25\. Explication : /);
   assert.ok(!/\n26\. /.test(v));
   // Wikipédia : une recherche FR + EN + lien interlangue (palier), plus les pages de référence (2 lectures).
-  assert.deepEqual(ext.appels, []);
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['commons'], 'seul appel externe : la fiche Commons de l’image de la page');
   // Base et quotas.
   const [ligne] = lignes('SELECT id, parcours, numero, vues FROM paliers');
   assert.deepEqual(ligne, { id: 'la-tour-eiffel:1', parcours: 'la-tour-eiffel', numero: 1, vues: 0 });
@@ -3493,6 +3489,7 @@ test('palier GET : génération (Llama écrit, Mistral vérifie) : forme, appels
 test('palier GET : un palier plus précis lit sa page (FR, EN) puis celles du parcours, 4 extraits au plus', async () => {
   const j = await prepare();
   const sc = scenario(partiesStandard());
+  ext.commons = () => reponseCommons(fichierCommons(2));
   const r = await lirePalier(j, 'la-tour-eiffel', 2, sc);
   ok200(r);
   const demande = sc.appels[0].entree.messages[1].content;
@@ -3502,7 +3499,8 @@ test('palier GET : un palier plus précis lit sa page (FR, EN) puis celles du pa
   assert.match(demande, /Extrait 4 · Wikipedia \(en\), page « Eiffel Tower »/);
   assert.ok(!/Extrait 5/.test(demande));
   assert.deepEqual(r.corps.palier.sources.map((s) => s[0]), ['Wikipédia · Gustave Eiffel', 'Wikipedia (en) · Gustave Eiffel', 'Wikipédia · Tour Eiffel', 'Wikipedia (en) · Eiffel Tower']);
-  assert.equal(r.corps.palier.image.lien, 'https://fr.wikipedia.org/wiki/Fichier:Gustave_Eiffel.jpg', 'image de la page la plus précise');
+  assert.equal(r.corps.palier.image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_2.jpg', 'image de la page la plus précise');
+  assert.equal(ext.appels.find((x) => x.fournisseur === 'commons').url.searchParams.get('titles'), 'File:Gustave Eiffel.jpg');
   // Titre trop vague pour une page propre : les pages du parcours suffisent.
   const vague = await lirePalier(j, 'la-tour-eiffel', 10, scenario(partiesStandard()));
   ok200(vague);

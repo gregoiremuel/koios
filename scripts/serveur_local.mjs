@@ -8,12 +8,12 @@
 //   - Wikipédia FR et EN : `fetch` remplacé par un Wikipédia simulé (aucun appel réseau ; une requête contenant « zzz »
 //     ne trouve rien, pour voir « aucune source ») ; fiches écrites à la main pour la tour Eiffel, le mont Blanc et
 //     Sparte, page générique pour tout autre sujet ;
-//   - Pexels et Unsplash : simulés aussi, mais sans clé par défaut (l'image du parcours vient alors de Wikipédia).
-//     KOIOS_LOCAL_PHOTOS=pexels ou unsplash donne une clé factice et fait passer l'image par ce service.
+//   - Unsplash : simulé aussi, mais sans clé par défaut (l'image du parcours vient alors de Wikipédia, créditée via Commons).
+//     KOIOS_LOCAL_PHOTOS=unsplash donne une clé factice et fait passer l'image par ce service.
 //   - Wikimedia Commons : simulé (aucune clé nécessaire) avec des fichiers qu'il faut écarter (licence non libre, image
 //     trop petite) avant la bonne ; une requête contenant « zzz » ou « ambiance » n'y trouve rien (repli sur Unsplash
 //     si KOIOS_LOCAL_PHOTOS=unsplash) ;
-//   - images : le navigateur ne peut pas joindre Wikimédia, Unsplash ni Pexels. Dans les réponses JSON (API et fichiers de
+//   - images : le navigateur ne peut pas joindre Wikimédia, ni Unsplash. Dans les réponses JSON (API et fichiers de
 //     contenu/), leurs adresses d'images sont remplacées par des aplats gris neutres servis par ce serveur
 //     (/images-simulees/<ton>.svg) : on voit la mise en page, jamais une fausse photo.
 // Un palier sur quatre porte une phrase « non confirmée » que le faux vérificateur retire : son statut est « partiel ».
@@ -204,20 +204,7 @@ async function glm(init) {
   return json({ choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(objet) } }] });
 }
 
-// Pexels et Unsplash : une photo simulée sur les hôtes attendus par lib/images.js (les fichiers n'existent pas).
-function pexels(u, init) {
-  if (!entete(init, 'authorization')) return json({ error: 'clé absente' }, 401);
-  if (/zzz/i.test(u.searchParams.get('query') || '')) return json({ photos: [] });
-  return json({
-    photos: [{
-      id: 1,
-      src: { landscape: 'https://images.pexels.com/photos/1/pexels-photo-1.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200' },
-      url: 'https://www.pexels.com/photo/photo-simulee-1/',
-      photographer: 'Photographe simulé',
-    }],
-  });
-}
-
+// Unsplash : une photo simulée sur les hôtes attendus par lib/images.js (les fichiers n'existent pas).
 function unsplash(u, init) {
   if (!entete(init, 'authorization').startsWith('Client-ID ')) return json({ errors: ['clé absente'] }, 401);
   if (/^\/photos\/[^/]+\/download$/.test(u.pathname)) { // appel de download_location exigé par les règles d'Unsplash
@@ -297,7 +284,6 @@ globalThis.fetch = async (url, init) => {
   const u = new URL(String(url));
   if (u.hostname === 'fr.wikipedia.org' || u.hostname === 'en.wikipedia.org') return wikipedia(u);
   if (u.hostname === 'api.z.ai') return glm(init);
-  if (u.hostname === 'api.pexels.com') return pexels(u, init);
   if (u.hostname === 'api.unsplash.com') return unsplash(u, init);
   if (u.hostname === 'commons.wikimedia.org') return commons(u, init);
   return fetchReseau(url, init);
@@ -307,13 +293,12 @@ globalThis.fetch = async (url, init) => {
 
 const env = { DB: fauxD1(), AI: IA, ASSETS, GLM_API_KEY: cleFactice('glm') };
 const photos = process.env.KOIOS_LOCAL_PHOTOS;
-if (photos === 'pexels') env.PEXELS_KEY = cleFactice('pexels');
 if (photos === 'unsplash') env.UNSPLASH_KEY = cleFactice('unsplash');
 const ctx = { waitUntil() {} };
 
 // Aplats gris neutres pour les images simulées : quatre tons, choisis selon l'adresse d'origine. Aucun motif, aucun texte.
 const TONS = ['c4c9cf', 'b3b9c1', 'a4abb4', 'd0d4d9'];
-const HOTES_IMAGES = /https:\/\/(?:upload\.wikimedia\.org|images\.unsplash\.com|images\.pexels\.com|commons\.wikimedia\.org\/wiki\/Special:FilePath)\/[^"\\]*/g;
+const HOTES_IMAGES = /https:\/\/(?:upload\.wikimedia\.org|images\.unsplash\.com|commons\.wikimedia\.org\/wiki\/Special:FilePath)\/[^"\\]*/g;
 function imagesLocales(texte) {
   return texte.replace(HOTES_IMAGES, (adresse) => {
     let h = 0;
@@ -380,5 +365,5 @@ serveur.on('error', (e) => {
   process.exit(1);
 });
 serveur.listen(port, () => {
-  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Commons, Pexels et Unsplash simulés ; images = aplats gris)`);
+  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Commons et Unsplash simulés ; images = aplats gris)`);
 });

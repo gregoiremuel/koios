@@ -1,6 +1,6 @@
 # DESIGN.md — Koîos (v6, « blanc et net », avec photos et mouvement fin)
 
-Koîos est une app de formation pour adultes de 20 à 50 ans : on tape n'importe quel sujet, on avance par paliers, on gagne de l'XP, et des quiz, mini-jeux et duels s'ouvrent en chemin. Elle doit ressembler à une vraie app de quiz professionnelle : blanche, épurée, minimaliste, agréable, et finie : des photos vraies, des icônes qui servent à se repérer, un mouvement discret. En cas de doute, ce fichier gagne.
+Koîos est une app de formation pour adultes de 20 à 50 ans : on tape n'importe quel sujet, on avance leçon par leçon, on gagne de l'XP, et des quiz, mini-jeux et duels s'ouvrent en chemin. Elle doit ressembler à une vraie app de quiz professionnelle : blanche, épurée, minimaliste, agréable, et finie : des photos vraies, des icônes qui servent à se repérer, un mouvement discret. En cas de doute, ce fichier gagne.
 
 Historique : v1 musée, v2 librairie ludique, v3 bibliothèque d'étude, v4 bibliothèque gothique (18 octobre 2026). Le 19 octobre 2026, Greg demande un fond blanc, minimaliste, sans décor : tout le décor (bois, gothique, rosace, renard) est abandonné. Le même jour, il demande de vraies photos, des icônes, des boutons soignés et de fines animations, pour que l'app fasse produit fini sans redevenir décorative (v6).
 
@@ -41,7 +41,7 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
 - Colonne de 34 rem au plus, marges de 16 px, cibles tactiles de 44 px au moins.
 - **Bandes** : l'accueil et le profil alternent bandes blanches et bandes `--surface`, pleine largeur, séparées par un filet de 1 px. Jamais d'ombre. Sur une bande grise, les cartes et tuiles sont blanches.
 - Navigation du bas : 4 onglets (Apprendre, Jouer, Amis, Profil), icône de 22 px et libellé de 12 px. L'onglet actif est en `--encre` avec un trait de 2 px au-dessus ; les autres en `--encre-2`.
-- Apprendre : recherche, grille « bento » (voir Composants), idées de formations, parcours vérifiés. Jouer : question du jour, quiz mélangé, erreurs à revoir, mini-jeux. Amis : invitation, duels, classement.
+- Apprendre : recherche, grille « bento » (voir Composants), idées de formations, formations vérifiées. Jouer : question du jour, quiz mélangé, erreurs à revoir, mini-jeux. Amis : invitation, duels, classement.
 
 ## Composants
 
@@ -60,7 +60,7 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
   - **Couverture** de formation : 16:9 en tête de page.
   - **Image de leçon** : 3:2 sous le titre. Rien n'est réservé tant que l'adresse n'est pas connue : elle se glisse quand elle arrive, et rien ne s'affiche si rien ne vient.
   - **Crédit** : Commons = auteur, licence, « Wikimédia Commons » (lien vers la page du fichier). Unsplash = « Photo : <photographe> sur Unsplash », deux liens (photographe et Unsplash) avec `utm_source=koios&utm_medium=referral`. Sur l'accueil, où les photos sont des tuiles, les crédits sont réunis dans « Crédits des photos » en bas de page.
-  - **Tuile photo (idée de formation)** : 2 grandes tuiles 2×1 (photo 2:1) puis 4 petites 1×1 (photo 4:3), coins 16 px, titre de 16 px 600 sous la photo sur fond blanc, icône de catégorie à côté. **Carte photo (parcours vérifié)** : 240 px de large, coins 16 px, photo 16:9, badge Vérifié, nombre de leçons, barre de progression ; elles défilent à l'horizontale (scroll-snap). **Mosaïque** de première visite : 4 photos, coins 12 px.
+  - **Tuile photo (idée de formation)** : 2 grandes tuiles 2×1 (photo 2:1) puis 4 petites 1×1 (photo 4:3), coins 16 px, titre de 16 px 600 sous la photo sur fond blanc, icône de catégorie à côté. **Carte photo (formation vérifiée)** : 240 px de large, coins 16 px, photo 16:9, badge Vérifié, nombre de leçons, barre de progression ; elles défilent à l'horizontale (scroll-snap). **Mosaïque** de première visite : 4 photos, coins 12 px.
   - Quand aucune photo n'est connue : un cadre `--ligne` avec l'icône de catégorie (32 px), jamais un cadre vide.
 - **Tuile de catégorie** : carré de 48 px, coins 10 px, fond `--surface`, icône de 24 px en `--encre-2`. Elle remplace la photo d'une vignette quand il n'y en a pas : plus jamais la lettre seule. La catégorie vient du titre du sujet (mots-clés, sans accents ; « livre » par défaut).
 - **Vignette** de liste : 48 px, coins 10 px, photo recadrée.
@@ -72,7 +72,7 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
 - **Ligne méta d'une leçon** : badge, « Leçon n », durée estimée (« ≈ 3 min », 200 mots par minute, 1 minute au moins, affichée seulement si elle est calculée).
 - **Attente de génération** : titre, barre indéterminée de 4 px, une phrase, puis « Ce qui se passe » en trois lignes à icône (Recherche des sources, Rédaction de la leçon, Vérification par une 2e IA). Ce sont des étapes décrites : ni coche animée, ni pourcentage. Le bloc n'apparaît qu'après une demi-seconde.
 - **État vide** : icône de 32 px `--encre-2`, une phrase, un bouton utile. Pas de carte. (Sans formation, c'est la tuile « Lance ta première formation ».)
-- **Parcours** : liste verticale de paliers (pastille numérotée, titre, état) ; jalons « Quiz » tous les 5 paliers et « Défi d'étape » tous les 10.
+- **Formation** : liste verticale de leçons (pastille numérotée, titre, état) ; jalons « Quiz » toutes les 5 leçons et « Grand quiz » toutes les 10.
 - **Réponse de quiz** : rangée pleine largeur, bord 1 px ; juste en vert pâle avec une coche qui se dessine ; fausse en rouge pâle avec un léger tremblement ; l'explication s'affiche toujours après la réponse.
 - **XP** : pastille or discrète (« Niv. 4 · 320 XP »), barre fine de 4 px. **Anneau de niveau** (profil) : 148 px, anneau `--or` de progression vers le niveau suivant, numéro en 48 px, puis trois chiffres clés séparés par des filets.
 - **Icônes** : Phosphor « regular » (licence MIT, mention en tête de `icones.js`), 20 px dans le texte, 24 px dans une tuile, 32 px dans un état vide ou un cadre photo, 22 px dans la navigation. Toujours avec un rôle : repérer une catégorie, un niveau, une section, un état, une action. Jamais en décor. Flèche (« fleche ») pour les boutons qui avancent ; chevron (« chevron ») pour les rangées de liste et le coin des tuiles qui sont des liens.
