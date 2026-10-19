@@ -4500,6 +4500,18 @@ test('glossaire GET : parcours inconnu ou sans leçon en cache : liste vide, san
   assert.equal(lignes('SELECT * FROM quotas').length, 0);
 });
 
+test('glossaire GET : un nom de mois n’écarte un terme que s’il est suivi d’un chiffre (« Mars » la planète reste)', async () => {
+  toutVoir();
+  insererLecon('systeme-solaire', 1, {
+    titre: 'Les planètes',
+    definitions: [{ terme: 'Mars', definition: 'Quatrième planète du Système solaire.' }, { terme: 'Mai', definition: 'Un nom propre quelconque.' }],
+    reperes: [{ terme: 'Mars 1889', definition: 'Une date.' }, { terme: 'mai 68', definition: 'Une date.' }, { terme: '12 octobre 1492', definition: 'Une date.' }, { terme: 'vers 800', definition: 'Une date.' }, { terme: 'Juin', definition: 'Le mois seul reste un mot.' }],
+  });
+  const r = await glossaire('?parcours=systeme-solaire&jusqua=9');
+  ok200(r);
+  assert.deepEqual(r.corps.termes.map((x) => x.terme), ['Juin', 'Mai', 'Mars']);
+});
+
 test('glossaire GET : tri français, dédoublonnage sans accents ni casse (première leçon gardée), définitions et repères sans les dates, borne jusqua', async () => {
   toutVoir();
   insererLecon('la-tour-eiffel', 1, {

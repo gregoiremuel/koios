@@ -67,7 +67,8 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
 - **En-tête de niveau** (sommaire) : tuile ronde de 40 px avec l'icône du niveau, « Niveau 1 » en 12 px capitales espacées `--encre-2` au-dessus du titre (20 px, 700), « 1/3 modules » à droite, puis barre de 4 px.
 - **Rangée de module** : numéro dans un cercle de 32 px (fait : plein `--encre`, chiffre blanc ; en cours : contour `--encre` ; verrouillé : contour `--ligne`, chiffre `--encre-2`), titre 16 px 600, objectif 14 px `--encre-2` sur 2 lignes au plus, chevron (ouvert ou ouvrable) ou cadenas (verrouillé, avec aria-label « verrouillé »). Un module ouvert se déplie sur ses leçons. Une seule phrase en tête du sommaire : « Les modules s’ouvrent dans l’ordre. »
 - **Titre de section** de leçon : icône de 20 px `--encre-2` alignée sur la ligne du titre (20 px, 600).
-- **Bloc « À retenir »** : fond `--surface`, filet gauche de 3 px en `--encre` (de l'encre, jamais une couleur), puces. **Définitions** : liste `dl` avec filets fins de 1 px entre les termes, sans cartes empilées.
+- **Bloc « À retenir »** : fond `--surface`, coins 12 px, aucun liseré, titre avec l'icône « epingle » (PushPin), puces. **Définitions** : liste `dl` avec filets fins de 1 px entre les termes, sans cartes empilées.
+- **Mot déjà défini** (dans une leçon) : `span` en ligne, `role="button"` et `tabindex="0"`, souligné en pointillés `--encre-2`, activable par Entrée et Espace ; il se coupe en fin de ligne comme le texte (jamais un `button`). Zone de toucher élargie par un padding vertical de 8 px qui ne change pas l'interligne. Les mots de 4 lettres ou moins ne se soulignent qu'à casse identique.
 - **Ligne méta d'une leçon** : badge, « Leçon n », durée estimée (« ≈ 3 min », 200 mots par minute, 1 minute au moins, affichée seulement si elle est calculée).
 - **Attente de génération** : titre, barre indéterminée de 4 px, une phrase, puis « Ce qui se passe » en trois lignes à icône (Recherche des sources, Rédaction de la leçon, Vérification par une 2e IA). Ce sont des étapes décrites : ni coche animée, ni pourcentage. Le bloc n'apparaît qu'après une demi-seconde.
 - **État vide** : icône de 32 px `--encre-2`, une phrase, un bouton utile. Pas de carte. (Sans formation, c'est la tuile « Lance ta première formation ».)
@@ -90,7 +91,7 @@ Uniquement `transform` et `opacité` (l'anneau de progression et le dépliage d'
 
 - Couleurs : violet, dégradés, néon, fonds crème ou beige, terracotta.
 - Polices : Inter, Geist, Roboto, Space Grotesk, Poppins, Montserrat, DM Sans, Playfair.
-- Gabarits « IA » : grande accroche centrée suivie de trois cartes, émojis, mascotte, illustrations ou photos générées, confettis, liseré de couleur sur le côté d'une carte (le filet d'encre du bloc « À retenir » et de la citation est le seul permis), cartes dans des cartes, ombres portées.
+- Gabarits « IA » : grande accroche centrée suivie de trois cartes, émojis, mascotte, illustrations ou photos générées, confettis, liseré de couleur sur le côté d'une carte (seul le filet d'encre de la citation est permis), cartes dans des cartes, ombres portées.
 - Mots : Bienvenue, Découvrez, N'hésitez pas, au cœur de, véritable, incontournable, passion, sublimer, écrin, expérience, univers, authentique, d'exception, excellence, intemporel, En savoir plus.
 
 Vérification automatique : `python3 scripts/verifier.py` (app) et `python3 scripts/catalogue.py` (contenu vérifié).

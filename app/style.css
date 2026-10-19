@@ -264,7 +264,7 @@ button.rang { cursor: pointer; }
 .titre-section { display: flex; align-items: center; gap: 8px; }
 .titre-section .ic { color: var(--encre-2); }
 .meta-lecon { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
-.retenir { padding: 16px; background: var(--surface); border-left: 3px solid var(--encre); border-radius: 0 12px 12px 0; gap: 10px; }
+.retenir { padding: 16px; background: var(--surface); border-radius: 12px; gap: 10px; }
 .a-retenir { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
 .retenir li::marker { color: var(--encre); }
 .definitions { margin: 0; display: grid; }
@@ -426,8 +426,7 @@ details.plier.ligne p { padding-bottom: 10px; }
 .gloss-liste .lien { font-size: 14px; font-weight: 500; color: var(--encre-2); justify-self: start; }
 
 /* Mots déjà définis, dans le texte d'une leçon, et leur fiche */
-.terme { position: relative; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: inherit; cursor: pointer; text-decoration: underline dotted var(--encre-2); text-decoration-thickness: 2px; text-underline-offset: 4px; }
-.terme::after { content: ""; position: absolute; inset: -9px -3px; }
+.terme { padding: 8px 0; cursor: pointer; text-decoration: underline dotted var(--encre-2); text-decoration-thickness: 2px; text-underline-offset: 4px; -webkit-tap-highlight-color: transparent; }
 .terme:hover { text-decoration-color: var(--encre); }
 .fiche-voile { position: fixed; inset: 0; z-index: 20; background: var(--encre); opacity: 0.4; animation: fondu 200ms ease-out; }
 .fiche { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; max-width: 34rem; max-height: 80vh; margin: 0 auto; overflow: auto; display: grid; gap: 12px; padding: 16px 16px max(16px, env(safe-area-inset-bottom, 0px)); background: var(--fond); border: 1px solid var(--ligne); border-bottom: 0; border-radius: 12px 12px 0 0; animation: monte 220ms ease-out; }

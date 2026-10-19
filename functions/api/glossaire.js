@@ -28,7 +28,8 @@ function lireListe(texte) {
   return Array.isArray(liste) ? liste : [];
 }
 
-const DATE_TERME = /^\s*(\d|vers\s+\d|(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\b)/iu;
+// Une date n'est pas un mot à définir : « 1889 », « vers 800 », « mars 1889 ». Un nom de mois seul reste un mot (« Mars », la planète).
+const DATE_TERME = /^\s*(\d|vers\s+\d|(janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\s+\d)/iu;
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
