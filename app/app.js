@@ -5,7 +5,7 @@
   var F = " ", N = " ";
   var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
   var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
-  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300 }; // par jour : voir functions/api/parcours.js, palier.js et quiz-direct.js
+  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js et quiz-general.js (un bloc = 10 questions)
 
   /* ---------- Mémoire locale ---------- */
   var S = {
@@ -1091,23 +1091,43 @@
   }
 
   /* ---------- Quiz (commun à tous les modes) ---------- */
+  /* opt.flux (facultatif) : questions qui arrivent pendant la partie { total, items (le même tableau que items), fini, erreur, ecoute }. Les points et le compteur partent du total attendu ; si la suite n'est pas arrivée, une attente sobre s'affiche. */
   function quiz(items, opt) {
-    var k = 0, justes = 0, gagne = 0, rates = [];
+    var k = 0, justes = 0, gagne = 0, rates = [], details = [], attend = false, flux = opt.flux || null;
+    function nb() { return flux && !flux.fini ? Math.max(flux.total, items.length) : items.length; }
     var points = el("div", { "class": "etapes-q", "aria-hidden": "true" });
-    items.forEach(function () { points.appendChild(el("i")); });
     var scene = el("main", { "class": "pile" });
     var compteur = el("span", { "class": "meta" });
-    var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("fermer")]), points, compteur]), scene]);
+    var statut = el("p", { "class": "meta statut-flux", role: "status", hidden: "" });
+    var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("fermer")]), points, compteur]), scene, statut]);
+    function majPoints() {
+      points.className = "etapes-q" + (nb() > 20 ? " dense" : "");
+      while (points.children.length < nb()) points.appendChild(el("i"));
+      while (points.children.length > nb() && points.lastChild.className === "") points.removeChild(points.lastChild);
+    }
+    function majStatut() {
+      if (!flux || flux.fini) { statut.hidden = true; return; }
+      statut.hidden = false; statut.textContent = pluriel(items.length, "question prête", "questions prêtes") + " sur " + flux.total + ". La suite s’écrit pendant que tu joues.";
+    }
+    majPoints(); majStatut();
     function afficher() {
-      scene.innerHTML = ""; scene.className = "pile " + ORDRE_TEINTES[k % ORDRE_TEINTES.length]; window.scrollTo(0, 0);
-      compteur.textContent = Math.min(k + 1, items.length) + " / " + items.length;
-      if (k >= items.length) return fin();
+      scene.innerHTML = ""; scene.className = "pile " + ORDRE_TEINTES[k % ORDRE_TEINTES.length]; window.scrollTo(0, 0); attend = false;
+      majPoints(); majStatut();
+      compteur.textContent = Math.min(k + 1, nb()) + " / " + nb();
+      if (k >= nb()) return fin();
+      if (k >= items.length) { // la suite n'est pas encore écrite
+        attend = true;
+        scene.appendChild(el("span", { "class": "sur", text: opt.titre }));
+        scene.appendChild(el("p", { "class": "attente", role: "status", text: "La suite arrive" + N + ": le Rival écrit les prochaines questions, puis une 2e IA les vérifie." }));
+        return;
+      }
       var it = items[k];
-      scene.appendChild(el("span", { "class": "sur", text: opt.titre + (it.titre ? " · " + it.titre : "") }));
-      var suite = el("button", { "class": "btn", type: "button", hidden: "" }, [el("span", { text: k === items.length - 1 ? "Voir le résultat" : "Question suivante" }), icone("fleche")]);
+      scene.appendChild(el("span", { "class": "sur", text: opt.entete || (opt.titre + (it.titre ? " · " + it.titre : "")) }));
+      var suite = el("button", { "class": "btn", type: "button", hidden: "" }, [el("span", { text: k === nb() - 1 ? "Voir le résultat" : "Question suivante" }), icone("fleche")]);
       suite.addEventListener("click", function () { k += 1; afficher(); });
       scene.appendChild(rendreQuestion(it.question, function (juste) {
         points.children[k].className = juste ? "ok" : "ko";
+        details[k] = juste ? 1 : 0;
         if (juste) { justes += 1; if (premiereReussite(it)) gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
         else { rates.push(it); if (!opt.sansErreurs) noterErreur(it); }
         suite.hidden = false; setTimeout(function () { suite.focus({ preventScroll: true }); suite.scrollIntoView({ block: "nearest" }); }, 0);
@@ -1116,7 +1136,12 @@
       if (window.poserIcones) window.poserIcones(scene);
       var h = scene.querySelector(".enonce"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
     }
+    if (flux) flux.ecoute = function () {
+      majPoints(); majStatut();
+      if (attend) afficher(); else compteur.textContent = Math.min(k + 1, nb()) + " / " + nb();
+    };
     function fin() {
+      if (flux) flux.ecoute = null;
       var n = items.length, pct = Math.round(justes / Math.max(n, 1) * 100);
       compteur.textContent = ""; compteur.appendChild(puceXP());
       gagner(gagne, opt.parcours);
@@ -1128,10 +1153,11 @@
       scene.appendChild(el("span", { "class": "sur", text: opt.titre + " · résultat" }));
       scene.appendChild(el("h1", { text: pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
       scene.appendChild(el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta gain", text: "+" + gagne + N + "XP" })]));
+      if (flux && flux.erreur) scene.appendChild(el("p", { "class": "alerte", role: "status", text: "Le quiz s’arrête à " + pluriel(n, "question", "questions") + " sur " + flux.total + N + ": " + flux.erreur }));
       if (rates.length) { scene.appendChild(el("h2", { text: "À revoir" })); scene.appendChild(revoir); }
       var suite = el("div", { "class": "pile" });
       scene.appendChild(suite);
-      if (opt.fin) opt.fin({ justes: justes, n: n, pct: pct, gagne: gagne }, suite);
+      if (opt.fin) opt.fin({ justes: justes, n: n, pct: pct, gagne: gagne, details: details }, suite);
       if (window.poserIcones) window.poserIcones(scene);
     }
     afficher();
@@ -1248,11 +1274,191 @@
       if (window.poserIcones) window.poserIcones(zone);
     }, function (e) { info.textContent = e.statut === 503 ? "Les duels demandent la connexion en ligne. Réessaie dans un moment." : messageErreur(e); });
   }
+  /* ---------- Quiz de culture générale ---------- */
+  /* Thèmes proposés (libellé, icône de catégorie) : chaque puce prend la teinte de son icône. « Surprends-moi » en tire un au hasard. */
+  var PUCES = [
+    ["Musique", "musique"], ["Cinéma", "clap"], ["Sport", "ballon"], ["Géographie", "carte"], ["Histoire", "histoire"], ["Sciences", "atome"],
+    ["Cuisine", "marmite"], ["Art", "pinceau"], ["Littérature", "litterature"], ["Technologie", "puce"], ["Animaux", "feuille"], ["Espace", "globe"],
+    ["Philosophie", "cerveau"], ["Mythologie", "epee"], ["Joaillerie", "diamant"], ["Économie", "courbe"]
+  ];
+  var LONGUEURS = [10, 20, 30, 40, 50];
+  function longueurChoisie() { var n = S.lire("koios.qgn", 10); return LONGUEURS.indexOf(n) >= 0 ? n : 10; }
+  function enc(t) { return encodeURIComponent(t); }
+  function pretes(k, n) { return k + (k > 1 ? " questions" : " question") + " sur " + n + " prêtes"; }
+  /* Choix d'un sujet libre ou d'un thème, et de la longueur : opt = { id, bouton, lancer(sujet, n) }. */
+  function formulaireQuiz(opt) {
+    var champ = el("input", { "class": "champ", id: opt.id, type: "text", maxlength: "80", autocomplete: "off", placeholder: "Ex." + N + ": les volcans, Beethoven" });
+    var alerte = el("p", { "class": "alerte", hidden: "", role: "alert" });
+    var puces = el("div", { "class": "puces", role: "group", "aria-label": "Thèmes" });
+    var n = longueurChoisie();
+    function marquer(actif) { Array.prototype.forEach.call(puces.children, function (b) { b.setAttribute("aria-pressed", b === actif ? "true" : "false"); }); }
+    var boutons = PUCES.map(function (p) {
+      var b = el("button", { "class": "theme-puce " + teinte(p[1]), type: "button", "aria-pressed": "false" }, [icone(p[1]), p[0]]);
+      b.addEventListener("click", function () { champ.value = p[0]; marquer(b); alerte.hidden = true; });
+      puces.appendChild(b);
+      return b;
+    });
+    champ.addEventListener("input", function () { marquer(null); alerte.hidden = true; });
+    var surprends = el("button", { "class": "btn second", type: "button" }, [icone("eclair"), el("span", { text: "Surprends-moi" })]);
+    surprends.addEventListener("click", function () {
+      var k = Math.floor(Math.random() * PUCES.length);
+      if (PUCES[k][0] === champ.value) k = (k + 1) % PUCES.length;
+      champ.value = PUCES[k][0]; marquer(boutons[k]); alerte.hidden = true;
+    });
+    var seg = el("div", { "class": "onglets", role: "radiogroup", "aria-label": "Nombre de questions" });
+    LONGUEURS.forEach(function (v) {
+      var b = el("button", { type: "button", role: "radio", "aria-checked": v === n ? "true" : "false", text: String(v) });
+      b.addEventListener("click", function () { n = v; S.ecrire("koios.qgn", v); Array.prototype.forEach.call(seg.children, function (x) { x.setAttribute("aria-checked", x === b ? "true" : "false"); }); });
+      seg.appendChild(b);
+    });
+    var go = el("button", { "class": "btn", type: "button" }, [el("span", { text: opt.bouton }), icone("fleche")]);
+    go.addEventListener("click", function () {
+      var s = champ.value.replace(/\s+/g, " ").trim().slice(0, 80);
+      if (s.length < 2) { alerte.textContent = "Écris d’abord un sujet, ou choisis un thème."; alerte.hidden = false; champ.focus(); return; }
+      opt.lancer(s, n);
+    });
+    champ.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
+    var f = el("div", { "class": "pile" }, [
+      el("div", { "class": "pile serree" }, [el("label", { "for": opt.id, "class": "sur", text: "Sujet libre" }), champ]),
+      puces, surprends,
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", id: opt.id + "-n", text: "Nombre de questions" }), seg]),
+      alerte, go
+    ]);
+    seg.setAttribute("aria-labelledby", opt.id + "-n");
+    return f;
+  }
+  function nouveauFlux(n) { return { total: n, items: [], fini: false, erreur: null, blocs: [], ecoute: null }; }
+  /* Appelle la route par blocs (un bloc de 10 questions par appel) tant qu'il en manque. `apres` : numéro du dernier bloc déjà joué (régénérer), sinon rien. Les questions arrivent dans flux.items ; surProgres(j) est appelé après chaque bloc. */
+  function produireBlocs(sujet, n, apres, vive, flux, surProgres) {
+    var corps = { sujet: sujet, n: n };
+    if (apres !== undefined && apres !== null) { corps.regenerer = true; corps.apres = apres; }
+    function tour() {
+      return api("POST", "quiz-general", corps, 100000).then(function (j) {
+        var vus = {};
+        flux.items.forEach(function (x) { vus[x.palier + "#" + x.index] = 1; });
+        (j.questions || []).forEach(function (x) { if (!vus[x.palier + "#" + x.index]) flux.items.push({ palier: x.palier, titre: x.titre, index: x.index, question: x.question }); });
+        flux.blocs = j.blocs || flux.blocs;
+        if (!(j.manquants > 0) || !vive()) flux.fini = true;
+        surProgres(j);
+        if (j.manquants > 0 && vive()) return tour();
+      });
+    }
+    return pretCompte().then(function () {
+      if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+      return tour();
+    });
+  }
+  /* Écran d'attente par blocs : « 10 questions sur 30 prêtes », barre déterminée (questions reçues), étapes décrites. */
+  function ecranGeneration(titre, sujet, n) {
+    var barre = el("span", { "class": "progres gen", role: "progressbar", "aria-label": "Questions prêtes", "aria-valuemin": "0", "aria-valuemax": String(n), "aria-valuenow": "0" }, [el("i")]);
+    var etat = el("p", { "class": "titre-attente", role: "status", text: pretes(0, n) });
+    var ul = el("ul", { "class": "etapes-gen" });
+    [["loupe", "Recherche des sources sur Wikipédia"], ["plume", "Écriture des questions et de leurs explications"], ["verifie", "Vérification par une 2e IA"]].forEach(function (x) { ul.appendChild(el("li", {}, [icone(x[0]), x[1]])); });
+    var bloc = el("section", { "class": "generation" }, [
+      el("span", { "class": "sur", text: titre }), el("h1", { text: sujet }), barre, etat,
+      el("p", { "class": "meta", text: "Les questions s’écrivent par blocs de 10. La première fois, compte jusqu’à une minute par bloc" + (n > 10 ? "\u202f; tu peux jouer dès le premier." : ".") }),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Ce qui se passe" }), ul])
+    ]);
+    return {
+      page: el("div", { "class": "page plein" }, [entete(), bloc]),
+      maj: function (k) {
+        barre.firstChild.style.setProperty("--p", String(Math.min(1, k / n)));
+        barre.setAttribute("aria-valuenow", String(k));
+        etat.textContent = pretes(k, n);
+      }
+    };
+  }
+  function pageErreurGen(e, retour) {
+    var texte = messageErreur(e, e.message);
+    var reessayer = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Réessayer" }), icone("fleche")]);
+    reessayer.addEventListener("click", route);
+    return el("div", { "class": "page" }, [entete(), el("div", { "class": "carte" }, [
+      el("h1", { text: "Quiz indisponible" }),
+      el("p", { text: texte + (e.statut === 422 ? " Essaie une autre formulation." : "") }),
+      e.statut === 422 || e.statut === 429 ? null : reessayer,
+      lien(retour, "Choisir un autre sujet", "btn second")
+    ])]);
+  }
+  function refsDe(items) { return items.map(function (x) { return { chapitre: x.palier, index: x.index }; }); }
+  function urlSalon(id) { return location.origin + location.pathname + "#/salon/" + id; }
+  function envoyerSalon(id, titre, n, repli) {
+    partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te défie sur " + guill(titre) + F + ": " + pluriel(n, "question", "questions") + ". Rejoins le salon.", urlSalon(id), repli);
+  }
+  /* Crée un salon (duel de type salon) avec ces questions ; score = celui du créateur, ou null s'il n'a pas encore joué. */
+  function creerSalonApi(items, sujet, score) {
+    return pretCompte().then(function () {
+      if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+      var corps = { questions: refsDe(items), type: "salon", titre: sujet.slice(0, 60) };
+      if (score) corps.score = score;
+      return api("POST", "duel", corps);
+    });
+  }
+  function vueQuizGeneral(sujet, n, apres) {
+    sujet = String(sujet || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (sujet.length < 2 || LONGUEURS.indexOf(n) < 0) { location.replace("#/jouer"); return; }
+    var vive = vivante(), g = ecranGeneration("Préparation du quiz", sujet, n), flux = nouveauFlux(n), demarre = false;
+    montrer(g.page, null, "Quiz");
+    function jouer() {
+      demarre = true;
+      var base = "#/quiz/" + enc(sujet) + "/" + n;
+      montrer(quiz(flux.items, { titre: sujet, entete: sujet, retour: "#/jouer", xp: XP.quiz, flux: flux, fin: function (res, zone) {
+        var dernier = flux.blocs.length ? Math.max.apply(null, flux.blocs) : (apres || 0) + n / 10;
+        zone.appendChild(lienAvance(base + "/" + dernier, "Rejouer avec de nouvelles questions", "btn"));
+        var info = el("p", { "class": "meta", role: "status" });
+        var defier = el("button", { "class": "btn second", type: "button" }, [icone("epee"), el("span", { text: "Défier des amis" })]);
+        defier.addEventListener("click", function () {
+          defier.disabled = true; info.textContent = "Création du salon…";
+          creerSalonApi(flux.items, sujet, { justes: res.justes, n: res.n, points: res.justes * XP.quiz }).then(function (j) {
+            info.textContent = "Salon créé. Envoie le lien à tes amis" + N + ": ils jouent les mêmes questions que toi.";
+            var envoi = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Envoyer le lien" })]);
+            var retour = function (t) { info.textContent = t; };
+            envoi.addEventListener("click", function () { envoyerSalon(j.id, sujet, res.n, retour); });
+            defier.replaceWith(envoi);
+            info.after(lien("#/salon/" + j.id, "Ouvrir le salon"));
+            if (window.poserIcones) window.poserIcones(zone);
+            envoyerSalon(j.id, sujet, res.n, retour);
+          }, function (e) { defier.disabled = false; info.textContent = e.statut === 503 ? "Les salons demandent la connexion en ligne. Réessaie dans un moment." : messageErreur(e); });
+        });
+        zone.appendChild(defier); zone.appendChild(info);
+        zone.appendChild(lien("#/jouer", "Autre sujet"));
+      } }), null, sujet);
+    }
+    produireBlocs(sujet, n, apres, vive, flux, function () {
+      if (!vive()) return;
+      if (!demarre) { g.maj(flux.items.length); if (flux.items.length) jouer(); } else if (flux.ecoute) flux.ecoute();
+    }).then(function () {
+      if (flux.ecoute) flux.ecoute();
+    }, function (e) {
+      if (!vive()) return;
+      if (!demarre) { montrer(pageErreurGen(e, "#/jouer"), null, "Quiz indisponible"); return; }
+      flux.erreur = messageErreur(e, e.message); flux.fini = true;
+      if (flux.ecoute) flux.ecoute();
+    });
+  }
+  /* Salon créé depuis l'onglet Amis : on écrit toutes les questions, puis le salon s'ouvre (le créateur joue ensuite, comme les autres). */
+  function vueNouveauSalon(sujet, n) {
+    sujet = String(sujet || "").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (sujet.length < 2 || LONGUEURS.indexOf(n) < 0) { location.replace("#/amis"); return; }
+    var vive = vivante(), g = ecranGeneration("Création du salon", sujet, n), flux = nouveauFlux(n);
+    montrer(g.page, null, "Création du salon");
+    produireBlocs(sujet, n, null, vive, flux, function () { if (vive()) g.maj(flux.items.length); }).then(function () {
+      if (!vive()) return;
+      if (flux.items.length < 5) { var x = new Error("Trop peu de questions ont passé la vérification. Réessaie."); x.statut = 502; throw x; }
+      return creerSalonApi(flux.items, sujet, null).then(function (j) { if (vive()) location.replace("#/salon/" + j.id); });
+    }).then(null, function (e) { if (vive()) montrer(pageErreurGen(e, "#/amis"), null, "Salon indisponible"); });
+  }
+
+  /* Bloc de questions en cache (quiz de culture générale, question du jour, tournoi) : [{ palier, titre, index, question }]. */
+  function chargerBloc(id) {
+    return charger("qg:" + id, function () { return api("GET", "quiz-general?bloc=" + enc(id), null, 15000).then(function (j) { return j.questions || []; }); });
+  }
   function resoudre(refs) {
     return chargerQuestionsVerifiees().catch(function () { return []; }).then(function (pool) {
       return Promise.all(refs.map(function (r) {
         var t = pool.filter(function (x) { return x.palier === r.chapitre && x.index === r.index; })[0];
         if (t) return t;
+        var bloc = /^qg:(.+)$/.exec(r.chapitre || "") || /^(jour:\d{4}-\d{2}-\d{2})$/.exec(r.chapitre || "");
+        if (bloc) return chargerBloc(bloc[1]).then(function (l) { return l.filter(function (x) { return x.index === r.index; })[0] || null; }, function () { return null; });
         var m = /^(.+):(\d+)$/.exec(r.chapitre || "");
         if (m) return chargerPalier(m[1], parseInt(m[2], 10)).then(function (l) { var q = (l.questions || [])[r.index]; return q ? { palier: l.id, titre: l.titre, index: r.index, question: q } : null; }, function () { return null; });
         var mq = /^(.+):quiz$/.exec(r.chapitre || "");
@@ -1261,54 +1467,146 @@
       }));
     }).then(function (l) { return l.filter(Boolean); });
   }
-  function tableauDuel(d) {
+  /* Temps restant avant une date de fin (ISO) : « 3 j 4 h », « 5 h 07 », « 12 min ». */
+  function restant(fin) {
+    var ms = Date.parse(fin) - Date.now();
+    if (!(ms > 0)) return "terminé";
+    var m = Math.floor(ms / 60000), j = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60);
+    if (j >= 1) return j + N + "j " + h + N + "h";
+    if (h >= 1) return h + N + "h " + ("0" + (m % 60)).slice(-2);
+    return Math.max(1, m) + N + "min";
+  }
+  /* Réponses jouées dans un salon : une chaîne de 0 et de 1 par salon, gardée sur cet appareil seulement (pas de synchronisation). */
+  function noterReponses(id, details) {
+    var o = S.lire("koios.reponses", {});
+    o[id] = details.map(function (x) { return x ? 1 : 0; }).join("");
+    var cles = Object.keys(o);
+    if (cles.length > 80) delete o[cles[0]];
+    S.ecrire("koios.reponses", o);
+  }
+  /* Classement avec rang : les `max` premiers, plus ma ligne si je suis plus loin. Des points de suspension marquent un saut de rang. */
+  function tableauDuel(d, max) {
     var ol = el("ol", { "class": "liste" });
-    (d.scores || []).slice().sort(function (a, b) { return b.justes - a.justes || b.points - a.points; }).forEach(function (x, k) {
-      ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.justes + "/" + x.n })])]));
+    var lignes = d.classement && d.classement.length ? d.classement : (d.scores || []).slice().sort(function (a, b) { return b.justes - a.justes || b.points - a.points; }).map(function (x, k) { return { rang: k + 1, pseudo: x.pseudo, justes: x.justes, n: x.n, points: x.points, moi: x.moi }; });
+    var vus = lignes.slice(0, max || 20), moi = lignes.filter(function (x) { return x.moi; })[0];
+    if (moi && vus.indexOf(moi) < 0) vus.push(moi);
+    vus.forEach(function (x, k) {
+      if (k && x.rang - vus[k - 1].rang > 1) ol.appendChild(el("li", {}, [el("p", { "class": "meta saut", "aria-hidden": "true", text: "…" })]));
+      ol.appendChild(el("li", {}, [el("div", { "class": "rangee rang" }, [el("b", { text: String(x.rang) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.justes + "/" + x.n + " · " + x.points + N + "pts" })])]));
     });
     return ol;
   }
-  function vueDuel(id) {
+  /* Page d'un duel, d'un salon (titre, joueurs en nombre illimité) ou du tournoi de la semaine. `auto` : lance la partie tout de suite. */
+  function vueDuel(id, auto) {
     var vive = vivante();
-    montrer(attente("Ouverture du duel…", true), null, "Duel");
-    pretCompte().then(function () { return api("GET", "duel?id=" + encodeURIComponent(id)); }).then(function (j) {
+    montrer(attente("Ouverture…", true), null, "Salon");
+    pretCompte().then(function () { return api("GET", "duel?id=" + enc(id)); }).then(function (j) {
       if (!vive()) return;
-      var d = j.duel;
-      var lancer = el("button", { "class": "btn", type: "button", text: "Relever le duel · " + pluriel((d.questions || []).length, "question", "questions") });
+      var d = j.duel, salon = d.type === "salon", tournoi = d.type === "tournoi", nq = (d.questions || []).length;
+      var nom = tournoi ? "tournoi" : salon ? "salon" : "duel";
+      var titreP = tournoi ? "Tournoi de la semaine" : salon ? "Salon" : "Duel";
+      var h1 = salon || tournoi ? (d.titre || titreP) : (profil && d.createur === profil.pseudo ? "Ton duel" : d.createur + " te lance un duel");
+      var meta = [];
+      if (salon) meta.push("Créé par " + (profil && d.createur === profil.pseudo ? "toi" : d.createur));
+      if (salon || tournoi) meta.push(d.joueurs ? pluriel(d.joueurs, "joueur", "joueurs") : "Aucun joueur");
+      meta.push(pluriel(nq, "question", "questions"));
+      if (d.fin) meta.push(d.termine ? "Terminé" : "Il reste " + restant(d.fin));
+      var lancer = el("button", { "class": "btn", type: "button" }, [el("span", { text: (nom === "duel" ? "Relever le duel" : "Jouer") + " · " + pluriel(nq, "question", "questions") }), icone("fleche")]);
+      var info = el("p", { "class": "alerte", role: "status", hidden: "" });
       lancer.addEventListener("click", function () {
-        lancer.disabled = true;
+        lancer.disabled = true; info.hidden = true;
         resoudre(d.questions || []).then(function (items) {
-          montrer(quiz(items, { titre: "Duel", retour: "#/amis", xp: XP.quiz, fin: function (res, zone) {
-            var info = el("p", { "class": "meta", role: "status", text: "Enregistrement de ton score…" });
-            zone.appendChild(info);
-            api("PUT", "duel", { id: d.id, score: { justes: res.justes, n: res.n, points: res.gagne } }).then(function () { return api("GET", "duel?id=" + encodeURIComponent(d.id)); }).then(function (j2) { info.textContent = ""; zone.appendChild(el("h2", { text: "Tableau du duel" })); zone.appendChild(tableauDuel(j2.duel)); zone.appendChild(lien("#/amis", "Retour aux amis", "btn second")); }, function (e) { info.textContent = messageErreur(e); });
-          } }), null, "Duel");
+          if (!vive()) return;
+          if (items.length < nq) { lancer.disabled = false; info.textContent = "Certaines questions ne se chargent pas. Réessaie dans un instant."; info.hidden = false; return; }
+          montrer(quiz(items, { titre: d.titre || "Duel", entete: d.titre || "Duel", retour: "#/amis", xp: XP.quiz, fin: function (res, zone) {
+            var etat2 = el("p", { "class": "meta", role: "status", text: "Enregistrement de ton score…" });
+            zone.appendChild(etat2);
+            noterReponses(d.id, res.details || []);
+            api("PUT", "duel", { id: d.id, score: { justes: res.justes, n: res.n, points: res.justes * XP.quiz } }).then(function () { return api("GET", "duel?id=" + enc(d.id)); }).then(function (j2) {
+              etat2.textContent = "";
+              zone.appendChild(el("h2", { text: salon || tournoi ? "Classement" : "Tableau du duel" }));
+              zone.appendChild(tableauDuel(j2.duel));
+              zone.appendChild(lien("#/salon/" + d.id, "Page du " + nom, "btn second"));
+              zone.appendChild(lien("#/amis", "Retour aux amis"));
+            }, function (e) { etat2.textContent = e.statut === 409 ? e.message : messageErreur(e); zone.appendChild(lien("#/amis", "Retour aux amis")); });
+          } }), null, d.titre || "Duel");
         });
       });
+      var actions = [];
+      if (!enLigne()) actions.push(el("p", { "class": "alerte", text: "Les " + (nom === "duel" ? "duels" : nom === "salon" ? "salons" : "tournois") + " demandent la connexion en ligne. Réessaie dans un moment." }));
+      else if (d.termine) actions.push(el("p", { "class": "verrou" }, [icone("sablier"), "Ce " + nom + " est terminé. Le classement reste visible."]));
+      else if (d.dejaJoue) actions.push(el("p", { "class": "verrou" }, [icone("juste"), "Tu as déjà joué ce " + nom + "."]));
+      else actions.push(lancer);
+      if (enLigne() && d.dejaJoue) actions.push(lienAvance("#/salon/" + d.id + "/reponses", "Voir mes réponses", "btn second"));
+      var retourPartage = el("p", { "class": "meta", role: "status" });
+      var partage = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Partager le lien" })]);
+      partage.addEventListener("click", function () {
+        partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te propose " + (tournoi ? "le tournoi de la semaine" : "un " + nom) + (d.titre && !tournoi ? " sur " + guill(d.titre) : "") + F + ": " + pluriel(nq, "question", "questions") + ".", urlSalon(d.id), function (t) { retourPartage.textContent = t; });
+      });
       montrer(el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/amis" }, [icone("retour"), "Amis"]), el("span"), puceXP()]),
-        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Duel" }), el("h1", { text: profil && d.createur === profil.pseudo ? "Ton duel" : d.createur + " te lance un duel" })]),
-        d.dejaJoue ? el("p", { "class": "verrou" }, [icone("juste"), "Tu as déjà joué ce duel."]) : (enLigne() ? lancer : el("p", { "class": "alerte", text: "Les duels demandent la connexion en ligne. Réessaie dans un moment." })),
-        el("h2", { text: "Tableau" }), tableauDuel(d)
-      ]), null, "Duel");
-    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Ce duel n’existe pas." : messageErreur(e), "Duel indisponible"), "amis"); });
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: titreP }), el("h1", { text: h1 }), el("p", { "class": "meta", text: meta.join(" · ") })]),
+        el("div", { "class": "pile" }, actions.concat([info, partage, retourPartage])),
+        el("h2", { text: salon || tournoi ? "Classement" : "Tableau" }),
+        (d.scores || []).length ? tableauDuel(d) : el("p", { "class": "meta", text: "Personne n’a encore joué. Sois le premier." })
+      ]), null, h1);
+      if (auto && enLigne() && !d.termine && !d.dejaJoue) lancer.click();
+    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Ce duel ou ce salon n’existe pas." : messageErreur(e), "Salon indisponible"), "amis"); });
+  }
+  /* Mes réponses dans un salon déjà joué : les questions, la bonne réponse, l'explication ; réussite ou raté si l'appareil s'en souvient. */
+  function vueReponses(id) {
+    var vive = vivante();
+    montrer(attente("Ouverture…", true), null, "Mes réponses");
+    pretCompte().then(function () { return api("GET", "duel?id=" + enc(id)); }).then(function (j) {
+      return resoudre(j.duel.questions || []).then(function (items) { return { d: j.duel, items: items }; });
+    }).then(function (r) {
+      if (!vive()) return;
+      var gardees = S.lire("koios.reponses", {})[id] || "", liste = el("div", { "class": "pile" });
+      r.items.forEach(function (it, k) {
+        var q = it.question, etatQ = gardees.charAt(k);
+        var bonne = q.type === "qcm" ? q.reponses[q.bonne] : q.type === "vraifaux" ? (q.vrai ? "vrai" : "faux") : (q.ordre || []).join(" → ");
+        liste.appendChild(el("details", { "class": "plier ligne" }, [
+          el("summary", {}, [el("span", {}, [el("b", { text: "Question " + (k + 1) }), el("span", { "class": "meta", text: q.enonce || q.affirmation || "" })]), etatQ === "1" ? icone("juste", "Réussie") : etatQ === "0" ? icone("faux", "Ratée") : icone("chevron")]),
+          el("p", { "class": "meta", text: "Réponse" + N + ": " + bonne }), q.explication ? el("p", { text: q.explication }) : null
+        ]));
+      });
+      var justes = gardees ? gardees.split("1").length - 1 : null;
+      montrer(el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/salon/" + id }, [icone("retour"), "Salon"]), el("span"), puceXP()]),
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: r.d.titre || "Duel" }), el("h1", { text: "Mes réponses" }), el("p", { "class": "meta", text: justes === null ? "Tes réponses ne sont pas gardées sur cet appareil. Voici les questions et leurs explications." : justes + "/" + r.items.length + " bonnes réponses" })]),
+        liste
+      ]), null, "Mes réponses");
+    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Ce salon n’existe pas." : messageErreur(e), "Salon indisponible"), "amis"); });
   }
 
   /* ---------- Jouer ---------- */
   function serieJours() { var n = 0, d = new Date(); if (!etat.jours[jour(d)]) d.setDate(d.getDate() - 1); while (etat.jours[jour(d)]) { n += 1; d.setDate(d.getDate() - 1); } return n; }
+  /* Question du jour : /api/jour (thème du jour et question, la même pour tous). Gardée pour la session ; null si le réseau ou le serveur manque. */
+  function chargerJour() {
+    var d = aujourdhui();
+    return charger("jour:" + d, function () {
+      return pretServeur.then(function () { return serveur.base ? api("GET", "jour?date=" + d, null, 100000) : null; });
+    }).catch(function () { return null; });
+  }
   function vueJour() {
     var d = aujourdhui();
     if (etat.jours[d]) { location.replace("#/jouer"); return; }
     var vive = vivante();
-    montrer(attente("Préparation…", true), null, "Question du jour");
-    chargerQuestionsVerifiees().then(function (pool) {
+    montrer(attente("Préparation de la question du jour…", true), null, "Question du jour");
+    chargerJour().then(function (j) {
+      if (j && j.question && j.question.question) return { it: j.question, theme: j.theme };
+      // Pas de réseau, ou rien d'écrit : une question du pool vérifié, la même pour tous ce jour-là.
+      return chargerQuestionsVerifiees().then(function (pool) {
+        var simples = pool.filter(function (x) { return x.question.type !== "ordre"; });
+        return { it: simples[Math.floor(hasard(parseInt(d.replace(/-/g, ""), 10))() * simples.length)], theme: null };
+      });
+    }).then(function (r) {
       if (!vive()) return;
-      var simples = pool.filter(function (x) { return x.question.type !== "ordre"; });
-      var it = simples[Math.floor(hasard(parseInt(d.replace(/-/g, ""), 10))() * simples.length)];
+      var it = r.it;
       etat.jours[d] = "faux"; sauver();
-      montrer(quiz([it], { titre: "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
+      montrer(quiz([it], { titre: "Question du jour", entete: r.theme ? "Aujourd’hui" + N + ": " + r.theme : "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
         etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
         zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine arrive demain." }));
-        zone.appendChild(lienAvance("#/p/" + it.palier.split(":")[0], "Ouvrir cette formation", "btn"));
+        if (r.theme) zone.appendChild(lienAvance("#/quiz/" + enc(r.theme) + "/10", "Un quiz sur ce thème", "btn"));
+        else zone.appendChild(lienAvance("#/p/" + it.palier.split(":")[0], "Ouvrir cette formation", "btn"));
         zone.appendChild(lien("#/jouer", "Retour aux jeux"));
       } }), null, "Question du jour");
     }, function () { if (vive()) montrer(erreurPage("Les questions ne se chargent pas.", "Indisponible"), "jouer"); });
@@ -1340,53 +1638,103 @@
       montrer(quiz(items, { titre: "Revoir mes erreurs", retour: "#/profil", xp: XP.quiz, erreurs: true, fin: function (res, zone) { sauver(); zone.appendChild(lien("#/profil", "Retour au profil", "btn second")); } }), null, "Mes erreurs");
     });
   }
-  /* Jouer : ce qui se joue seul (question du jour, quiz mélangé, erreurs à revoir, mini-jeux des formations). */
+  /* Jouer : le quiz de culture générale, puis ce qui se joue seul (question du jour, quiz mélangé, erreurs à revoir, mini-jeux des formations). */
   function vueJouer() {
     var jourFait = etat.jours[aujourdhui()];
+    var metaJour = el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") });
     var lignes = [
-      el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [tuile("ampoule"), el("span", {}, [el("b", { text: "Question du jour" }), el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") })]), jourFait ? icone("juste") : icone("chevron")])]),
+      el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [tuile("ampoule"), el("span", {}, [el("b", { text: "Question du jour" }), metaJour]), jourFait ? icone("juste") : icone("chevron")])]),
       el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/melange" }, [tuile("liste"), el("span", {}, [el("b", { text: "Quiz mélangé" }), el("span", { "class": "meta", text: "10 questions, tous sujets confondus" })]), icone("chevron")])])
     ];
+    if (!jourFait) chargerJour().then(function (j) { if (j && j.theme && metaJour.isConnected) metaJour.textContent = "Aujourd’hui" + N + ": " + j.theme + " · la même pour tous"; });
     if (etat.erreurs.length) lignes.push(el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/erreurs" }, [tuile("cerveau"), el("span", {}, [el("b", { text: "Revoir mes erreurs" }), el("span", { "class": "meta", text: pluriel(etat.erreurs.length, "question à revoir", "questions à revoir") })]), icone("chevron")])]));
     var defis = Object.keys(etat.parcours).filter(function (id) { return etat.parcours[id].titre && (etat.parcours[id].fait || 0) >= 5; });
     var ulDefis = el("ul", { "class": "liste" });
     defis.slice(0, 6).forEach(function (id) { var x = etat.parcours[id]; ulDefis.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) + "/defis" }, [tuile(categorie(x.titre)), el("span", {}, [el("b", { text: x.titre }), el("span", { "class": "meta", text: "Vrai ou faux, associations, ordre" })]), icone("chevron")])])); });
-    montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Jouer" }), el("ul", { "class": "liste" }, lignes),
+    montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Jouer" }),
+      el("section", { "class": "pile" }, [
+        el("div", { "class": "pile serree" }, [el("h2", { text: "Quiz de culture générale" }), el("p", { "class": "meta", text: "Un sujet de ton choix, de 10 à 50 questions. Chaque réponse est expliquée et vérifiée par une 2e IA." })]),
+        formulaireQuiz({ id: "sujet-quiz", bouton: "Lancer le quiz", lancer: function (s, n) { location.hash = "#/quiz/" + enc(s) + "/" + n; } })
+      ]),
+      el("ul", { "class": "liste" }, lignes),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Mini‑jeux" }), defis.length ? ulDefis : el("p", { "class": "meta", text: "Les mini‑jeux d’une formation s’ouvrent à la leçon 5." })])
     ]), "jouer", "Jouer");
   }
-  /* Amis : inviter, duels, classement. Le lot suivant y ajoutera les formations à plusieurs. */
+  /* Rangée d'un salon ou d'un duel de la liste « Amis ». */
+  function rangeeSalon(d) {
+    var moi = profil && d.createur === profil.pseudo, salon = d.type === "salon";
+    var titre = salon ? (d.titre || "Salon") : (moi ? "Duel lancé par toi" : "Duel de " + d.createur);
+    var detail = (salon ? (moi ? "Créé par toi" : "Salon de " + d.createur) : (moi ? "Envoyé" : "Reçu")) + " · " + pluriel((d.scores || []).length, "joueur", "joueurs");
+    return el("li", {}, [el("a", { "class": "rangee", href: (salon ? "#/salon/" : "#/duel/") + d.id }, [tuile(salon ? categorie(titre) : "epee"), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), icone("chevron")])]);
+  }
+  /* Carte du tournoi de la semaine : thème, temps restant, bouton, dix premiers et ma place. */
+  function carteTournoi() {
+    var corps = el("div", { "class": "pile" }, [el("p", { "class": "attente", role: "status", text: "Chargement du tournoi…" })]);
+    var carte = el("section", { "class": "carte tournoi" }, [corps]);
+    function vide(texte) { corps.innerHTML = ""; corps.appendChild(el("div", { "class": "ligne-titre" }, [el("h2", { text: "Tournoi de la semaine" })])); corps.appendChild(el("p", { "class": "meta", text: texte })); }
+    pretServeur.then(function () {
+      if (!serveur.base) { vide("Le tournoi s’affiche dès que le serveur répond."); return; }
+      return api("GET", "tournoi", null, 100000).then(function (j) {
+        var t = j.tournoi;
+        if (!t) { vide("Le tournoi de cette semaine n’est pas encore prêt. Reviens un peu plus tard."); return; }
+        corps.innerHTML = "";
+        corps.appendChild(el("div", { "class": "ligne-titre" }, [el("h2", { text: "Tournoi de la semaine" }), el("span", { "class": "meta", text: t.termine ? "Terminé" : "Il reste " + restant(t.fin) })]));
+        corps.appendChild(el("div", { "class": "pile serree" }, [el("p", { "class": "theme-tournoi", text: "Thème" + N + ": " + t.theme }), el("p", { "class": "meta", text: pluriel(t.questions, "question", "questions") + " · " + (t.joueurs ? pluriel(t.joueurs, "joueur", "joueurs") : "aucun joueur") + " · une seule partie par joueur" })]));
+        if (!t.termine && !t.dejaJoue) corps.appendChild(lienAvance("#/salon/" + t.id + "/jouer", "Jouer", "btn"));
+        else corps.appendChild(lienAvance("#/salon/" + t.id + (t.dejaJoue ? "/reponses" : ""), t.dejaJoue ? "Voir mes réponses" : "Voir le classement", "btn second"));
+        var liste = (t.classement || []).slice();
+        if (t.moi && !liste.some(function (x) { return x.moi; })) liste.push({ rang: t.moi.rang, pseudo: t.moi.pseudo, justes: t.moi.justes, n: t.moi.n, points: t.moi.points, moi: true });
+        corps.appendChild(liste.length ? tableauDuel({ classement: liste }, 10) : el("p", { "class": "meta", text: "Personne n’a encore joué. Sois le premier." }));
+        if (t.dejaJoue || t.termine) corps.appendChild(lien("#/salon/" + t.id, "Page du tournoi"));
+        if (window.poserIcones) window.poserIcones(corps);
+      });
+    }).then(null, function () { vide("Le tournoi ne se charge pas pour l’instant."); });
+    return carte;
+  }
+  /* Amis : salons, tournoi de la semaine, duels, classement du cercle. */
   function vueAmis() {
     var classement = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Chargement…" })]);
     var duels = el("div", { "class": "pile serree" });
+    var salons = el("div", { "class": "pile serree" });
     var info = el("p", { "class": "meta", role: "status" });
     var inviter = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Inviter un ami" })]);
     inviter.addEventListener("click", function () { partager("Koîos", "Apprends n’importe quel sujet, leçon par leçon, et défie‑moi.", location.origin + "/", function (t) { info.textContent = t; }); });
     var pasDeDuel = function (texte) { duels.innerHTML = ""; duels.appendChild(etatVide("epee", texte, lien("#/", "Choisir une formation", "btn second petit"))); };
+    var pasDeSalon = function (texte) { salons.innerHTML = ""; salons.appendChild(el("p", { "class": "meta", text: texte })); };
+    var creer = el("details", { "class": "plier creer-salon" }, [
+      el("summary", {}, [icone("cercle"), el("span", { text: "Créer un salon" })]),
+      el("div", { "class": "pile" }, [
+        el("p", { "class": "meta", text: "Choisis un sujet et une longueur. Tes amis rejoignent par un simple lien, sans limite de joueurs." }),
+        formulaireQuiz({ id: "sujet-salon", bouton: "Créer le salon", lancer: function (s, n) { location.hash = "#/nouveau-salon/" + enc(s) + "/" + n; } })
+      ])
+    ]);
     montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Amis" }),
-      el("section", { "class": "pile serree" }, [el("p", { "class": "meta", style: "font-size:16px", text: "Envoie un lien : ton ami rejoint Koîos et peut relever tes duels." }), inviter, info]),
+      el("section", { "class": "pile serree" }, [el("p", { "class": "meta", style: "font-size:16px", text: "Envoie un lien" + N + ": ton ami rejoint Koîos et peut jouer tes salons et relever tes duels." }), inviter, info]),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Salons" }), salons, creer]),
+      carteTournoi(),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Duels" }), duels]),
       el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement])
     ]), "amis", "Amis");
+    if (window.poserIcones) window.poserIcones(creer);
     pretServeur.then(function () {
-      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); pasDeDuel("Les duels demandent la connexion en ligne."); return; }
+      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Les salons demandent la connexion en ligne."); return; }
       api("GET", "cercle").then(function (j) {
         classement.innerHTML = "";
         var ol = el("ol", { "class": "liste" });
-        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
+        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee rang" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
         classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Personne n’a encore d’XP." }));
       }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); });
-      if (!enLigne()) { pasDeDuel("Les duels demandent la connexion en ligne."); return; }
+      if (!enLigne()) { pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Connecte‑toi pour retrouver tes salons."); return; }
       api("GET", "duels").then(function (j) {
-        var liste = (j.duels || []).slice(0, 8);
-        if (!liste.length) { pasDeDuel("Aucun duel pour l’instant. Lance‑en un depuis l’onglet Défis d’une formation."); return; }
-        var ul = el("ul", { "class": "liste" });
-        liste.forEach(function (d) {
-          var moi = profil && d.createur === profil.pseudo;
-          ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/duel/" + d.id }, [tuile("epee"), el("span", {}, [el("b", { text: moi ? "Duel lancé par toi" : "Duel de " + d.createur }), el("span", { "class": "meta", text: (moi ? "Envoyé" : "Reçu") + " · " + pluriel((d.scores || []).length, "joueur", "joueurs") })]), icone("chevron")])]));
-        });
-        duels.innerHTML = ""; duels.appendChild(ul);
-      }, function () { pasDeDuel("Les duels ne se chargent pas pour l’instant."); });
+        var tous = j.duels || [];
+        var mesSalons = tous.filter(function (d) { return d.type === "salon"; }).slice(0, 8);
+        var mesDuels = tous.filter(function (d) { return d.type !== "salon" && d.type !== "tournoi"; }).slice(0, 8);
+        if (!mesSalons.length) pasDeSalon("Aucun salon pour l’instant. Crée le tien, ou ouvre le lien d’un ami.");
+        else { var us = el("ul", { "class": "liste" }); mesSalons.forEach(function (d) { us.appendChild(rangeeSalon(d)); }); salons.innerHTML = ""; salons.appendChild(us); }
+        if (!mesDuels.length) pasDeDuel("Aucun duel pour l’instant. Lance‑en un depuis l’onglet Défis d’une formation.");
+        else { var ud = el("ul", { "class": "liste" }); mesDuels.forEach(function (d) { ud.appendChild(rangeeSalon(d)); }); duels.innerHTML = ""; duels.appendChild(ud); }
+        if (window.poserIcones) { window.poserIcones(salons); window.poserIcones(duels); }
+      }, function () { pasDeDuel("Les duels ne se chargent pas pour l’instant."); pasDeSalon("Les salons ne se chargent pas pour l’instant."); });
     });
   }
 
@@ -1467,6 +1815,11 @@
         listeAide(["Un quiz toutes les 5 leçons.", "Un grand quiz toutes les 10 leçons.", "Le quiz direct est toujours ouvert."]),
         el("p", { text: "Chaque réponse est expliquée, qu’elle soit juste ou fausse. Tes erreurs sont gardées pour être revues." })
       ]),
+      rubriqueAide("liste", "Le quiz de culture générale", [
+        el("p", { text: "Dans l’onglet Jouer, écris n’importe quel sujet ou choisis un thème. Tu peux aussi toucher " + guill("Surprends-moi") + "." }),
+        listeAide(["Tu choisis 10, 20, 30, 40 ou 50 questions.", "Les questions s’écrivent par blocs de 10. Tu joues dès que le premier bloc est prêt\u202f; la suite arrive pendant que tu joues.", "Chaque réponse, juste ou fausse, est expliquée.", "Les questions viennent de Wikipédia en français et en anglais. Une deuxième IA, différente de la première, les vérifie\u202f; ce qu’elle ne confirme pas est retiré. Un bloc peut donc compter un peu moins de 10 questions.", [guill("Rejouer avec de nouvelles questions") + N + ": tu reçois d’autres questions sur le même sujet, jamais les mêmes."]]),
+        el("p", { text: "Tu gagnes " + XP.quiz + N + "XP par bonne réponse, une seule fois par question." })
+      ]),
       rubriqueAide("diplome", "L’XP", [
         el("p", { text: "Tu gagnes de l’XP en avançant" + N + ":" }),
         listeAide([["Une leçon terminée" + N + ": ", gainAide(XP.palier)], ["Une bonne réponse à la question de vérification d’une leçon" + N + ": ", gainAide(XP.verif)], ["Une bonne réponse de quiz" + N + ": ", gainAide(XP.quiz)], ["Une bonne réponse de grand quiz" + N + ": ", gainAide(XP.defi)], ["Une bonne réponse dans un mini‑jeu" + N + ": ", gainAide(XP.jeu * 2)]]),
@@ -1480,23 +1833,26 @@
         el("p", { text: "Les photos viennent de Wikimédia Commons ou d’Unsplash, avec leur crédit et leur licence." })
       ]),
       rubriqueAide("cercle", "Avec tes amis", [
-        el("p", { text: "L’onglet Amis réunit ce qui se fait à plusieurs. L’onglet Jouer garde la question du jour, le quiz mélangé et les mini‑jeux." }),
+        el("p", { text: "L’onglet Amis réunit ce qui se fait à plusieurs. L’onglet Jouer garde le quiz de culture générale, la question du jour, le quiz mélangé et les mini‑jeux." }),
         listeAide([
-          ["Question du jour" + N + ": la même pour tous. Les jours de réponse qui se suivent forment ta série."],
+          ["Question du jour" + N + ": la même pour tous, sur un thème qui change chaque jour (cinéma, sport, sciences…). Les jours de réponse qui se suivent forment ta série."],
           ["Quiz mélangé" + N + ": 10 questions sur tous les sujets."],
-          ["Duel" + N + ": lance‑le depuis l’onglet Défis d’un sujet ou depuis le quiz mélangé. Envoie le lien à un ami" + N + ": il a les mêmes questions que toi, et le tableau du duel compare vos scores. Les duels demandent la connexion en ligne."],
+          ["Salon" + N + ": un quiz de culture générale que tes amis jouent par un simple lien, sans limite de joueurs. Crée‑le depuis l’onglet Amis, ou touche " + guill("Défier des amis") + " à la fin d’un quiz. Le classement du salon compte " + XP.quiz + N + "points par bonne réponse."],
+          ["Tournoi de la semaine" + N + ": 10 questions sur un thème qui change chaque semaine, une seule partie par joueur, du lundi 00" + N + "h au dimanche 23" + N + "h 59 (heure UTC). Ensuite le classement reste visible, mais les scores ne changent plus."],
+          ["Duel" + N + ": lance‑le depuis l’onglet Défis d’un sujet ou depuis le quiz mélangé. Envoie le lien à un ami" + N + ": il a les mêmes questions que toi, et le tableau du duel compare vos scores."],
           ["Classement" + N + ": les joueurs, classés selon leurs XP cumulés, dans l’onglet Amis."],
           ["Inviter" + N + ": un lien à partager pour faire venir un ami dans Koîos."]
-        ])
+        ]),
+        el("p", { text: "Les salons, les duels et le tournoi demandent la connexion en ligne." })
       ]),
       rubriqueAide("profil", "Ton compte", [
         el("p", { text: "Ta progression est gardée sur ton téléphone et synchronisée. La clé de connexion, dans le Profil, te permet de la retrouver sur un autre appareil. Garde‑la pour toi." })
       ]),
       rubriqueAide("sablier", "Limites", [
         el("p", { text: "Une leçon nouvelle peut prendre jusqu’à une minute la première fois. Ensuite elle s’ouvre tout de suite, pour tout le monde." }),
-        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + "." }),
-        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + " et " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
-        el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites." }),
+        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale." }),
+        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
+        el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites. La question du jour et le tournoi sont écrits une seule fois pour tous et ne comptent pas dans tes limites." }),
         el("p", { text: "L’IA peut se tromper." })
       ])
     ]);
@@ -1523,6 +1879,9 @@
         return vuePalier(p[1], Math.max(1, parseInt(p[2], 10) || 1));
       case "jeu": return p[1] === "jour" ? vueJour() : p[1] === "erreurs" ? vueErreurs() : vueMelange();
       case "duel": return vueDuel(p[1]);
+      case "salon": return p[2] === "reponses" ? vueReponses(p[1]) : vueDuel(p[1], p[2] === "jouer");
+      case "quiz": return vueQuizGeneral(p[1], parseInt(p[2], 10), /^\d+$/.test(p[3] || "") ? parseInt(p[3], 10) : undefined);
+      case "nouveau-salon": return vueNouveauSalon(p[1], parseInt(p[2], 10));
       case "jouer": return vueJouer();
       case "amis": return vueAmis();
       case "profil": return vueProfil();

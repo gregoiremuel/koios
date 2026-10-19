@@ -231,7 +231,7 @@ a.tb:active, button.tb:active { transform: scale(0.98); }
 /* Onglets segmentés */
 .onglets { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 12px; background: var(--pale); }
 .onglets button { min-height: 44px; border: 0; border-radius: 9px; background: none; font-weight: 600; font-size: 16px; color: var(--encre-2); cursor: pointer; }
-.onglets button[aria-selected="true"] { background: var(--fond); color: var(--acc); outline: 1px solid var(--bord); }
+.onglets button[aria-selected="true"], .onglets button[aria-checked="true"] { background: var(--fond); color: var(--acc); outline: 1px solid var(--bord); }
 
 /* Parcours */
 .etape-titre { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 8px; }
@@ -376,6 +376,7 @@ button.rang { cursor: pointer; }
 .etapes-q i.fait { background: var(--encre); }
 .etapes-q i.ok { background: var(--juste); }
 .etapes-q i.ko { background: var(--faux); }
+.etapes-q.dense { gap: 1px; }
 .ordre { display: grid; gap: 6px; }
 .case { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: center; min-height: 52px; padding: 8px 14px; border: 1px dashed var(--ligne-forte); border-radius: 12px; font-size: 16px; }
 .case.pleine { border-style: solid; }
@@ -478,6 +479,22 @@ details.plier.ligne p { padding-bottom: 10px; }
 .aide-corps { display: grid; gap: 10px; padding: 0 0 16px 32px; }
 details.plier.ligne .aide-corps p { padding: 0; font-size: 16px; line-height: 1.55; }
 .aide-liste { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 16px; line-height: 1.55; }
+
+/* Quiz de culture générale : thèmes, longueur, attente par blocs, classement, tournoi */
+.puces { display: flex; flex-wrap: wrap; gap: 8px; }
+.theme-puce { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px 0 10px; border: 1px solid var(--bord); border-radius: 12px; background: var(--pale); color: var(--acc); font-weight: 600; font-size: 16px; cursor: pointer; transition: transform 150ms ease-out; -webkit-tap-highlight-color: transparent; }
+.theme-puce .i { width: 20px; height: 20px; }
+.theme-puce:active { transform: scale(0.98); }
+.theme-puce[aria-pressed="true"] { background: var(--acc); border-color: var(--acc); color: #fff; }
+.progres.gen { background: var(--ligne); }
+.progres.gen i { width: 100%; background: var(--encre); transform: scaleX(var(--p, 0)); transform-origin: left center; transition: transform 250ms ease-out; animation: none; }
+.statut-flux { text-align: center; }
+.rangee.rang { grid-template-columns: 32px 1fr auto; min-height: 52px; }
+.saut { margin: 0; padding: 0 0 0 4px; line-height: 1; color: var(--encre-2); }
+.carte.tournoi .theme-tournoi { font-size: 17px; font-weight: 600; }
+details.creer-salon { padding-top: 4px; }
+details.creer-salon summary { gap: 10px; font-size: 16px; min-height: 48px; padding: 0 16px; border: 1px solid var(--ligne-forte); border-radius: 12px; }
+details.creer-salon[open] summary { margin-bottom: 8px; }
 
 /* Moins de mouvement : tout s'affiche sans animer. La barre indéterminée devient un trait fixe. */
 @media (prefers-reduced-motion: reduce) {

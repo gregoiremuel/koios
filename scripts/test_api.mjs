@@ -51,6 +51,12 @@ import { onRequestGet as glossaireGet } from '../functions/api/glossaire.js';
 import { onRequestGet as imageGet } from '../functions/api/image.js';
 import { onRequestGet as quizGet } from '../functions/api/quiz.js';
 import { onRequestPost as quizDirectPost } from '../functions/api/quiz-direct.js';
+import { onRequestGet as quizGeneralGet, onRequestPost as quizGeneralPost } from '../functions/api/quiz-general.js';
+import { onRequestGet as jourGet } from '../functions/api/jour.js';
+import { onRequestGet as tournoiGet } from '../functions/api/tournoi.js';
+import {
+  THEMES, classer, finDeSemaine, jourUtc, lireIdBloc, lireRefQg, lundiDe, themeDeLaSemaine, themeDuJour,
+} from '../lib/general.js';
 import { fauxD1 } from './faux_d1.mjs';
 
 // --- Fausse IA -------------------------------------------------------------
@@ -107,7 +113,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -153,6 +159,10 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
     [quizGet, { requete: '?parcours=phares' }],
     [quizDirectPost, { methode: 'POST', jeton, corps: { parcours: 'phares' } }],
     [glossaireGet, { requete: '?parcours=phares&jusqua=1' }],
+    [quizGeneralPost, { methode: 'POST', jeton, corps: { sujet: 'Les phares', n: 10 } }],
+    [quizGeneralGet, { requete: '?bloc=phares:1' }],
+    [jourGet, {}],
+    [tournoiGet, {}],
   ];
   for (const [handler, options] of cas) {
     const rep = await appel(handler, { ...options, env: sansBase });
@@ -175,7 +185,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'images', 'joueurs', 'paliers', 'parcours', 'quiz_direct', 'quotas', 'signalements', 'sujets']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'images', 'joueurs', 'paliers', 'parcours', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sujets']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
@@ -189,6 +199,8 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(colonnes('parcours'), ['id', 'titre', 'contenu', 'auteur', 'vues', 'cree']);
   assert.deepEqual(colonnes('paliers'), ['id', 'parcours', 'numero', 'contenu', 'vues', 'cree']);
   assert.deepEqual(colonnes('quiz_direct'), ['parcours', 'contenu', 'cree']);
+  assert.deepEqual(colonnes('quiz_general'), ['id', 'sujet', 'bloc', 'contenu', 'cree']);
+  assert.deepEqual(colonnes('salons'), ['id', 'titre', 'type', 'fin', 'cree']);
 });
 
 test('quota : compte, refuse au-delà, repart à zéro le lendemain', async () => {
@@ -800,7 +812,7 @@ function insererChapitre(sujetId, numero, titre = `Chapitre ${numero}`) {
 const toutVoir = () => { toutVider(); reinitWiki(); reinitExt(); };
 // Repart d'une bibliothèque vide en gardant les joueurs.
 const viderBibliotheque = () => {
-  for (const t of ['quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct']) db.base.exec(`DELETE FROM ${t}`);
+  for (const t of ['quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons']) db.base.exec(`DELETE FROM ${t}`);
   reinitWiki();
   reinitExt();
 };
@@ -1754,7 +1766,8 @@ test('duel POST : crée un duel (id de 8 caractères), GET le rend jouable sans 
   ok200(g);
   assert.deepEqual(Object.keys(g.corps), ['duel']);
   const d = g.corps.duel;
-  assert.deepEqual(Object.keys(d), ['id', 'createur', 'questions', 'scores', 'dejaJoue']);
+  assert.deepEqual(Object.keys(d), ['id', 'createur', 'questions', 'scores', 'dejaJoue', 'titre', 'type', 'fin', 'termine', 'joueurs', 'classement']);
+  assert.deepEqual([d.titre, d.type, d.fin, d.termine, d.joueurs], [null, 'duel', null, false, 1], 'un duel ordinaire reste un duel');
   assert.equal(d.id, r.corps.id);
   assert.equal(d.createur, 'Alice');
   assert.equal(d.questions.length, 5);
@@ -4570,6 +4583,594 @@ test('glossaire GET : paramètres invalides 400 ; parcours bien formé mais inco
   assert.equal(rep.status, 405);
 });
 
+// =============================================================================
+// Quiz de culture générale : blocs, question du jour, salons, tournoi
+// =============================================================================
+
+const quotasQg = () => lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'quizgeneral%' ORDER BY cle");
+const postQg = (sc, joueur, corps, extra = {}) =>
+  appel(quizGeneralPost, { env: envDe(sc, extra), methode: 'POST', jeton: joueur && joueur.jeton, corps });
+// Une page Wikipédia (FR et EN) au nom du thème, pour que la recherche la trouve.
+function pageDeTheme(theme) {
+  wiki.pages[theme] = { extract: texteWiki(theme, 700), image: null };
+  wiki.pagesEn[theme] = { extract: texteWiki(theme + ' (en)', 700), image: null };
+}
+
+test('quiz-general POST : 401, 400 (sujet, n, regenerer, apres), 503, 413 ; rien consommé', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario(partiesStandard());
+  erreurFr(await postQg(sc, null, { sujet: 'La tour Eiffel', n: 10 }), 401);
+  for (const sujet of [undefined, null, '', 'a', '   ', 12, ['x'], 'x'.repeat(81), '!!! ???']) {
+    erreurFr(await postQg(sc, j, { sujet, n: 10 }), 400, /Sujet/);
+  }
+  for (const n of [undefined, null, 0, 5, 15, 60, '10', 10.5, [10], 100]) {
+    erreurFr(await postQg(sc, j, { sujet: 'La tour Eiffel', n }), 400, /10, 20, 30, 40 ou 50/);
+  }
+  erreurFr(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10, regenerer: 'oui' }), 400, /regenerer/);
+  for (const apres of [-1, 1.5, '2', 10000, null]) erreurFr(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10, regenerer: true, apres }), 400, /apres/);
+  erreurFr(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 50, regenerer: true, apres: 9996 }), 400, /tour de ce sujet/);
+  erreurFr(await appel(quizGeneralPost, { env: { DB: db, AI: undefined }, methode: 'POST', jeton: j.jeton, corps: { sujet: 'La tour Eiffel', n: 10 } }), 503, /IA absente/);
+  erreurFr(await appel(quizGeneralPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { sujet: 'La tour Eiffel', n: 10, bourrage: 'x'.repeat(3000) } }), 413);
+  assert.equal(sc.appels.length, 0);
+  assert.equal(quotasQg().length, 0);
+  assert.equal(lignes('SELECT * FROM quiz_general').length, 0);
+});
+
+test('quiz-general POST : écrit UN bloc par requête (le front rappelle), cache partagé, non-répétition dans le message', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const autre = await creerJoueur('Autre');
+  const sc = scenario(partiesStandard());
+  const r1 = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 30 });
+  ok200(r1);
+  assert.deepEqual(Object.keys(r1.corps), ['questions', 'manquants', 'blocs']);
+  assert.equal(r1.corps.manquants, 2);
+  assert.deepEqual(r1.corps.blocs, [1, 2, 3]);
+  assert.equal(r1.corps.questions.length, 10);
+  assert.deepEqual(Object.keys(r1.corps.questions[0]), ['palier', 'titre', 'index', 'question']);
+  assert.ok(r1.corps.questions.every((q, i) => q.palier === 'qg:la-tour-eiffel:1' && q.titre === 'La tour Eiffel' && q.index === i));
+  assert.deepEqual(r1.corps.questions.slice(0, 7).map((q) => q.question.type), Array(7).fill('qcm'));
+  assert.deepEqual(r1.corps.questions.slice(7).map((q) => q.question.type), Array(3).fill('vraifaux'));
+  assert.ok(r1.corps.questions.every((q) => q.question.explication.length >= 20), 'chaque réponse a son explication');
+  // Écriture puis vérification par l'autre IA, extraits FR et EN du sujet ; le 1er bloc ne reçoit pas de liste.
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.modele]), [['quiz', LLAMA], ['verif', MISTRAL]]);
+  assert.equal(sc.appels[0].entree.messages[0].content, PROMPT_QUIZ);
+  const demande1 = sc.appels[0].entree.messages[1].content;
+  assert.match(demande1, /Parcours : « La tour Eiffel »/);
+  assert.match(demande1, /Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel »/);
+  assert.match(demande1, /Extrait 2 · Wikipedia \(en\), page « Eiffel Tower »/);
+  assert.match(demande1, /faciles, moyennes et difficiles/);
+  assert.doesNotMatch(demande1, /déjà écrites/);
+  const r2 = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 30 });
+  assert.equal(r2.corps.manquants, 1);
+  assert.equal(r2.corps.questions.length, 20);
+  assert.deepEqual([...new Set(r2.corps.questions.map((q) => q.palier))], ['qg:la-tour-eiffel:1', 'qg:la-tour-eiffel:2']);
+  // Non-répétition : le bloc 2 reçoit les énoncés du bloc 1.
+  const demande2 = sc.par('quiz')[1].entree.messages[1].content;
+  assert.match(demande2, /Questions déjà écrites sur ce sujet/);
+  assert.match(demande2, /- Question numéro 1 sur la tour Eiffel/);
+  assert.match(demande2, /- Affirmation numéro 8 sur la tour Eiffel/, 'les vrai ou faux aussi');
+  const r3 = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 30 });
+  assert.equal(r3.corps.manquants, 0);
+  assert.equal(r3.corps.questions.length, 30);
+  assert.deepEqual(lignes('SELECT id, sujet, bloc FROM quiz_general ORDER BY bloc'), [1, 2, 3].map((k) => ({ id: 'la-tour-eiffel:' + k, sujet: 'La tour Eiffel', bloc: k })));
+  assert.match(sc.par('quiz')[2].entree.messages[1].content, /- Question numéro 1 sur la tour Eiffel/);
+  const stocke = JSON.parse(lignes("SELECT contenu FROM quiz_general WHERE id = 'la-tour-eiffel:1'")[0].contenu);
+  assert.deepEqual(Object.keys(stocke), ['questions', 'sources', 'verification']);
+  assert.deepEqual(stocke.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: 20, retirees: 0, statut: 'recoupe' });
+  assert.deepEqual(quotasQg(), [{ cle: 'quizgeneral:joueur:' + j.id, n: 3 }, { cle: 'quizgeneral:total', n: 3 }].sort((a, b) => (a.cle < b.cle ? -1 : 1)));
+  // Tout est en cache : un autre lecteur, même sans IA, reçoit les 30 questions sans rien consommer. Même sujet écrit autrement.
+  const avant = sc.appels.length;
+  const cache = await appel(quizGeneralPost, { env: { DB: db, AI: undefined }, methode: 'POST', jeton: autre.jeton, corps: { sujet: '  la TOUR Eiffel ', n: 30 } });
+  ok200(cache);
+  assert.deepEqual(cache.corps, r3.corps);
+  const moins = await appel(quizGeneralPost, { env: { DB: db, AI: undefined }, methode: 'POST', jeton: autre.jeton, corps: { sujet: 'La tour Eiffel', n: 10 } });
+  assert.equal(moins.corps.questions.length, 10);
+  assert.equal(sc.appels.length, avant);
+  assert.equal(quotasQg().length, 2);
+});
+
+test('quiz-general POST : retraits de la vérification (un bloc peut compter moins de 10 questions), 502 si l’IA échoue deux fois', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario({ ...partiesStandard(), verif: [verifNumeros(2, 6, 10)] });
+  const r = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10 });
+  ok200(r);
+  assert.equal(r.corps.questions.length, 7);
+  assert.deepEqual(r.corps.questions.map((q) => q.index), nombres(0, 6));
+  assert.equal(r.corps.manquants, 0);
+  toutVider();
+  const court = { questions: quizBrut().questions.slice(0, 4) };
+  const sc2 = scenario({ ...partiesStandard(), quiz: [court] });
+  const j2 = await creerJoueur('Deux');
+  erreurFr(await postQg(sc2, j2, { sujet: 'La tour Eiffel', n: 10 }), 502);
+  assert.equal(lignes('SELECT * FROM quiz_general').length, 0);
+});
+
+test('quiz-general POST : régénérer prend les blocs suivants, au-delà de 5 des blocs neufs 6, 7…', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario(partiesStandard());
+  const q = (corps) => postQg(sc, j, { sujet: 'La tour Eiffel', ...corps });
+  ok200(await q({ n: 10 }));
+  // Sans « apres » : les blocs qui suivent les n / 10 premiers.
+  const r2 = await q({ n: 10, regenerer: true });
+  assert.deepEqual(r2.corps.blocs, [2]);
+  assert.ok(r2.corps.questions.every((x) => x.palier === 'qg:la-tour-eiffel:2'));
+  assert.equal(r2.corps.manquants, 0);
+  const r3 = await q({ n: 20, regenerer: true, apres: 2 });
+  assert.deepEqual(r3.corps.blocs, [3, 4]);
+  assert.equal(r3.corps.manquants, 1);
+  assert.equal((await q({ n: 20, regenerer: true, apres: 2 })).corps.manquants, 0);
+  // Le bloc 5 puis, au-delà, des blocs neufs numérotés 6, 7… sans limite.
+  const r6 = await q({ n: 10, regenerer: true, apres: 5 });
+  assert.deepEqual(r6.corps.blocs, [6]);
+  assert.ok(r6.corps.questions.every((x) => x.palier === 'qg:la-tour-eiffel:6'));
+  const r12 = await q({ n: 30, regenerer: true, apres: 11 });
+  assert.deepEqual(r12.corps.blocs, [12, 13, 14]);
+  assert.equal(r12.corps.questions.length, 10);
+  assert.deepEqual(lignes('SELECT bloc FROM quiz_general ORDER BY bloc').map((x) => x.bloc), [1, 2, 3, 4, 6, 12]);
+  // Chaque bloc neuf reçoit les énoncés de tous les blocs déjà écrits.
+  const dernier = sc.par('quiz').at(-1).entree.messages[1].content;
+  assert.match(dernier, /Questions déjà écrites/);
+  // Les mêmes blocs sans « regenerer » : les premiers, déjà en cache.
+  const retour = await q({ n: 20 });
+  assert.deepEqual(retour.corps.blocs, [1, 2]);
+  assert.equal(retour.corps.manquants, 0);
+});
+
+test('quiz-general POST : 25 blocs nouveaux par lecteur et par jour, 150 en tout ; un bloc en cache ne coûte rien', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const autre = await creerJoueur('Autre');
+  const sc = scenario(partiesStandard());
+  db.base.prepare('INSERT INTO quotas (cle, n, jour) VALUES (?, ?, ?)').run('quizgeneral:joueur:' + j.id, 24, aujourdhui());
+  ok200(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10 }));
+  erreurFr(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 20 }), 429, /25 blocs/);
+  // Ce qui est en cache reste servi.
+  const cache = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10 });
+  ok200(cache);
+  assert.equal(cache.corps.questions.length, 10);
+  assert.equal(sc.par('quiz').length, 1);
+  // Plafond total : un autre lecteur est refusé, sans consommer son propre quota de lecteur... ni écrire.
+  db.base.prepare("UPDATE quotas SET n = 150 WHERE cle = 'quizgeneral:total'").run();
+  erreurFr(await postQg(sc, autre, { sujet: 'Gustave Eiffel', n: 10 }), 429, /débordé/);
+  assert.equal(sc.par('quiz').length, 1);
+  // Le lendemain : les compteurs repartent à zéro.
+  db.base.prepare("UPDATE quotas SET jour = '2000-01-01'").run();
+  ok200(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 20 }));
+});
+
+test('quiz-general POST : aucune source sur Wikipédia : 422 « Je ne trouve aucune source fiable sur ce sujet. », rien consommé', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario(partiesStandard());
+  const r = await postQg(sc, j, { sujet: 'Zzzqx wvut', n: 10 });
+  erreurFr(r, 422);
+  assert.equal(r.corps.erreur, 'Je ne trouve aucune source fiable sur ce sujet.');
+  assert.equal(sc.appels.length, 0);
+  assert.equal(quotasQg().length, 0);
+  assert.equal(lignes('SELECT * FROM quiz_general').length, 0);
+});
+
+test('quiz-general POST : deux lecteurs sur le même bloc en même temps : le premier enregistré gagne', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const gagnant = { questions: validerQuiz(quizBrut()).valeur.questions.slice(0, 6).map((q) => ({ ...q, explication: 'Le lecteur arrivé le premier a écrit cette explication.' })), sources: [], verification: {} };
+  const sc = scenario({ ...partiesStandard(), verif: [() => {
+    db.base.prepare('INSERT INTO quiz_general (id, sujet, bloc, contenu, cree) VALUES (?, ?, ?, ?, ?)').run('la-tour-eiffel:1', 'La tour Eiffel', 1, JSON.stringify(gagnant), 'x');
+    return verifNumeros();
+  }] });
+  const r = await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10 });
+  ok200(r);
+  assert.equal(r.corps.questions.length, 6);
+  assert.match(r.corps.questions[0].question.explication, /arrivé le premier/);
+});
+
+test('quiz-general GET : un bloc en cache (sujet, jour ou tournoi), public ; 400 et 404', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario(partiesStandard());
+  ok200(await postQg(sc, j, { sujet: 'La tour Eiffel', n: 10 }));
+  const g = await appel(quizGeneralGet, { requete: '?bloc=la-tour-eiffel:1' });
+  ok200(g);
+  assert.deepEqual(Object.keys(g.corps), ['questions']);
+  assert.equal(g.corps.questions.length, 10);
+  assert.equal(g.corps.questions[3].palier, 'qg:la-tour-eiffel:1');
+  for (const bloc of [undefined, '', 'la-tour-eiffel', 'la-tour-eiffel:0', 'la-tour-eiffel:10000', 'Pas Valide:1', 'jour:2026-13-40', 'tournoi:hier', 'x:1;DROP']) {
+    erreurFr(await appel(quizGeneralGet, { requete: bloc === undefined ? '' : '?bloc=' + encodeURIComponent(bloc) }), 400);
+  }
+  erreurFr(await appel(quizGeneralGet, { requete: '?bloc=autre:1' }), 404);
+  erreurFr(await appel(quizGeneralGet, { requete: '?bloc=jour:2026-10-19' }), 404);
+});
+
+test('lib/general : identifiants de blocs, références qg, thèmes, semaine, classement', async () => {
+  assert.equal(lireIdBloc('phares:3'), 'phares:3');
+  assert.equal(lireIdBloc('jour:2026-10-19'), 'jour:2026-10-19');
+  assert.equal(lireIdBloc('tournoi:2026-10-19'), 'tournoi:2026-10-19');
+  for (const mauvais of ['phares:0', 'phares:12345', 'phares', 'jour:2026-02-31', 'a:b', '', null, 5, 'PHARES:1']) assert.equal(lireIdBloc(mauvais), null, String(mauvais));
+  assert.equal(lireRefQg('qg:phares:2'), 'phares:2');
+  assert.equal(lireRefQg('qg:tournoi:2026-10-19'), 'tournoi:2026-10-19');
+  for (const mauvais of ['phares:2', 'qg:jour:2026-10-19', 'qg:phares', 'qg:', 'ia:phares:2', 'qg:phares:2:3', undefined]) assert.equal(lireRefQg(mauvais), null, String(mauvais));
+  // Thèmes : une soixantaine, tous différents, un par jour de l'année (modulo), aucun mot interdit.
+  assert.ok(THEMES.length >= 55 && THEMES.length <= 70);
+  assert.equal(new Set(THEMES.map((x) => x.toLowerCase())).size, THEMES.length);
+  assert.ok(THEMES.every((x) => x.length >= 3 && x.length <= 40 && !contientInterdit(x)));
+  assert.equal(themeDuJour('2026-01-01'), THEMES[0]);
+  assert.equal(themeDuJour('2026-01-02'), THEMES[1]);
+  assert.equal(themeDuJour('2026-03-02'), THEMES[60 % THEMES.length], 'jour 61 de l’année');
+  assert.notEqual(themeDuJour('2026-10-19'), themeDuJour('2026-10-20'));
+  // Semaine : du lundi 00:00 au dimanche 23:59:59.999 (UTC).
+  assert.equal(lundiDe('2026-10-19'), '2026-10-19'); // un lundi
+  assert.equal(lundiDe('2026-10-25'), '2026-10-19'); // le dimanche d'après
+  assert.equal(lundiDe('2026-10-26'), '2026-10-26');
+  assert.equal(lundiDe('2026-01-01'), '2025-12-29');
+  assert.equal(finDeSemaine('2026-10-19'), '2026-10-25T23:59:59.999Z');
+  assert.equal(themeDeLaSemaine('2026-10-19'), themeDeLaSemaine('2026-10-19'));
+  assert.notEqual(themeDeLaSemaine('2026-10-19'), themeDeLaSemaine('2026-10-26'));
+  // Classement : par points, puis bonnes réponses, puis date ; jamais d'identifiant.
+  const c = classer([
+    { joueur: 'a', pseudo: 'A', justes: 3, n: 5, points: 30, date: '2026-10-19T10:00:00Z' },
+    { joueur: 'b', pseudo: 'B', justes: 5, n: 5, points: 50, date: '2026-10-19T11:00:00Z' },
+    { joueur: 'c', pseudo: 'C', justes: 4, n: 5, points: 30, date: '2026-10-19T09:00:00Z' },
+  ], 'a');
+  assert.deepEqual(c.map((x) => [x.rang, x.pseudo, x.moi]), [[1, 'B', undefined], [2, 'C', undefined], [3, 'A', true]]);
+  assert.ok(!JSON.stringify(c).includes('"joueur"'));
+});
+
+// --- GET /api/jour ---
+
+const quotaJour = () => lignes("SELECT n FROM quotas WHERE cle = 'quizjour:tentatives'").map((x) => x.n);
+
+test('jour GET : thème du jour, question écrite à la première requête puis servie à tous (cache), sans quota de lecteur', async () => {
+  toutVoir();
+  const date = jourUtc();
+  const theme = themeDuJour(date);
+  pageDeTheme(theme);
+  const sc = scenario(partiesStandard());
+  const r = await appel(jourGet, { env: envDe(sc) });
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['date', 'theme', 'question']);
+  assert.equal(r.corps.date, date);
+  assert.equal(r.corps.theme, theme);
+  assert.deepEqual(Object.keys(r.corps.question), ['palier', 'titre', 'index', 'question']);
+  assert.equal(r.corps.question.palier, 'jour:' + date);
+  assert.equal(r.corps.question.titre, theme);
+  assert.equal(r.corps.question.index, 0);
+  assert.equal(r.corps.question.question.type, 'qcm', 'la 1re question à choix');
+  assert.ok(r.corps.question.question.explication.length >= 20);
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['quiz', 'verif']);
+  assert.match(sc.appels[0].entree.messages[1].content, new RegExp(`Parcours : « ${theme} »`));
+  const [ligne] = lignes('SELECT id, sujet, bloc, contenu FROM quiz_general');
+  assert.deepEqual([ligne.id, ligne.sujet, ligne.bloc], ['jour:' + date, theme, 0]);
+  assert.equal(JSON.parse(ligne.contenu).questions.length, 1);
+  assert.deepEqual(quotaJour(), [1]);
+  // Cache : même réponse, sans IA, sans tentative de plus. Aucune connexion nécessaire.
+  const apres = await appel(jourGet, { env: { DB: db, AI: undefined } });
+  assert.deepEqual(apres.corps, r.corps);
+  assert.deepEqual(quotaJour(), [1]);
+  // Lisible comme les autres blocs (pour revoir ses erreurs).
+  assert.equal((await appel(quizGeneralGet, { requete: '?bloc=jour:' + date })).corps.questions[0].question.enonce, r.corps.question.question.enonce);
+});
+
+test('jour GET : ?date= acceptée la veille ou le lendemain (UTC), ignorée sinon', async () => {
+  toutVoir();
+  const dec = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+  const sc = scenario(partiesStandard());
+  for (const d of [dec(-1), dec(1)]) {
+    pageDeTheme(themeDuJour(d));
+    const r = await appel(jourGet, { env: envDe(sc), requete: '?date=' + d });
+    assert.equal(r.corps.date, d);
+    assert.equal(r.corps.theme, themeDuJour(d));
+  }
+  for (const d of [dec(-5), dec(30), '2026-02-31', 'hier', '']) {
+    const r = await appel(jourGet, { env: { DB: db, AI: undefined }, requete: '?date=' + d });
+    ok200(r);
+    assert.equal(r.corps.date, jourUtc());
+  }
+});
+
+test('jour GET : en cas d’échec, repli sur le pool vérifié, jamais d’erreur ; plafond global de 5 tentatives par jour', async () => {
+  toutVoir();
+  const date = jourUtc();
+  pageDeTheme(themeDuJour(date));
+  const pool = [{ palier: 'v-hg:1', titre: 'De la Révolution', index: 0, question: { type: 'qcm', enonce: 'Question du pool ?', reponses: ['a', 'b', 'c', 'd'], bonne: 0, explication: 'Parce que le pool le dit.' } },
+    { palier: 'v-hg:1', titre: 'De la Révolution', index: 1, question: { type: 'ordre', enonce: 'x', elements: [], ordre: [] } }];
+  const assets = { fetch: async (requete) => (new URL(requete.url).pathname === '/contenu/questions.json' ? new Response(JSON.stringify(pool)) : new Response('non', { status: 404 })) };
+  const court = { questions: quizBrut().questions.slice(0, 4) };
+  const sc = scenario({ ...partiesStandard(), quiz: [court] });
+  const env2 = envDe(sc, { ASSETS: assets });
+  const echec = async () => {
+    const r = await appel(jourGet, { env: env2 });
+    ok200(r);
+    assert.deepEqual(r.corps, { date, theme: null, question: { palier: 'v-hg:1', titre: 'De la Révolution', index: 0, question: pool[0].question }, repli: true });
+  };
+  await echec();
+  const parTentative = sc.appels.length;
+  assert.ok(parTentative >= 2);
+  for (let i = 0; i < 4; i++) await echec();
+  assert.equal(sc.appels.length, parTentative * 5);
+  assert.equal(lignes('SELECT * FROM quiz_general').length, 0);
+  // 6e requête : plus de tentative, le repli répond tout de suite.
+  await echec();
+  await echec();
+  assert.equal(sc.appels.length, parTentative * 5, 'plafond global atteint : plus aucun appel d’IA');
+  // Sans IA ni pool : question null, 200 quand même (l'app a son propre pool).
+  const nu = await appel(jourGet, { env: { DB: db, AI: undefined } });
+  assert.deepEqual(nu.corps, { date, theme: null, question: null, repli: true });
+  // Pool illisible : même chose.
+  const casse = await appel(jourGet, { env: { DB: db, AI: undefined, ASSETS: { fetch: async () => new Response('<html>', { status: 200 }) } } });
+  assert.equal(casse.corps.question, null);
+  // Un thème sans page Wikipédia : repli aussi.
+  toutVider();
+  wiki.pages = {};
+  wiki.pagesEn = {};
+  const sansSource = await appel(jourGet, { env: envDe(scenario(partiesStandard()), { ASSETS: assets }) });
+  assert.equal(sansSource.corps.repli, true);
+});
+
+// --- Duels : références qg, salons ---
+
+const refsBloc = (k, de = 0, a = 9, slugSujet = 'la-tour-eiffel') => nombres(de, a).map((index) => ({ chapitre: `qg:${slugSujet}:${k}`, index }));
+async function preparerBlocs(joueur, n = 30, sujet = 'La tour Eiffel') {
+  const sc = scenario(partiesStandard());
+  for (let i = 0; i < n / 10; i++) ok200(await postQg(sc, joueur, { sujet, n }));
+  return sc;
+}
+const creerSalon = (joueur, corps) => appel(duelPost, { methode: 'POST', jeton: joueur.jeton, corps });
+const scoreSalon = (n, justes = 3, points = 50) => ({ justes, n, points });
+
+test('duel POST : accepte les références qg:<slug>:<k> existantes ; bloc ou question inconnus : 400', async () => {
+  toutVoir();
+  const a = await creerJoueur('Alice');
+  await preparerBlocs(a, 20);
+  const ok = await creerSalon(a, { questions: [...refsBloc(1, 0, 4), ...refsBloc(2, 8, 9)], score: scoreSalon(7) });
+  ok200(ok);
+  assert.deepEqual(JSON.parse(lignes('SELECT questions FROM duels')[0].questions).slice(-1), [{ chapitre: 'qg:la-tour-eiffel:2', index: 9 }]);
+  assert.equal(lignes('SELECT * FROM salons').length, 0, 'un duel ordinaire n’a pas de ligne salons');
+  for (const questions of [
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:la-tour-eiffel:1', index: 10 }],
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:la-tour-eiffel:3', index: 0 }],
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:autre:1', index: 0 }],
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:jour:2026-10-19', index: 0 }],
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:tournoi:2026-10-19', index: 0 }],
+    [...refsBloc(1, 0, 3), { chapitre: 'qg:la-tour-eiffel:1:2', index: 0 }],
+  ]) {
+    const r = await creerSalon(a, { questions, score: scoreSalon(5) });
+    assert.equal(r.statut, 400, JSON.stringify(questions.at(-1)));
+  }
+  assert.equal(lignes('SELECT * FROM duels').length, 1);
+});
+
+test('duel POST : salon (titre, 5 à 50 questions, score facultatif, fin) ; type, titre ou fin invalides : 400 ; anciens duels intacts', async () => {
+  toutVoir();
+  const a = await creerJoueur('Alice');
+  await preparerBlocs(a, 50);
+  const cinquante = [1, 2, 3, 4, 5].flatMap((k) => refsBloc(k));
+  // Salon de 50 questions créé avant d'être joué : aucun score, le lien suffit.
+  const r = await creerSalon(a, { questions: cinquante, type: 'salon', titre: '  La tour   Eiffel ' });
+  ok200(r);
+  const [ligne] = lignes('SELECT * FROM salons');
+  assert.deepEqual({ ...ligne, cree: typeof ligne.cree }, { id: r.corps.id, titre: 'La tour Eiffel', type: 'salon', fin: null, cree: 'string' });
+  assert.equal(lignes('SELECT scores FROM duels')[0].scores, '[]');
+  let d = (await appel(duelGet, { requete: '?id=' + r.corps.id })).corps.duel;
+  assert.deepEqual([d.titre, d.type, d.fin, d.termine, d.joueurs, d.dejaJoue, d.createur, d.questions.length], ['La tour Eiffel', 'salon', null, false, 0, false, 'Alice', 50]);
+  assert.deepEqual(d.classement, []);
+  // Un duel ordinaire reste limité à 20 questions et exige son score.
+  assert.equal((await creerSalon(a, { questions: cinquante.slice(0, 21), score: scoreSalon(21) })).statut, 400);
+  assert.equal((await creerSalon(a, { questions: cinquante.slice(0, 20) })).statut, 400, 'score obligatoire pour un duel');
+  assert.equal((await creerSalon(a, { questions: cinquante.slice(0, 20), score: scoreSalon(20) })).statut, 200);
+  assert.equal((await creerSalon(a, { questions: cinquante.concat(refsBloc(1, 0, 0)), type: 'salon' })).statut, 400, '51 questions');
+  assert.equal((await creerSalon(a, { questions: cinquante.slice(0, 4), type: 'salon' })).statut, 400, '4 questions');
+  assert.equal((await creerSalon(a, { questions: cinquante.slice(0, 21), type: 'salon', score: scoreSalon(20) })).statut, 400, 'score à la taille du salon');
+  // Un salon qui porte aussi son score (créé après avoir joué) : le créateur est au classement.
+  const avecScore = await creerSalon(a, { questions: cinquante.slice(0, 30), type: 'salon', titre: 'Avec score', score: scoreSalon(30, 20, 200) });
+  ok200(avecScore);
+  d = (await appel(duelGet, { requete: '?id=' + avecScore.corps.id, jeton: a.jeton })).corps.duel;
+  assert.deepEqual([d.joueurs, d.dejaJoue, d.classement[0].pseudo, d.classement[0].moi], [1, true, 'Alice', true]);
+  // Titre, type, fin invalides.
+  const q = cinquante.slice(0, 10);
+  for (const extra of [{ type: 'tournoi' }, { type: 'Salon' }, { type: 3 }, { titre: 'x'.repeat(61) }, { titre: '' }, { titre: 5 }, { titre: '   ' },
+    { fin: 'demain' }, { fin: 5 }, { fin: '2020-01-01T00:00:00Z' }, { fin: new Date(Date.now() + 40 * 86400000).toISOString() }]) {
+    const rep = await creerSalon(a, { questions: q, type: 'salon', ...extra });
+    assert.equal(rep.statut, 400, JSON.stringify(extra));
+  }
+  assert.equal((await creerSalon(a, { questions: q, type: 'salon', titre: 'x'.repeat(60) })).statut, 200);
+  // Fin : un salon peut avoir une fin proche ; la date est gardée en ISO.
+  const fin = new Date(Date.now() + 3 * 86400000);
+  const avecFin = await creerSalon(a, { questions: q, type: 'salon', fin: fin.toISOString() });
+  ok200(avecFin);
+  assert.equal(lignes('SELECT fin FROM salons WHERE id = ?', avecFin.corps.id)[0].fin, fin.toISOString());
+  // Les anciens duels (sans ligne salons) se lisent comme avant.
+  const vieux = 'vieux123';
+  db.base.prepare('INSERT INTO duels (id, createur, questions, scores, cree) VALUES (?, ?, ?, ?, ?)')
+    .run(vieux, a.id, JSON.stringify(cinquante.slice(0, 5)), JSON.stringify([{ joueur: a.id, pseudo: 'Alice', justes: 2, n: 5, points: 20, date: '2026-10-01T10:00:00.000Z' }]), '2026-10-01T10:00:00.000Z');
+  const v = (await appel(duelGet, { requete: '?id=' + vieux })).corps.duel;
+  assert.deepEqual([v.titre, v.type, v.fin, v.termine, v.joueurs, v.createur], [null, 'duel', null, false, 1, 'Alice']);
+  ok200(await appel(duelPut, { methode: 'PUT', jeton: a.jeton, corps: { id: vieux, score: { justes: 4, n: 5, points: 60 } } }));
+});
+
+test('duel : un salon accueille des joueurs sans limite, classement trié par points avec rang, PUT remplace ; après la fin : 409', async () => {
+  toutVoir();
+  const a = await creerJoueur('Alice');
+  await preparerBlocs(a, 10);
+  const { corps: { id } } = await creerSalon(a, { questions: refsBloc(1), type: 'salon', titre: 'Les copains' });
+  const joueurs = [];
+  for (let i = 0; i < 30; i++) joueurs.push(await creerJoueur('Joueur ' + i));
+  for (const [i, jr] of joueurs.entries()) {
+    ok200(await appel(duelPut, { methode: 'PUT', jeton: jr.jeton, corps: { id, score: { justes: i % 11, n: 10, points: i % 11 * 5 } } }));
+  }
+  const g = (await appel(duelGet, { requete: '?id=' + id, jeton: joueurs[9].jeton })).corps.duel;
+  assert.equal(g.joueurs, 30);
+  assert.equal(g.classement.length, 30);
+  assert.equal(g.scores.length, 30);
+  const points = g.classement.map((x) => x.points);
+  assert.deepEqual(points, [...points].sort((x, y) => y - x));
+  assert.deepEqual(g.classement.map((x) => x.rang), nombres(1, 30));
+  assert.equal(g.classement.filter((x) => x.moi).length, 1);
+  assert.equal(g.classement.find((x) => x.moi).pseudo, 'Joueur 9');
+  assert.ok(!JSON.stringify(g).includes(joueurs[9].id));
+  // Rejouer remplace le score d'un salon.
+  ok200(await appel(duelPut, { methode: 'PUT', jeton: joueurs[0].jeton, corps: { id, score: { justes: 10, n: 10, points: 100 } } }));
+  const apres = (await appel(duelGet, { requete: '?id=' + id })).corps.duel;
+  assert.deepEqual([apres.joueurs, apres.classement[0].pseudo, apres.classement[0].points], [30, 'Joueur 0', 100]);
+  // La fin passe : les scores ne changent plus, le classement reste visible.
+  db.base.prepare('UPDATE salons SET fin = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), id);
+  erreurFr(await appel(duelPut, { methode: 'PUT', jeton: joueurs[0].jeton, corps: { id, score: { justes: 0, n: 10, points: 0 } } }), 409, /terminé/);
+  erreurFr(await appel(duelPut, { methode: 'PUT', jeton: a.jeton, corps: { id, score: { justes: 5, n: 10, points: 5 } } }), 409);
+  const fini = (await appel(duelGet, { requete: '?id=' + id })).corps.duel;
+  assert.equal(fini.termine, true);
+  assert.equal(fini.classement.length, 30);
+  assert.equal(fini.classement[0].points, 100);
+});
+
+test('duels GET : les salons que j’ai créés (même sans score) ou rejoints, avec titre et type ; les anciens duels gardent leur forme', async () => {
+  toutVoir();
+  const a = await creerJoueur('Alice');
+  const b = await creerJoueur('Bob');
+  await preparerBlocs(a, 10);
+  const duel = await creerSalon(a, { questions: refsBloc(1, 0, 4), score: scoreSalon(5) });
+  const salon = await creerSalon(b, { questions: refsBloc(1), type: 'salon', titre: 'Salon de Bob' });
+  const liste = async (jr) => (await appel(duelsGet, { jeton: jr.jeton })).corps.duels;
+  assert.deepEqual((await liste(a)).map((d) => d.id), [duel.corps.id]);
+  assert.deepEqual(Object.keys((await liste(a))[0]), ['id', 'createur', 'scores', 'cree']);
+  assert.deepEqual((await liste(b)).map((d) => [d.id, d.titre, d.type, d.fin, d.scores.length]), [[salon.corps.id, 'Salon de Bob', 'salon', null, 0]]);
+  ok200(await appel(duelPut, { methode: 'PUT', jeton: a.jeton, corps: { id: salon.corps.id, score: scoreSalon(10, 6, 60) } }));
+  assert.deepEqual((await liste(a)).map((d) => d.id).sort(), [duel.corps.id, salon.corps.id].sort());
+  assert.ok(!JSON.stringify(await liste(a)).includes(b.id));
+});
+
+// --- GET /api/tournoi ---
+
+test('tournoi GET : créé à la première requête de la semaine (10 questions sur le thème de la semaine), puis partagé ; public', async () => {
+  toutVoir();
+  const lundi = lundiDe(jourUtc());
+  const theme = themeDeLaSemaine(lundi);
+  pageDeTheme(theme);
+  const sc = scenario(partiesStandard());
+  const r = await appel(tournoiGet, { env: envDe(sc) });
+  ok200(r);
+  assert.deepEqual(Object.keys(r.corps), ['tournoi']);
+  const t = r.corps.tournoi;
+  assert.deepEqual(Object.keys(t), ['id', 'titre', 'theme', 'debut', 'fin', 'termine', 'questions', 'joueurs', 'classement', 'moi', 'dejaJoue']);
+  assert.match(t.id, /^[a-z0-9]{8}$/);
+  assert.equal(t.theme, theme);
+  assert.equal(t.titre, `Tournoi : ${theme}`.slice(0, 60));
+  assert.equal(t.debut, lundi + 'T00:00:00.000Z');
+  assert.equal(t.fin, finDeSemaine(lundi));
+  assert.match(t.fin, /T23:59:59\.999Z$/);
+  assert.equal(new Date(t.fin).getUTCDay(), 0, 'un dimanche');
+  assert.deepEqual([t.termine, t.questions, t.joueurs, t.classement, t.moi, t.dejaJoue], [false, 10, 0, [], null, false]);
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['quiz', 'verif']);
+  assert.match(sc.appels[0].entree.messages[1].content, new RegExp(`Parcours : « ${theme} »`));
+  // Un duel de type tournoi, ses 10 questions en cache sous tournoi:<lundi>.
+  const [duelLigne] = lignes('SELECT id, createur, questions, scores FROM duels');
+  assert.equal(duelLigne.id, t.id);
+  assert.deepEqual(JSON.parse(duelLigne.questions), nombres(0, 9).map((index) => ({ chapitre: `qg:tournoi:${lundi}`, index })));
+  assert.deepEqual(lignes('SELECT type, fin FROM salons'), [{ type: 'tournoi', fin: t.fin }]);
+  assert.deepEqual(lignes('SELECT id, sujet FROM quiz_general'), [{ id: 'tournoi:' + lundi, sujet: theme }]);
+  const qs = (await appel(quizGeneralGet, { requete: '?bloc=tournoi:' + lundi })).corps.questions;
+  assert.equal(qs.length, 10);
+  assert.equal(qs[0].palier, `qg:tournoi:${lundi}`);
+  // Deuxième requête, sans IA : le même tournoi.
+  const encore = await appel(tournoiGet, { env: { DB: db, AI: undefined } });
+  assert.deepEqual(encore.corps, r.corps);
+  assert.equal(lignes('SELECT * FROM duels').length, 1);
+  // Le duel se lit comme un salon : titre koios, type tournoi.
+  const d = (await appel(duelGet, { requete: '?id=' + t.id })).corps.duel;
+  assert.deepEqual([d.type, d.createur, d.titre, d.fin, d.questions.length], ['tournoi', 'Koîos', t.titre, t.fin, 10]);
+});
+
+test('tournoi : classement public (rang, pseudos, scores), ma place, une seule partie par joueur, plus de score après la fin', async () => {
+  toutVoir();
+  const lundi = lundiDe(jourUtc());
+  pageDeTheme(themeDeLaSemaine(lundi));
+  const sc = scenario(partiesStandard());
+  const { corps: { tournoi: t } } = await appel(tournoiGet, { env: envDe(sc) });
+  const joueurs = [];
+  for (let i = 0; i < 14; i++) joueurs.push(await creerJoueur('Joueur ' + i));
+  for (const [i, jr] of joueurs.entries()) {
+    ok200(await appel(duelPut, { methode: 'PUT', jeton: jr.jeton, corps: { id: t.id, score: { justes: i % 10, n: 10, points: i * 3 } } }));
+  }
+  const vu = (await appel(tournoiGet, { env: { DB: db, AI: undefined } })).corps.tournoi;
+  assert.equal(vu.joueurs, 14);
+  assert.equal(vu.classement.length, 10, 'les 10 premiers');
+  assert.deepEqual(vu.classement.map((x) => x.rang), nombres(1, 10));
+  assert.deepEqual(vu.classement[0], { rang: 1, pseudo: 'Joueur 13', justes: 3, n: 10, points: 39, date: vu.classement[0].date });
+  assert.deepEqual([vu.moi, vu.dejaJoue], [null, false]);
+  assert.ok(!JSON.stringify(vu).includes(joueurs[0].id));
+  // Ma place quand je suis dans le classement ou hors des 10 premiers.
+  const hors = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[1].jeton })).corps.tournoi;
+  assert.deepEqual(hors.moi, { rang: 13, pseudo: 'Joueur 1', justes: 1, n: 10, points: 3 });
+  assert.equal(hors.dejaJoue, true);
+  assert.ok(!hors.classement.some((x) => x.moi));
+  const dedans = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[10].jeton })).corps.tournoi;
+  assert.equal(dedans.moi.rang, 4);
+  assert.deepEqual(dedans.classement.filter((x) => x.moi).map((x) => x.rang), [4]);
+  // Une seule partie par joueur.
+  erreurFr(await appel(duelPut, { methode: 'PUT', jeton: joueurs[0].jeton, corps: { id: t.id, score: { justes: 10, n: 10, points: 999 } } }), 409, /déjà joué/);
+  // Après la fin (dimanche 23:59) : plus de nouveau score, le classement reste visible.
+  db.base.prepare('UPDATE salons SET fin = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), t.id);
+  const nouveau = await creerJoueur('Retardataire');
+  erreurFr(await appel(duelPut, { methode: 'PUT', jeton: nouveau.jeton, corps: { id: t.id, score: { justes: 10, n: 10, points: 999 } } }), 409, /tournoi est terminé/);
+  const fini = (await appel(tournoiGet, { env: { DB: db, AI: undefined } })).corps.tournoi;
+  assert.equal(fini.termine, true);
+  assert.equal(fini.joueurs, 14);
+  assert.equal(fini.classement.length, 10);
+  const g = (await appel(duelGet, { requete: '?id=' + t.id })).corps.duel;
+  assert.equal(g.termine, true);
+  assert.equal(g.classement.length, 14);
+  // On ne crée pas de tournoi par POST /api/duel.
+  const a = joueurs[0];
+  assert.equal((await appel(duelPost, { methode: 'POST', jeton: a.jeton, corps: { questions: nombres(0, 9).map((index) => ({ chapitre: `qg:tournoi:${lundi}`, index })), type: 'tournoi', score: { justes: 1, n: 10, points: 1 } } })).statut, 400);
+});
+
+test('tournoi GET : échec d’écriture ou plafond global de 5 tentatives par jour : {tournoi: null}, jamais d’erreur ; sans IA, idem', async () => {
+  toutVoir();
+  pageDeTheme(themeDeLaSemaine(lundiDe(jourUtc())));
+  const court = { questions: quizBrut().questions.slice(0, 4) };
+  const sc = scenario({ ...partiesStandard(), quiz: [court] });
+  const echec = async () => {
+    const r = await appel(tournoiGet, { env: envDe(sc) });
+    ok200(r);
+    assert.deepEqual(r.corps, { tournoi: null });
+  };
+  await echec();
+  const parTentative = sc.appels.length;
+  for (let i = 0; i < 4; i++) await echec();
+  assert.equal(sc.appels.length, parTentative * 5);
+  await echec();
+  assert.equal(sc.appels.length, parTentative * 5, 'plafond atteint : plus aucun appel');
+  assert.deepEqual(lignes("SELECT n FROM quotas WHERE cle = 'tournoi:tentatives'").length, 1);
+  assert.equal(lignes('SELECT * FROM duels').length, 0);
+  toutVoir();
+  assert.deepEqual((await appel(tournoiGet, { env: { DB: db, AI: undefined } })).corps, { tournoi: null });
+});
+
+test('worker : /api/quiz-general, /api/jour et /api/tournoi sont routés ; méthodes absentes 405', async () => {
+  toutVoir();
+  const ctx = { waitUntil() {} };
+  const assets = { fetch: async () => new Response('non', { status: 404 }) };
+  const e = { DB: db, AI: undefined, ASSETS: assets };
+  const via = async (chemin, init) => {
+    const r = await worker.fetch(new Request('https://koios.test' + chemin, init), e, ctx);
+    const texte = await r.text();
+    let corps;
+    try { corps = JSON.parse(texte); } catch { corps = texte; }
+    return { statut: r.status, corps };
+  };
+  assert.deepEqual(await via('/api/quiz-general', { method: 'POST', body: '{}' }), { statut: 401, corps: { erreur: 'Connexion requise.' } });
+  assert.equal((await via('/api/quiz-general?bloc=zz:1')).statut, 404);
+  assert.equal((await via('/api/quiz-general', { method: 'DELETE' })).statut, 405);
+  const jour = await via('/api/jour');
+  assert.deepEqual([jour.statut, jour.corps.repli, jour.corps.question], [200, true, null]);
+  assert.deepEqual(await via('/api/tournoi'), { statut: 200, corps: { tournoi: null } });
+  assert.equal((await via('/api/jour', { method: 'POST', body: '{}' })).statut, 405);
+  assert.equal((await via('/api/tournoi', { method: 'PUT', body: '{}' })).statut, 405);
+  assert.equal((await via('/api/quiz_general')).statut, 404);
+});
+
 // --- Worker : routes v2 ---
 
 test('worker v2 : /api/parcours, palier, quiz, quiz-direct et glossaire sont routés (tiret accepté) ; méthodes absentes 405', async () => {
@@ -4653,7 +5254,8 @@ test('aucun secret dans le code', async () => {
     '../functions/api/chapitre-ia.js', '../functions/api/melange.js', '../functions/api/duel.js', '../functions/api/duels.js',
     '../lib/fournisseurs.js', '../lib/images.js', '../lib/paliers.js', '../functions/api/parcours.js',
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
-    '../functions/api/image.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
+    '../functions/api/image.js', '../functions/api/quiz-general.js', '../functions/api/jour.js', '../functions/api/tournoi.js',
+    '../lib/general.js', '../scripts/serveur_local.mjs', '../wrangler.toml'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);

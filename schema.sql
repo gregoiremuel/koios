@@ -101,3 +101,23 @@ CREATE TABLE IF NOT EXISTS images (
   contenu TEXT,
   cree TEXT
 );
+
+-- Quiz de culture générale : blocs de 10 questions par sujet libre (id = <slug>:<k>), question du jour (jour:AAAA-MM-JJ),
+-- questions du tournoi (tournoi:AAAA-MM-JJ). Un bloc écrit est partagé entre tous les lecteurs.
+CREATE TABLE IF NOT EXISTS quiz_general (
+  id TEXT PRIMARY KEY,
+  sujet TEXT,
+  bloc INTEGER,
+  contenu TEXT,
+  cree TEXT
+);
+
+-- Titre, type (salon ou tournoi) et fin d'un duel : une ligne par salon ou tournoi, id = identifiant du duel.
+-- Un duel sans ligne ici est un duel ordinaire.
+CREATE TABLE IF NOT EXISTS salons (
+  id TEXT PRIMARY KEY,
+  titre TEXT,
+  type TEXT,
+  fin TEXT,
+  cree TEXT
+);

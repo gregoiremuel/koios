@@ -348,7 +348,26 @@ export function leconSimulee(demande) {
 export function quizSimule(demande) {
   const titreParcours = premier(/Parcours : « ([^\n]*) »/, demande);
   const f = ficheDuParcours(titreParcours);
-  return { questions: [...f.qcm, ...f.vf] };
+  // Quiz de culture générale : à partir du 2e bloc, la demande liste les énoncés déjà écrits (une ligne « - » chacun).
+  const deja = demande.includes('Questions déjà écrites')
+    ? (/Questions déjà écrites[^\n]*\n((?:- [^\n]*\n)+)/.exec(demande) || ['', ''])[1].split('\n').filter(Boolean).length
+    : 0;
+  if (!deja) return { questions: [...f.qcm, ...f.vf] };
+  // Questions neuves, numérotées à la suite de celles qui existent (aucune ne répète une question précédente).
+  const T = f.titre.length > 40 ? f.titre.slice(0, 39).trimEnd() + '…' : f.titre;
+  const fausses = ['L’histoire du vélo', 'La cuisine du Moyen Âge', 'Les satellites de Jupiter', 'Le métier de verrier', 'Les marées de la Manche', 'La pêche en haute mer'];
+  const qcms = Array.from({ length: 7 }, (_, i) => qcm(
+    `Question simulée numéro ${deja + i + 1} sur « ${T} », laquelle est exacte ?`,
+    `Le contenu simulé numéro ${deja + i + 1} est le bon`,
+    [0, 1, 2].map((k) => `${fausses[(deja + i + k) % fausses.length]} (${deja + i + 1})`),
+    `Ce contenu vient du serveur local, qui invente la question ${deja + i + 1} pour essayer l’écran. Les trois autres choix sont faux.`,
+  ));
+  const vfs = [0, 1, 2].map((i) => vf(
+    `L’affirmation simulée numéro ${deja + 8 + i} sur « ${T} » est un fait réel.`,
+    i === 1,
+    `Cette affirmation vient du serveur local, qui n’écrit aucun fait réel ; seul le verdict ${i === 1 ? 'vrai' : 'faux'} sert à essayer l’écran.`,
+  ));
+  return { questions: [...qcms, ...vfs] };
 }
 
 // --- Vérification ----------------------------------------------------------
