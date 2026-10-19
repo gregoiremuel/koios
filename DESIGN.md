@@ -69,9 +69,9 @@ Le rose corail ne sert jamais à un état d'erreur. Pas de violet, de dégradé,
 - **Grille « bento »** (accueil, sous la recherche) : 2 colonnes à 390 px, 4 colonnes dès 720 px, gouttière de 12 px. Tuiles de fond `--surface`, bord 1 px `--ligne`, coins 16 px, aucune ombre, aucune carte dedans. Elles apparaissent l'une après l'autre (fondu et glissement de 8 px, 50 ms d'écart). Chaque tuile repose sur une donnée réelle du joueur : si la donnée manque, la tuile n'existe pas, aucun chiffre n'est inventé. De haut en bas :
   - **Reprendre** (2×2) : photo 16:9 de la formation en cours, titre, barre de progression, bouton noir « Continuer ». Sans formation : tuile 2×1 « Lance ta première formation » (icône de 32 px, phrase, flèche) ; c'est l'état vide.
   - **Niveau** (1×1) : anneau de 72 px (arc `--or`, « Niv. » et le numéro au centre), XP et XP restants. Lien vers le profil.
-  - **Série** (1×1) : jours de suite où la question du jour a été jouée, puis 7 points (lundi à dimanche ; plein = joué, cerclé d'encre = aujourd'hui).
+  - **Série** (1×1) : jours de suite où tu as fait une leçon, une révision, un quiz ou la question du jour, puis 7 points (lundi à dimanche ; plein = joué, cerclé d'encre = aujourd'hui).
   - **Question du jour** (2×1) : icône, une ligne, bouton contour « Répondre » ; « Faite » (coche grise, jamais verte) une fois jouée.
-  - **À revoir** (1×1) : nombre d'erreurs à revoir, lien vers la révision. À 0 erreur la tuile disparaît et **Glossaire** (nombre de termes déjà rencontrés dans la formation en cours) prend sa place, si elle en a. Puis **Quiz éclair** (1×1, 2×1 s'il est seul) : lien vers le quiz mélangé.
+  - **À réviser aujourd’hui** (1×1) : nombre d’éléments (cartes et questions ratées) à réviser aujourd’hui, lien vers `#/reviser`. À 0 la tuile disparaît la tuile disparaît et **Glossaire** (nombre de termes déjà rencontrés dans la formation en cours) prend sa place, si elle en a. Puis **Quiz éclair** (1×1, 2×1 s'il est seul) : lien vers le quiz mélangé.
   - Dans la grille, seul « Continuer » est noir ; les autres boutons sont en contour.
 - **Photo** : coins 12 px, recadrée sans jamais être étirée (`object-fit: cover`), crédit de 12 px dessous, `loading="lazy"` et `decoding="async"`. Elle disparaît proprement si elle ne charge pas. Alt vide si la photo est décorative (vignette, tuile), sinon le sujet.
   - **Couverture** de formation : 16:9 en tête de page.
@@ -127,3 +127,11 @@ Uniquement `transform` et `opacité` (l'anneau de progression et le dépliage d'
 - Mots : Bienvenue, Découvrez, N'hésitez pas, au cœur de, véritable, incontournable, passion, sublimer, écrin, expérience, univers, authentique, d'exception, excellence, intemporel, En savoir plus.
 
 Vérification automatique : `python3 scripts/verifier.py` (app) et `python3 scripts/catalogue.py` (contenu vérifié).
+
+## Lot 3c : révision, badges, versions de lecture
+
+- **Révision du jour** (`#/reviser`) : un élément à la fois, carte retournable (voir Carte retournable), deux boutons de 44 px « À revoir » et « Je savais ». Fin : bilan et date de la prochaine révision. Cinq boîtes, 1, 3, 7, 16 et 35 jours.
+- **Badges** : pastille ronde de 56 px teintée (couleur de catégorie, icône Phosphor), obtenu = en couleur, à venir = gris avec la condition. Page `#/badges`, depuis le Profil. Pas d’emoji.
+- **Toast de badge** : petite carte en bas, entrée par `transform` et opacité (250 ms), disparaît seule ; coupée sous `prefers-reduced-motion`.
+- **Sélecteur de lecture** : « Normal · Simple · Expert », groupe de boutons de 44 px sous le titre de la leçon ; attente sobre (barre fine), le choix est gardé pendant la session. Absent pour les cours vérifiés.
+- **Cours vérifiés (v-xx)** : masqués à l’utilisateur (ni carte, ni formation).

@@ -15,6 +15,7 @@
   };
   var profil = S.lire("koios.profil", null);
   var etat = S.lire("koios.etat", null);
+  var toutNeuf = !etat; // première visite : les premiers badges sont annoncés
   if (!etat || etat.version !== 2) etat = { version: 2, xp: 0, parcours: {}, erreurs: [], jours: (etat && etat.jours) || {}, maj: 0 };
   ["parcours", "jours"].forEach(function (k) { if (!etat[k]) etat[k] = {}; });
   if (!etat.erreurs) etat.erreurs = [];
@@ -22,7 +23,7 @@
   if (!etat.cartes) etat.cartes = {};
   if (!etat.revisions) etat.revisions = {}; // { clé: { boite, prochaine, xp? } } : révision espacée
   if (!etat.faits) etat.faits = {}; // { duel, direct } : dates des premières parties
-  if (!etat.badges) etat.badges = null; // { id: date } une fois suivis ; null = pas encore suivis (premier calcul sans annonce)
+  if (!etat.badges) etat.badges = toutNeuf ? {} : null; // { id: date } une fois suivis ; null = pas encore suivis (premier calcul sans annonce)
   etat.jours = L.normaliserJours(etat.jours); // lit l'ancien format (une chaîne par jour)
   var verifiees = []; // catalogue des formations vérifiées à la main (contenu/parcours.json), chargé au démarrage
   var serveur = { base: false, ia: false };
@@ -517,8 +518,7 @@
   }
   function chercherExistantes(q) {
     var mots = motsDe(q);
-    var locales = verifiees.filter(function (v) { var t = sansAccent(v.titre); return mots.every(function (m) { return t.indexOf(m) >= 0; }); })
-      .map(function (v) { return { id: v.id, titre: v.titre, image: imageFixe(v), verifie: true, paliers: v.paliers }; });
+    var locales = []; // les cours vérifiés à la main sont masqués (leur catalogue ne sert plus qu'aux photos)
     return pretServeur.then(function () { return serveur.base ? api("GET", "parcours?q=" + encodeURIComponent(q)) : { parcours: [] }; })
       .then(function (j) { return j.parcours || []; }, function () { return []; })
       .then(function (l) { return locales.concat(l.map(function (x) { return { id: x.id, titre: x.titre, image: imageFixe({ titre: x.titre }) || x.image, verifie: false, lecons: x.lecons, modules: x.modules, niveaux: x.niveaux }; })); });
@@ -692,7 +692,7 @@
     ranger();
     // Tuile Bibliothèque : seulement si le serveur répond avec un nombre réel de formations.
     pretServeur.then(function () { return serveur.base ? api("GET", "parcours") : { parcours: [] }; }).then(function (j) {
-      var n = verifiees.length + (j.parcours || []).length;
+      var n = (j.parcours || []).length;
       if (!n || !bento.isConnected || bibliotheque) return;
       bibliotheque = tuileCompte("#/bibliotheque", "livres", n, "formation à ouvrir", "formations à ouvrir");
       bento.insertBefore(bibliotheque, eclair); ranger();
@@ -711,16 +711,11 @@
       miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, imageFixe({ titre: x.s.titre }) || x.s.image, detailSuivi(x.s))); });
       haut.push(el("section", { "class": "pile serree" }, [el("h2", { text: "Tes sujets" }), ul]));
     }
-    var piste = el("ul", { "class": "carrousel", role: "list" });
-    var bandes = [bande(haut, false), bande([rech.idees], true),
-      bande([el("div", { "class": "ligne-titre" }, [el("h2", { text: "Formations vérifiées" }), el("span", { "class": "meta", text: "2 sources par notion" })]), piste, credits.noeud], false)];
+    var bandes = [bande(haut, false), bande([rech.idees, credits.noeud], true)];
     montrer(el("div", { "class": "page bandes accueil" }, bandes), "accueil", "Accueil");
-    chargerListeVerifies().then(function (l) {
-      l.forEach(function (p) { piste.appendChild(carteVerifiee(p, credits)); });
-    }, function () {});
   }
 
-  /* ---------- Bibliothèque : toutes les formations déjà écrites ; les cours vérifiés en tête ---------- */
+  /* ---------- Bibliothèque : toutes les formations déjà écrites ---------- */
   function vueBibliotheque() {
     var vive = vivante();
     var champ = el("input", { "class": "champ", id: "sujet-bibliotheque", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "search", placeholder: "Chercher une formation" });
@@ -737,7 +732,7 @@
       if (window.poserIcones) window.poserIcones(ul);
     }
     function charger0() {
-      var locales = verifiees.map(function (v) { return { id: v.id, titre: v.titre, image: imageFixe(v), verifie: true, paliers: v.paliers }; });
+      var locales = [];
       pretServeur.then(function () { return serveur.base ? api("GET", "parcours") : { parcours: [] }; }).then(function (j) { return j.parcours || []; }, function () { return []; }).then(function (l) {
         if (!vive()) return;
         lister(locales.concat(l.map(function (x) { return { id: x.id, titre: x.titre, image: imageFixe({ titre: x.titre }) || x.image, verifie: false, detail: x.paliers ? pluriel(x.paliers, "leçon ouverte", "leçons ouvertes") : "Pas encore ouverte" }; })), "");
@@ -751,7 +746,7 @@
       minuteur = setTimeout(function () { chercherExistantes(q).then(function (l) { if (mien === numero && vive()) lister(l, q); }); }, 300);
     });
     montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Bibliothèque" }),
-      el("p", { "class": "meta", style: "font-size:16px", text: "Les formations déjà écrites. Elles s’ouvrent tout de suite, sans rien régénérer. Les cours vérifiés à la main sont en tête." }),
+      el("p", { "class": "meta", style: "font-size:16px", text: "Les formations déjà écrites. Elles s’ouvrent tout de suite, sans rien régénérer." }),
       el("label", { "for": "sujet-bibliotheque", "class": "sr", text: "Chercher une formation" }), champ, zone,
       lien("#/", "Retour à l’accueil", "btn second")]), "accueil", "Bibliothèque");
     charger0();
@@ -796,7 +791,7 @@
       var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1), prog = parProgramme(p), mf = prog ? modulesFaits(p, s.fait) : 0;
       var zoneGroupe = el("div", { "class": "pile serree" });
       boutonGroupe(p, zoneGroupe, vive);
-      var ver = p.verifie ? null : verifieeDeTitre(p.titre);
+      var ver = null; // la carte « Cours vérifié à la main » est masquée : les 5 chapitres ne sont plus montrés
       var coursVerifie = ver ? el("a", { "class": "cours-verifie", href: "#/p/" + encodeURIComponent(ver.id) }, [icone("verifie"), el("span", { "class": "cv-texte" }, [el("b", { text: "Cours vérifié à la main · " + pluriel(ver.paliers, "chapitre", "chapitres") + " de référence" }), el("span", { "class": "meta", text: "Deux sources par notion. Plus court que cette formation." })]), icone("chevron")]) : null;
       var complet = null;
       if (p.verifie) {
@@ -2807,8 +2802,7 @@
         el("p", { text: "Si la formation existe déjà, elle s’ouvre, sans être réécrite. Cherche‑la dans la " + guill("Bibliothèque") + " ou en tapant ton sujet." })
       ]),
       rubriqueAide("sommaire", "La bibliothèque", [
-        el("p", { text: "Sous la recherche de l’accueil, les " + guill("Formations existantes") + " apparaissent dès que tu écris 2 lettres. La page Bibliothèque les réunit toutes, les cours vérifiés à la main en tête." }),
-        el("p", { text: "Pour un sujet qui a un cours vérifié (comme la gemmologie), tu choisis" + N + ": le cours vérifié, plus court, ou la formation complète de zéro à expert." })
+        el("p", { text: "Sous la recherche de l’accueil, les " + guill("Formations existantes") + " apparaissent dès que tu écris 2 lettres. La page Bibliothèque les réunit toutes." }),
       ]),
       rubriqueAide("diamant", "Aller plus loin", [
         el("p", { text: "Quand tous les modules d’une formation sont ouverts, " + guill("Aller plus loin") + " apparaît en bas du sommaire et sur la page " + guill("Formation terminée") + ". L’IA écrit 3 à 5 modules de plus, dans un niveau " + guill("Maîtrise") + ", pour tout le monde." }),
@@ -2845,7 +2839,7 @@
           [guill("Simple") + N + ": phrases très courtes, mots courants, une analogie par idée, aucun jargon."],
           [guill("Expert") + N + ": plus précis, avec les chiffres, les nuances et les débats que disent les sources."],
           "Le texte de l’en-bref et des explications est réécrit par l’IA à partir de la leçon et de ses sources, puis contrôlé par une 2e IA" + F + "; une phrase non confirmée est retirée. Le reste de la leçon ne change pas.",
-          "Ton choix reste pour la session. Une version déjà écrite s’ouvre tout de suite, pour tout le monde. Les cours vérifiés à la main n’ont pas ce choix."
+          "Ton choix reste pour la session. Une version déjà écrite s’ouvre tout de suite, pour tout le monde. "
         ])
       ]),
       rubriqueAide("carnet", "Le glossaire", [
@@ -2913,7 +2907,7 @@
       rubriqueAide("sablier", "Limites", [
         el("p", { text: "Une leçon nouvelle peut prendre jusqu’à une minute la première fois. Ensuite elle s’ouvre tout de suite, pour tout le monde." }),
         el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale. Tu peux aussi prolonger " + pluriel(LIMITES.prolonger, "formation", "formations") + " avec " + guill("Aller plus loin") + " et demander " + pluriel(LIMITES.variantes, "version simple ou experte", "versions simples ou expertes") + " de leçons." }),
-        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " , " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " et " + pluriel(LIMITES.variantesTotal, "version réécrite", "versions réécrites") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
+        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + ", " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " et " + pluriel(LIMITES.variantesTotal, "version réécrite", "versions réécrites") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
         el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites. La question du jour et le tournoi sont écrits une seule fois pour tous et ne comptent pas dans tes limites." }),
         el("p", { text: "Jeu en direct" + N + ": jusqu’à 12 joueurs, mise à jour toutes les 2 secondes. Un groupe de formation compte aussi 12 membres au plus." }),
         el("p", { text: "L’IA peut se tromper." })

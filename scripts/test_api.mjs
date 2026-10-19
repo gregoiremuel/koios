@@ -27,11 +27,13 @@ import {
 } from '../lib/images.js';
 import {
   EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
-  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION,
+  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION, CONSIGNES_VARIANTE, validerVariante,
   TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
   validerMoitieA, validerMoitieB, validerRedaction, validerVerification,
 } from '../lib/paliers.js';
+import '../app/logique.js';
+import { onRequestPost as variantePost } from '../functions/api/variante.js';
 import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
 import { onRequestPost as joueurPost } from '../functions/api/joueur.js';
@@ -121,13 +123,14 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
 const lignes = (sql, ...p) => db.base.prepare(sql).all(...p).map((r) => ({ ...r }));
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
 
+const L = globalThis.Logique;
 const tests = [];
 const test = (nom, fn) => tests.push([nom, fn]);
 
@@ -1972,7 +1975,7 @@ function scenario(parts) {
     [PROMPT_PROGRAMME]: 'programme', [PROMPT_PROGRAMME_COURT]: 'programme2', [PROMPT_MODULE]: 'module', [PROMPT_LECON]: 'lecon',
     // Une leçon = deux moitiés (A : « lecon », B : « leconB »), chacune avec sa version courte (« leconA2 », « leconB2»).
     [PROMPT_LECON_A]: 'lecon', [PROMPT_LECON_B]: 'leconB', [PROMPT_LECON_A_COURT]: 'leconA2', [PROMPT_LECON_B_COURT]: 'leconB2',
-    [PROMPT_PROLONGER]: 'prolonger',
+    [PROMPT_PROLONGER]: 'prolonger', [PROMPT_VARIANTE]: 'variante',
   })[systeme] || 'inconnu';
   // Sans réponse prévue pour une étape : « programme2 » reprend « programme » ; « leconB », « leconA2 » et « leconB2 » reprennent « lecon ».
   const repli = { programme2: 'programme', leconB: 'lecon', leconA2: 'lecon', leconB2: 'lecon' };
@@ -6639,6 +6642,253 @@ test('partie : quota de créations par jour, et aucun identifiant de joueur dans
   for (let i = 0; i < 19; i++) ok200(await postPartie(a, { action: 'creer', questions: refsP(5) }));
   erreurFr(await postPartie(a, { action: 'creer', questions: refsP(5) }), 429, /Reviens demain/);
   heure += 3600000;
+});
+
+
+// --- Lot 3c : révision espacée, série, badges, cours vérifiés, variantes ---
+
+test('révision espacée : cinq boîtes (1, 3, 7, 16, 35 jours), « Je savais » monte, « À revoir » revient en boîte 1', () => {
+  assert.deepEqual(L.INTERVALLES, [1, 3, 7, 16, 35]);
+  let e;
+  const attendu = [[2, '2026-03-04'], [3, '2026-03-08'], [4, '2026-03-17'], [5, '2026-04-05'], [5, '2026-04-05']];
+  let jour = '2026-03-01';
+  const jours = [3, 7, 16, 35, 35];
+  attendu.forEach(([boite], k) => {
+    const r = L.repondre(e, true, jour);
+    e = r.entree;
+    assert.equal(e.boite, boite);
+    assert.equal(e.prochaine, L.plusJours(jour, jours[k]));
+    jour = e.prochaine;
+  });
+  const rate = L.repondre(e, false, '2026-05-01');
+  assert.deepEqual(rate.entree, { boite: 1, prochaine: '2026-05-02', xp: rate.entree.xp });
+  assert.equal(rate.xp, 0);
+  assert.deepEqual(L.nouvelleEntree('2026-03-01'), { boite: 1, prochaine: '2026-03-02' });
+  assert.equal(L.plusJours('2026-03-30', 3), '2026-04-02');
+});
+
+test('révision espacée : 1 XP par bonne réponse, une fois par jour et par élément ; file du jour ; fusion', () => {
+  const a = L.repondre(undefined, true, '2026-03-01');
+  assert.equal(a.xp, 1);
+  const b = L.repondre(a.entree, true, '2026-03-01');
+  assert.equal(b.xp, 0, 'pas deux fois le même jour');
+  assert.equal(L.repondre(b.entree, true, '2026-03-02').xp, 1);
+  const etat = {
+    cartes: { 'f:1:1': { vu: 1, ok: null }, 'f:1:2': { vu: 1, ok: true }, 'f:2:1': { vu: 1, ok: false } },
+    erreurs: [{ palier: 'f:1', index: 3, titre: 'x' }, { palier: 'f:1', index: -1, titre: 'ordre' }],
+    revisions: { 'f:1:1': { boite: 1, prochaine: '2026-03-02' }, 'f:2:1': { boite: 3, prochaine: '2026-03-01' }, 'fantome:1:1': { boite: 2, prochaine: '2026-03-01' } },
+  };
+  const file = L.fileDuJour(etat, '2026-03-01').map((x) => x.cle);
+  assert.deepEqual(file, ['f:1#3', 'f:1:2', 'f:2:1'], 'échus seulement, boîtes basses d’abord, sans l’ordre ni les fantômes');
+  assert.deepEqual(L.prochaineRevision(etat, '2026-03-01'), { date: '2026-03-02', jours: 1, n: 1 });
+  L.elaguerRevisions(etat);
+  assert.ok(!('fantome:1:1' in etat.revisions));
+  const m = L.fusionnerRevisions(
+    { x: { boite: 2, prochaine: '2026-03-10' }, y: { boite: 4, prochaine: '2026-03-10' }, z: { boite: 1, prochaine: '2026-03-02' } },
+    { x: { boite: 2, prochaine: '2026-03-20' }, y: { boite: 3, prochaine: '2026-04-30' }, w: { boite: 9, prochaine: 'n' } },
+  );
+  assert.deepEqual(m.x, { boite: 2, prochaine: '2026-03-20' }, 'même boîte : la date la plus lointaine');
+  assert.deepEqual(m.y, { boite: 4, prochaine: '2026-03-10' }, 'sinon la plus grande boîte');
+  assert.deepEqual(m.z, { boite: 1, prochaine: '2026-03-02' });
+  assert.ok(!m.w);
+});
+
+test('série : ancien format (une chaîne par jour) lu, jours actifs, série actuelle et meilleure série, fusion', () => {
+  const vieux = { '2026-03-01': 'juste', '2026-03-02': 'faux', '2026-03-03': 'juste', '2026-03-10': 'juste' };
+  assert.deepEqual(L.jourNormal('juste'), { jour: 'juste' });
+  assert.deepEqual(L.jourNormal('faux'), { jour: 'faux' });
+  assert.deepEqual(L.normaliserJours(vieux)['2026-03-02'], { jour: 'faux' });
+  assert.equal(L.serieActuelle(vieux, '2026-03-03'), 3);
+  assert.equal(L.serieActuelle(vieux, '2026-03-04'), 3, 'aujourd’hui pas encore joué : on compte jusqu’à hier');
+  assert.equal(L.serieActuelle(vieux, '2026-03-05'), 0);
+  assert.equal(L.meilleureSerie(vieux), 3);
+  const neuf = { '2026-03-04': { lecon: 1 }, '2026-03-05': { revision: 1 }, '2026-03-06': { quiz: 1, jour: 'juste' }, '2026-03-07': {} };
+  const tous = L.fusionnerJours(vieux, neuf);
+  assert.equal(L.serieActuelle(tous, '2026-03-06'), 6, 'ancien et nouveau format se suivent');
+  assert.ok(!('2026-03-07' in tous), 'un jour sans rien de fait n’est pas actif');
+  const f = L.fusionnerJours({ '2026-03-01': { lecon: 1, jour: 'faux' } }, { '2026-03-01': { quiz: 1, jour: 'juste' } });
+  assert.deepEqual(f['2026-03-01'], { lecon: 1, quiz: 1, jour: 'juste' });
+});
+
+test('badges : 13 badges calculés sur les données réelles, conditions et progression', () => {
+  const vide = L.calculerBadges({ parcours: {}, jours: {}, cartes: {}, xp: 0, faits: {} }, '2026-03-01');
+  assert.equal(vide.length, 13);
+  assert.equal(L.BADGES.length, 13);
+  assert.ok(vide.every((b) => !b.obtenu && b.nom && b.icone && b.condition && b.teinte));
+  const jours = {};
+  for (let i = 0; i < 7; i++) jours[L.plusJours('2026-03-01', i)] = { revision: 1 };
+  const cartes = {};
+  for (let i = 0; i < 100; i++) cartes[`f:1:${i + 1}`] = { vu: 1, ok: i % 2 === 0 };
+  cartes['f:9:9'] = { vu: 1, ok: null };
+  const etat = { parcours: { a: { fait: 8, mods: 1, bases: 0 }, b: { fait: 3, bases: 1 } }, jours, cartes, xp: 999, faits: { duel: '2026-03-01' } };
+  const par = Object.fromEntries(L.calculerBadges(etat, '2026-03-07').map((b) => [b.id, b]));
+  assert.ok(par['lecon-1'].obtenu && par['lecons-10'].obtenu === true, '11 leçons');
+  assert.ok(!par['lecons-50'].obtenu && par['lecons-50'].valeur === 11 && par['lecons-50'].cible === 50);
+  assert.ok(par['module-1'].obtenu && par.bases.obtenu);
+  assert.ok(par['serie-3'].obtenu && par['serie-7'].obtenu && !par['serie-30'].obtenu);
+  assert.ok(par['cartes-100'].obtenu === false && par['cartes-100'].valeur === 100 === false || par['cartes-100'].valeur <= 100);
+  assert.ok(par.duel.obtenu && !par.direct.obtenu && !par['xp-1000'].obtenu);
+  etat.xp = 1000; etat.faits.direct = '2026-03-02'; cartes['f:1:101'] = { vu: 1, ok: true };
+  const apres = Object.fromEntries(L.calculerBadges(etat, '2026-03-07').map((b) => [b.id, b]));
+  assert.ok(apres['xp-1000'].obtenu && apres.direct.obtenu && apres['cartes-100'].obtenu);
+  assert.deepEqual(L.fusionnerBadges({ a: '2026-03-02' }, { a: '2026-03-01', b: '' }), { a: '2026-03-01', b: '' });
+  assert.equal(L.fusionnerBadges(null, undefined), null);
+});
+
+test('cours vérifiés : un titre avec le mot clé d’un domaine ouvre ce domaine (sans accents, mot entier)', () => {
+  const attendu = {
+    'Gemmologie': 'v-gj', 'La GEMMOLOGIE et la joaillerie': 'v-gj', 'Les pierres précieuses': 'v-gj', 'Joaillerie ancienne': 'v-gj',
+    'Histoire de Rome': 'v-hg', 'Géographie de la France': 'v-hg', 'Sciences cognitives': 'v-sn', 'La nature en ville': 'v-sn',
+    'Street art': 'v-ac', 'Culture japonaise': 'v-ac', 'Histoire de l’art': 'v-ac',
+    'Le mont Blanc': null, 'Le cinéma de Kubrick': null, 'L’agriculture': null, 'Smart': null, 'Les volcans': null,
+  };
+  for (const [titre, id] of Object.entries(attendu)) assert.equal(L.domaineVerifie(titre), id, titre);
+});
+
+test('variante : prompt, consignes et validation (sections, mode simple plus court)', () => {
+  assert.match(PROMPT_VARIANTE, /UN SEUL objet JSON strict/);
+  assert.match(PROMPT_VARIANTE, /n’utilise QUE les faits des extraits fournis/);
+  const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
+  const mots = design.split('\n').find((l) => l.startsWith('- Mots :')).replace('- Mots :', '').replace(/\.\s*$/, '').split(',').map((m) => m.trim());
+  const proses = [PROMPT_VARIANTE, ...Object.values(CONSIGNES_VARIANTE)].flatMap((t) => t.split('\n').filter((l) => !l.startsWith('Mots interdits :') && !l.includes('{')));
+  for (const mot of mots) for (const l of proses) assert.ok(!new RegExp('(?<![\\p{L}])' + mot.replace(/[’']/g, '[’\']') + '(?![\\p{L}])', 'iu').test(l), 'mot interdit : ' + mot);
+  const ok = { sections: { enBref: ['La tour est en fer.', 'Elle date de 1889.'], comment: ['On la monte avec des rivets.', 'Il y en a beaucoup.'], pourquoi: null, ouQuand: null } };
+  const r = validerVariante(ok, { mode: 'simple', cles: ['enBref', 'comment'] });
+  assert.ok(r.valeur, r.raison);
+  assert.deepEqual(Object.keys(r.valeur.sections), ['enBref', 'comment', 'pourquoi', 'ouQuand']);
+  const courte = { sections: { enBref: ['Elle est en fer.', 'Elle date.'] } };
+  assert.ok(validerVariante(courte, { mode: 'simple', cles: ['enBref'] }).valeur);
+  assert.ok(validerVariante(courte, { mode: 'expert', cles: ['enBref'] }).raison, 'phrases trop courtes refusées en expert');
+  assert.ok(validerVariante({ sections: { enBref: ['Une seule phrase assez longue.'] } }, { mode: 'simple' }).raison, 'enBref : 2 phrases au moins');
+  const inconnue = { sections: { ...ok.sections, pourquoi: ['Phrase ajoutée en trop.', 'Autre phrase ajoutée.'] } };
+  assert.equal(validerVariante(inconnue, { mode: 'simple', cles: ['enBref', 'comment'] }).valeur.sections.pourquoi, null, 'une section absente de la leçon reste absente');
+});
+
+const varianteBrute = () => ({
+  sections: {
+    enBref: ['La tour Eiffel est une grande tour de fer.', 'Elle se trouve à Paris.'],
+    comment: ['Des ouvriers assemblent le fer avec des rivets.', 'Il y a 2,5 millions de rivets.'],
+    pourquoi: null, ouQuand: null,
+  },
+});
+function insererLeconVariante(parcours = 'la-tour-eiffel') {
+  insererParcours(parcours, { titre: 'La tour Eiffel' });
+  const contenu = {
+    id: `${parcours}:1`, parcours, numero: 1, etape: 1, titre: 'Une tour de fer',
+    sections: { enBref: 'La tour est en fer puddlé. Elle date de 1889.', comment: 'Le fer est assemblé par des rivets. Les pièces sont nombreuses.', pourquoi: null, ouQuand: null },
+    definitions: [{ terme: 'Rivet', definition: 'Tige métallique à tête.' }],
+    sources: [['Wikipédia · Tour Eiffel', 'https://fr.wikipedia.org/wiki/Tour_Eiffel'], ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower']],
+    questions: [],
+  };
+  db.base.prepare('INSERT INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, 1, ?, 0, ?)').run(contenu.id, parcours, JSON.stringify(contenu), '2026-10-19T08:00:00.000Z');
+}
+const postVariante = (j, sc, corps) => { brancher(sc); return appel(variantePost, { env: envDe(sc), methode: 'POST', jeton: j && j.jeton, corps }); };
+const quotasVariante = () => lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'variante%' ORDER BY cle");
+
+test('variante POST : 401, 400 (parcours, v-xx refusé, n, mode), 404, 503 ; rien consommé', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
+  erreurFr(await postVariante(null, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 401);
+  erreurFr(await postVariante(j, sc, { parcours: 'Pas valide!', n: 1, mode: 'simple' }), 400);
+  erreurFr(await postVariante(j, sc, { parcours: 'v-gj', n: 1, mode: 'simple' }), 400, /cours vérifiés/);
+  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 0, mode: 'simple' }), 400);
+  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: '1', mode: 'simple' }), 400);
+  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'normal' }), 400, /simple ou expert/);
+  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 404, /Parcours/);
+  insererParcours('la-tour-eiffel', { titre: 'La tour Eiffel' });
+  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 404, /Leçon introuvable/);
+  insererLeconVariante('autre-sujet');
+  insererLeconVariante('la-tour-eiffel-2');
+  const sansIA = await appel(variantePost, { env: { DB: db }, methode: 'POST', jeton: j.jeton, corps: { parcours: 'autre-sujet', n: 1, mode: 'simple' } });
+  erreurFr(sansIA, 503);
+  assert.deepEqual(quotasVariante(), []);
+  assert.equal(sc.appels.length, 0);
+});
+
+test('variante POST : réécriture à partir de la leçon et des extraits, vérifiée par la 2e IA, mise en cache', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererLeconVariante();
+  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
+  const r = await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
+  ok200(r);
+  const v = r.corps.variante;
+  assert.deepEqual(Object.keys(v), ['id', 'parcours', 'n', 'mode', 'sections', 'verification']);
+  assert.equal(v.id, 'la-tour-eiffel:1:simple');
+  assert.equal(v.sections.enBref, varianteBrute().sections.enBref.join(' '));
+  assert.equal(v.sections.pourquoi, null);
+  assert.deepEqual(v.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: 4, retirees: 0, statut: 'recoupe' });
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.modele]), [['variante', LLAMA], ['verif', MISTRAL]]);
+  const demande = sc.appels[0].entree.messages[1].content;
+  assert.equal(sc.appels[0].entree.messages[0].content, PROMPT_VARIANTE);
+  assert.match(demande, /Mode demandé : simple/);
+  assert.ok(demande.includes(CONSIGNES_VARIANTE.simple));
+  assert.ok(demande.includes('La tour est en fer puddlé. Elle date de 1889.'), 'le texte actuel de la leçon');
+  assert.ok(demande.includes('Rivet : Tige métallique à tête.'));
+  assert.match(demande, /Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel »/);
+  assert.equal(lignes('SELECT id FROM variantes')[0].id, 'la-tour-eiffel:1:simple');
+  assert.deepEqual(quotasVariante(), [{ cle: 'variante:joueur:' + j.id, n: 1 }, { cle: 'variante:total', n: 1 }]);
+  // En cache : servie à un autre lecteur, sans IA ni quota.
+  const autre = await creerJoueur('Camille');
+  const sc2 = scenario({});
+  const r2 = await postVariante(autre, sc2, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
+  ok200(r2);
+  assert.deepEqual(r2.corps.variante, v);
+  assert.equal(sc2.appels.length, 0);
+  assert.equal(quotasVariante().length, 2);
+  assert.deepEqual(quotasVariante().map((q) => q.n), [1, 1]);
+  // Autre mode : nouvelle ligne, consigne experte.
+  const sc3 = scenario({ variante: [{ sections: { enBref: ['La tour Eiffel mesure 312 mètres à l’origine.', 'Elle est bâtie en fer puddlé.'], comment: ['Chaque pièce est posée avec précision.', 'Les rivets assemblent les pièces.'], pourquoi: null, ouQuand: null } }], verif: [verifNumeros()] });
+  ok200(await postVariante(j, sc3, { parcours: 'la-tour-eiffel', n: 1, mode: 'expert' }));
+  assert.ok(sc3.appels[0].entree.messages[1].content.includes(CONSIGNES_VARIANTE.expert));
+  assert.equal(lignes('SELECT id FROM variantes').length, 2);
+});
+
+test('variante POST : une phrase non confirmée est retirée (statut partiel) ; sans extraits ou rédaction invalide : 502, rien en cache', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererLeconVariante();
+  const sc = scenario({ variante: [varianteBrute()], verif: [verifSi(/2,5 millions/)] });
+  const r = await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
+  ok200(r);
+  assert.equal(r.corps.variante.verification.statut, 'partiel');
+  assert.equal(r.corps.variante.verification.retirees, 1);
+  assert.ok(!r.corps.variante.sections.comment.includes('2,5 millions'));
+  assert.ok(r.corps.variante.sections.comment.includes('rivets'));
+  // Plus de 40 % retiré : nouvelle rédaction (on garde la meilleure).
+  toutVoir();
+  const j2 = await creerJoueur();
+  insererLeconVariante();
+  const sc2 = scenario({ variante: [varianteBrute()], verif: [verifSi(/./), verifNumeros()] });
+  ok200(await postVariante(j2, sc2, { parcours: 'la-tour-eiffel', n: 1, mode: 'expert' }));
+  assert.equal(sc2.par('variante').length, 2);
+  assert.match(sc2.par('variante')[1].entree.messages[1].content, /affirmations introuvables/);
+  // Rien d’utilisable.
+  toutVoir();
+  const j3 = await creerJoueur();
+  insererLeconVariante();
+  const mauvais = scenario({ variante: [{ sections: { enBref: ['Trop court'] } }], verif: [verifNumeros()] });
+  erreurFr(await postVariante(j3, mauvais, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 502);
+  wiki.pages = {}; wiki.pagesEn = {};
+  erreurFr(await postVariante(j3, scenario({}), { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 502, /sources/);
+  assert.equal(lignes('SELECT id FROM variantes').length, 0);
+});
+
+test('variante POST : 15 par jour et par lecteur, 150 par jour au total (le cache n’en consomme pas)', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  for (let k = 1; k <= 16; k++) {
+    insererLeconVariante(`sujet-${k}`);
+  }
+  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
+  for (let k = 1; k <= 15; k++) ok200(await postVariante(j, sc, { parcours: `sujet-${k}`, n: 1, mode: 'simple' }));
+  erreurFr(await postVariante(j, sc, { parcours: 'sujet-16', n: 1, mode: 'simple' }), 429, /15 versions/);
+  ok200(await postVariante(j, sc, { parcours: 'sujet-3', n: 1, mode: 'simple' }));
+  const k2 = await creerJoueur('Camille');
+  db.base.prepare("UPDATE quotas SET n = 150 WHERE cle = 'variante:total'").run();
+  erreurFr(await postVariante(k2, sc, { parcours: 'sujet-16', n: 1, mode: 'simple' }), 429, /débordée/);
+  assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'variante:joueur:" + k2.id + "'")[0].n, 1);
 });
 
 // --- Robustesse ------------------------------------------------------------

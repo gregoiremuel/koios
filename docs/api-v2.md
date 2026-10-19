@@ -16,6 +16,7 @@ S'ajoute à l'API existante (docs/api.md) ; les routes V1 et V1.1 restent en pla
   - **Ancien format** (sans `programme`) : `etapes: [{ numero, titre, paliers }]` de 10 paliers, sans fin. Comportement inchangé.
 - `paliers(id TEXT PRIMARY KEY, parcours TEXT, numero INTEGER, contenu TEXT, vues INTEGER DEFAULT 0, cree TEXT)`, index sur `parcours`.
 - `quiz_direct(parcours TEXT PRIMARY KEY, contenu TEXT, cree TEXT)`.
+- `variantes(id TEXT PRIMARY KEY, contenu TEXT, cree TEXT)` : id = `parcours:n:mode` (mode `simple` ou `expert`).
 
 Identifiants : parcours `slug(titre)` (40 caractères au plus, `[a-z0-9-]`) ; palier `<parcours>:<numero>`.
 
@@ -95,3 +96,8 @@ Toutes les écritures sont des `POST partie { action, … }` (auth) ; lecture pa
 
 **Limites.** 12 joueurs, mise à jour toutes les 2 secondes (4 s si l'onglet est caché), pas de WebSocket : une lecture fait quelques requêtes D1, donc 12 joueurs coûtent environ 6 lectures par seconde. Pas d'XP gagnée en direct.
 
+
+## Variantes de lecture (lot 3c) : `POST /api/variante`
+
+Corps `{ parcours, n, mode }`, mode `simple` ou `expert`. Connexion obligatoire (401). 400 : parcours invalide, cours vérifié v-xx, n non entier, mode inconnu. 404 : parcours ou leçon absents. 503 : pas d'IA.
+Réécrit `enBref` et les sections d'explication de la leçon en cache, à partir de ses extraits Wikipédia ; vérifié par la 2e IA (phrases non confirmées retirées). Cache dans `variantes` : une version en cache ne coûte ni IA ni quota. Quota : 15 par jour et par lecteur, 150 par jour au total (429). Réponse `{ variante: { id, parcours, n, mode, sections, verification } }`.

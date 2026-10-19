@@ -578,3 +578,18 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
   .barre-indet i { animation: none !important; width: 100%; background: var(--ligne-forte); }
   .attente::before { animation: none !important; }
 }
+
+/* Lot 3c : sélecteur de lecture, badges, toast de badge */
+.attente.courte { min-height: 0; padding: 4px 0; }
+.lecture { padding-top: 6px; }
+.badge-rond { width: 48px; height: 48px; border-radius: 24px; display: grid; place-items: center; flex: none; background: var(--pale); color: var(--acc); border: 1px solid var(--bord); }
+.badge-rond .i { width: 24px; height: 24px; }
+.badge-rond.gris { background: var(--surface); color: var(--encre-2); border-color: var(--ligne); }
+.badge-ligne { grid-template-columns: 48px 1fr; }
+.badge-ligne.gris b { color: var(--encre-2); }
+.toasts-badges { position: fixed; left: 50%; bottom: calc(132px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: grid; gap: 8px; width: max-content; max-width: calc(100% - 32px); z-index: 7; pointer-events: none; }
+.toast-badge { display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 12px; padding: 10px 18px 10px 10px; border-radius: 16px; background: var(--encre); color: #fff; animation: monte-toast 250ms ease-out; transition: opacity 200ms ease-out; }
+.toast-badge .sur { color: #fff; opacity: 0.8; }
+.toast-badge b { display: block; font-size: 16px; font-weight: 600; }
+.toast-badge.sort { opacity: 0; }
+@keyframes monte-toast { from { opacity: 0; transform: translateY(16px); } }

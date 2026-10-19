@@ -94,3 +94,7 @@ Constat : la formation de gemmologie vérifiée n'a que 5 leçons très courtes,
 ## Lot 3b : livré (19 octobre 2026)
 
 Formation à plusieurs (groupes, 12 membres, page `#/groupe/<id>`, bouton « Suivre à plusieurs » sur la page d'une formation, « Mes groupes » dans Amis) et jeu en direct (parties de 12 joueurs au plus, code de 6 caractères, `#/partie/<code>`, interrogation toutes les 2 secondes, 20 s par question puis 5 s de résultat). Détail des routes dans `docs/api-v2.md`. Pas de son, pas de WebSocket, pas d'XP en direct.
+
+## Lot 3c livré
+
+Révision espacée (Leitner), série sur toutes les activités, 13 badges (la demande disait 12), « explique simplement » et version experte, correspondance des mots clés de domaine. Cours vérifiés masqués.
