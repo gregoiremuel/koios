@@ -1,7 +1,7 @@
 {
   "name": "Koîos",
   "short_name": "Koîos",
-  "description": "Apprends n’importe quel sujet, palier par palier, avec des quiz et des duels entre amis.",
+  "description": "Apprends n’importe quel sujet, leçon par leçon, avec des quiz et des duels entre amis.",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",

@@ -22,7 +22,7 @@ import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, redacteurs, verificateurs,
 } from '../lib/fournisseurs.js';
 import {
-  CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, imageDeTete, imagePexels, imageUnsplash,
+  CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, imageDeTete, imageDesPages, imageUnsplash, imageWikipedia,
   licenceLibre, requeteImage, texteDeHtml,
 } from '../lib/images.js';
 import {
@@ -671,8 +671,8 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
-// Fournisseurs externes simulés (GLM, Pexels, Unsplash) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, pexels: null, unsplash: null, commons: null };
+// Fournisseurs externes simulés (GLM, Unsplash, Commons) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
+const ext = { appels: [], glm: null, unsplash: null, commons: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -699,7 +699,6 @@ reinitWiki();
 function reinitExt() {
   ext.appels = [];
   ext.glm = null;
-  ext.pexels = null;
   ext.unsplash = null;
   ext.commons = null;
   horloge.t = 0;
@@ -723,7 +722,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'api.pexels.com': 'pexels', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -2134,18 +2133,6 @@ test('Workers AI : modèle, jetons, température transmis ; délai dépassé ; a
 
 // --- Images ---
 
-const photoPexels = (extra = {}) => ({
-  id: 1,
-  url: 'https://www.pexels.com/photo/tour-1/',
-  photographer: 'Jeanne Dupont',
-  photographer_url: 'https://www.pexels.com/@jeanne',
-  src: {
-    original: 'https://images.pexels.com/photos/1/original.jpeg',
-    large: 'https://images.pexels.com/photos/1/large.jpeg',
-    landscape: 'https://images.pexels.com/photos/1/landscape.jpeg',
-  },
-  ...extra,
-});
 const photoUnsplash = (extra = {}) => ({
   id: 'u1',
   alt_description: 'a tower',
@@ -2157,37 +2144,15 @@ const photoUnsplash = (extra = {}) => ({
   ...extra,
 });
 
-test('images : Pexels (adresse, clé, requête en anglais, crédit et lien)', async () => {
+test('images : Pexels n’existe plus (ni clé lue, ni appel) ; seules Commons et Unsplash fournissent des photos', async () => {
   reinitExt();
-  ext.pexels = () => reponseWiki({ photos: [photoPexels()] });
-  const image = await imagePexels({ PEXELS_KEY: 'cle-pexels' }, 'Eiffel Tower Paris', 'La tour Eiffel');
-  assert.deepEqual(image, {
-    src: 'https://images.pexels.com/photos/1/landscape.jpeg',
-    alt: 'Photo illustrant « La tour Eiffel »',
-    credit: 'Photo : Jeanne Dupont sur Pexels',
-    lien: 'https://www.pexels.com/photo/tour-1/',
-  });
-  const a = ext.appels[0];
-  assert.equal(a.url.origin + a.url.pathname, 'https://api.pexels.com/v1/search');
-  assert.deepEqual(Object.fromEntries(a.url.searchParams), { query: 'Eiffel Tower Paris', per_page: '3', orientation: 'landscape' });
-  assert.equal(new Headers(a.init.headers).get('authorization'), 'cle-pexels', 'la clé seule, sans « Bearer »');
-  assert.ok(a.init.signal instanceof AbortSignal);
-  // Sans clé : aucun appel. Photos inutilisables : la première valable est prise.
-  ext.appels.length = 0;
-  assert.equal(await imagePexels({}, 'Eiffel', 'T'), null);
-  assert.equal(ext.appels.length, 0);
-  ext.pexels = () => reponseWiki({ photos: [
-    photoPexels({ src: { landscape: 'https://exemple.test/x.jpeg' } }),
-    photoPexels({ url: 'javascript:alert(1)' }),
-    photoPexels({ photographer: '' }),
-    null,
-    photoPexels({ photographer: 'Marie', src: { large: 'https://images.pexels.com/photos/2/large.jpeg' } }),
-  ] });
-  assert.equal((await imagePexels({ PEXELS_KEY: 'k' }, 'Eiffel', 'T')).credit, 'Photo : Marie sur Pexels');
-  for (const rep of [() => new Response('non', { status: 403 }), () => reponseWiki({ photos: [] }), () => reponseWiki({}), () => new Response('<html>', { status: 200 })]) {
-    ext.pexels = rep;
-    assert.equal(await imagePexels({ PEXELS_KEY: 'k' }, 'Eiffel', 'T'), null);
-  }
+  ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
+  const image = await imageDeTete({ PEXELS_KEY: 'cle-pexels', UNSPLASH_KEY: 'cle-unsplash' }, { motImage: 'Eiffel Tower', titre: 'La tour Eiffel', pages: [] });
+  assert.equal(image.source, 'unsplash');
+  assert.deepEqual(ext.appels.map((x) => x.fournisseur), ['unsplash'], 'la clé Pexels est ignorée');
+  const sans = await imageDeTete({ PEXELS_KEY: 'cle-pexels' }, { motImage: 'Eiffel Tower', titre: 'La tour Eiffel', pages: [] });
+  assert.equal(sans, null);
+  assert.equal(ext.appels.length, 1, 'sans clé Unsplash : aucun appel');
   reinitExt();
 });
 

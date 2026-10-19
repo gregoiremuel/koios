@@ -64,6 +64,8 @@
     i.addEventListener("error", function () { var parent = f.parentNode; f.remove(); if (parent && parent.classList.contains("emplacement") && !parent.children.length) parent.hidden = true; });
     return f;
   }
+  /* Une photo ne s'affiche qu'avec son auteur et sa licence : seules celles de Commons ou d'Unsplash passent. Les anciennes images de Wikipédia, sans crédit complet, sont ignorées. */
+  function imageOk(img) { return img && img.src && img.credit && (img.source === "commons" || img.source === "unsplash") ? img : null; }
   /* Photos trouvées par /api/image (« auto », « commons » ou « unsplash »), gardées en mémoire pour la session ; null si rien ne vient. */
   var imagesMem = {};
   function trouverImage(requete, source) {
@@ -105,7 +107,7 @@
   /* Vignette d'une liste : photo (48 px, décorative) si l'image est connue, sinon la tuile de la catégorie du sujet. */
   function vignette(img, titre) {
     var t = tuile(categorie(titre));
-    if (!(img && img.src)) return t;
+    if (!imageOk(img)) return t;
     var i = el("img", { "class": "vignette", src: img.src, alt: "", loading: "lazy", decoding: "async" });
     i.addEventListener("error", function () { i.replaceWith(tuile(categorie(titre))); });
     return i;
@@ -262,7 +264,7 @@
   function parProgramme(p) { return !!(p.programme && p.programme.niveaux); }
   function formationComplete(p) { return parProgramme(p) && (p.etapes || []).length >= (p.modulesTotal || 0); } // tous les modules sont ouverts
   function fini(p) { return (p.verifie || formationComplete(p)) && suivi(p.id).fait >= paliersPrevus(p); }
-  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || s.image || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = imageOk(p.image) || imageOk(s.image) || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
   function modulesFaits(p, fait) { return (p.etapes || []).filter(function (e) { var l = e.paliers || []; return l.length && l[l.length - 1].numero <= fait; }).length; }
   function creerParcours(titre, bouton, alerte, statut) {
     titre = String(titre || "").trim();
@@ -380,7 +382,7 @@
   /* ---------- Maison ---------- */
   /* Recherche d'un sujet, puis « Idées de formations » en tuiles photo (4:3, titre dessous, icône de catégorie à côté). */
   function carteRecherche(credits) {
-    var champ = el("input", { "class": "champ", id: "sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "Un sujet, une époque, une personne…" });
+    var champ = el("input", { "class": "champ", id: "sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "Un sujet, une époque…" });
     var bouton = el("button", { "class": "btn petit", type: "button", text: "Apprendre" });
     var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
     bouton.addEventListener("click", function () { creerParcours(champ.value, bouton, alerte); });
@@ -419,7 +421,7 @@
   /* Carte d'un parcours vérifié dans le carrousel : photo, badge, nombre de leçons, progression. */
   function carteVerifiee(p, credits) {
     var s = suivi(p.id), cadre = cadrePhoto(p.titre, "r169");
-    if (s.image && s.image.src) poserDansCadre(cadre, s.image, p.titre, credits);
+    if (imageOk(s.image)) poserDansCadre(cadre, s.image, p.titre, credits);
     else if (p.motImage) photoDansCadre(cadre, p.motImage, p.titre, credits, function (im) { memoriserImage(p.id, im); });
     var pct = p.paliers ? Math.min(100, Math.round((s.fait || 0) / p.paliers * 100)) : 0;
     return el("li", {}, [el("a", { "class": "carte-v", href: "#/p/" + encodeURIComponent(p.id) }, [cadre, el("span", { "class": "carte-v-corps" }, [
@@ -477,7 +479,7 @@
   /* Tuile « Reprendre » : photo de la formation en cours, titre, progression, un seul bouton noir. */
   function tuileReprendre(r, credits) {
     var photoR = cadrePhoto(r.s.titre, "photo-r r169");
-    if (r.s.image && r.s.image.src) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
+    if (imageOk(r.s.image)) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
     else photoDansCadre(photoR, r.s.titre, r.s.titre, credits, function (im) { memoriserImage(r.id, im); });
     var q = quizEnAttente(r.s), avance = !(termine(r.s) && !q);
     return el("section", { "class": "tb reprendre", "aria-labelledby": "titre-reprendre" }, [
@@ -537,10 +539,10 @@
   }
 
   /* ---------- Parcours ---------- */
-  function memoriserImage(id, im) { var s = etat.parcours[id]; if (s && !(s.image && s.image.src)) { s.image = { src: im.src, credit: im.credit, lien: im.lien, source: im.source, auteur: im.auteur, lienAuteur: im.lienAuteur, lienSource: im.lienSource }; S.ecrire("koios.etat", etat); } }
+  function memoriserImage(id, im) { var s = etat.parcours[id]; if (s && !imageOk(s.image)) { s.image = { src: im.src, credit: im.credit, lien: im.lien, source: im.source, auteur: im.auteur, lienAuteur: im.lienAuteur, lienSource: im.lienSource }; S.ecrire("koios.etat", etat); } }
   /* Couverture 16:9 : l'image du parcours, sinon une photo cherchée sur Commons puis Unsplash (cadre gris le temps de la recherche, retiré si rien ne vient). */
   function couverture(p) {
-    if (p.image && p.image.src) return photo(p.image, "couverture", p.titre);
+    if (imageOk(p.image)) return photo(p.image, "couverture", p.titre);
     var attendre = el("figure", { "class": "photo couverture", "aria-hidden": "true" }, [el("div", { "class": "cadre" })]);
     trouverImage(p.motImage || p.titre, "auto").then(function (im) {
       var f = im ? photo(im, "couverture", p.titre) : null;
@@ -912,6 +914,7 @@
         verifBloc.appendChild(rendreQuestion(l.questions[qIndex], function (juste) {
           var it = { palier: l.id, index: qIndex, titre: l.titre };
           if (juste) { bonus = etat.reussies[it.palier + "#" + it.index] ? 0 : XP.verif; oublierErreur(it); } else noterErreur(it);
+          if (!deja && bonus) finir.firstChild.textContent = "Terminer la leçon · +" + (XP.palier + bonus) + N + "XP"; // le bouton annonce le vrai gain
           S.ecrire("koios.etat", etat);
         }));
       }
@@ -970,7 +973,7 @@
         article,
         verifBloc, finir, rangeeNav
       ]), null, l.titre);
-      if (l.image && l.image.src) poserPhoto(l.image);
+      if (imageOk(l.image)) poserPhoto(l.image);
       else trouverImage(l.titre + " " + p.titre, "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
       // Mots déjà définis dans les leçons précédentes : soulignés, avec leur fiche. Sans glossaire, la leçon reste telle quelle.
       glossaireJusqua(p, n - 1).then(function (termes) { if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
@@ -1065,7 +1068,7 @@
       if (k >= items.length) return fin();
       var it = items[k];
       scene.appendChild(el("span", { "class": "sur", text: opt.titre + (it.titre ? " · " + it.titre : "") }));
-      var suite = el("button", { "class": "btn", type: "button", hidden: "", text: k === items.length - 1 ? "Voir le résultat" : "Question suivante" });
+      var suite = el("button", { "class": "btn", type: "button", hidden: "" }, [el("span", { text: k === items.length - 1 ? "Voir le résultat" : "Question suivante" }), icone("fleche")]);
       suite.addEventListener("click", function () { k += 1; afficher(); });
       scene.appendChild(rendreQuestion(it.question, function (juste) {
         points.children[k].className = juste ? "ok" : "ko";
