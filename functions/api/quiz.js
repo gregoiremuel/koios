@@ -29,7 +29,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   // On ne lit d'abord que les identifiants et le nombre de questions de chaque palier.
   const { results } = await env.DB.prepare(
     `SELECT id, json_array_length(contenu, '$.questions') AS nq
-     FROM paliers WHERE parcours = ? ORDER BY numero LIMIT 500`,
+     FROM paliers WHERE parcours = ? ORDER BY numero LIMIT 1500`,
   )
     .bind(parcours)
     .all();

@@ -17,7 +17,8 @@
 //     contenu/), leurs adresses d'images sont remplacées par des aplats gris neutres servis par ce serveur
 //     (/images-simulees/<ton>.svg) : on voit la mise en page, jamais une fausse photo.
 // Un palier sur quatre porte une phrase « non confirmée » que le faux vérificateur retire : son statut est « partiel ».
-// Une leçon sur six porte un moyen mnémotechnique non confirmé : il est retiré (mnemo null).
+// Une leçon sur six porte un moyen mnémotechnique non confirmé : il est retiré (mnemo null). Une sur sept, un exemple
+// non confirmé (null) ; une sur cinq, une carte non confirmée (retirée).
 // Les contenus simulés servent à voir l'écran, pas à apprendre. Aucun secret : les clés sont des valeurs calculées.
 
 import { createServer } from 'node:http';
@@ -28,11 +29,11 @@ import { fileURLToPath } from 'node:url';
 import worker from '../worker.js';
 import { PROMPT_CHAPITRE, PROMPT_PLAN } from '../lib/sujets.js';
 import {
-  PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_QUIZ, PROMPT_VERIFICATION,
+  PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION,
 } from '../lib/paliers.js';
 import { fauxD1 } from './faux_d1.mjs';
 import {
-  PAGES, leconSimulee, moduleSimule, palierSimule, planSimule, programmeSimule, quizSimule, trouverPage, verificationSimulee,
+  PAGES, leconSimulee, moduleSimule, palierSimule, planSimule, programmeSimule, prolongementSimule, quizSimule, trouverPage, verificationSimulee,
 } from './faux_contenus.mjs';
 
 const RACINE = resolve(fileURLToPath(new URL('../app/', import.meta.url)));
@@ -169,6 +170,7 @@ function reponseDe(systeme, demande) {
   if (systeme === PROMPT_ETAPE) return planSimule(demande);
   if (systeme === PROMPT_PROGRAMME) return programmeSimule(demande);
   if (systeme === PROMPT_MODULE) return moduleSimule(demande);
+  if (systeme === PROMPT_PROLONGER) return prolongementSimule(demande);
   if (systeme === PROMPT_LECON) return leconSimulee(demande);
   if (systeme === PROMPT_PALIER) return palierSimule(demande);
   if (systeme === PROMPT_QUIZ) return quizSimule(demande);

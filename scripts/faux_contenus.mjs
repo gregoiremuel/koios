@@ -264,31 +264,58 @@ export function planSimule(demande) {
 
 const coupeTitre = (t, n) => (t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t);
 
-// 4 niveaux de 3 ou 4 modules, avec les titres de la fiche (réels pour les trois sujets, simulés sinon).
+// 4 niveaux (6, 5, 5 et 5 modules), avec les titres de la fiche (réels pour les trois sujets, simulés sinon).
+// Chaque module a pour prérequis le module qui le précède (et parfois celui d'avant).
 export function programmeSimule(demande) {
   const titre = premier(/Parcours : « ([^\n]*) »/, demande);
   const f = ficheDuParcours(titre);
   const objectif = (t) => coupeTitre(`Comprendre ce que recouvre « ${t} » dans le sujet, avec ses repères.`, 160);
-  const module = (t) => ({ titre: coupeTitre(t, 60), objectif: objectif(t) });
+  const nom = f.titre;
+  const titres = [
+    `Qu’est-ce que ${coupeTitre(nom, 30)} ?`, 'Le vocabulaire de base', 'Les grands repères', ...f.paliers1.slice(0, 3),
+    ...f.paliers1.slice(3, 8), ...f.paliers2.slice(0, 5), ...f.paliers2.slice(5, 10),
+  ].map((t) => coupeTitre(t, 60));
+  const module = (t) => {
+    const k = titres.indexOf(t);
+    const prerequis = k === 0 ? [] : k % 4 === 3 && k > 1 ? [titres[k - 1], titres[k - 2]] : [titres[k - 1]];
+    return { titre: t, objectif: objectif(t), prerequis };
+  };
   return {
     resume: f.resume,
     motImage: f.motImage,
     niveaux: [
-      { titre: 'Bases : les repères', modules: ['Définitions et repères', ...f.paliers1.slice(0, 2)].map(module) },
-      { titre: 'Intermédiaire : relier les notions', modules: f.paliers1.slice(2, 6).map(module) },
-      { titre: 'Avancé : cas et débats', modules: f.paliers2.slice(0, 3).map(module) },
-      { titre: 'Expert : sources et limites', modules: f.paliers2.slice(3, 7).map(module) },
+      { titre: 'Bases : les repères', modules: titres.slice(0, 6).map(module) },
+      { titre: 'Intermédiaire : relier les notions', modules: titres.slice(6, 11).map(module) },
+      { titre: 'Avancé : cas et débats', modules: titres.slice(11, 16).map(module) },
+      { titre: 'Expert : sources et limites', modules: titres.slice(16, 21).map(module) },
     ],
   };
 }
 
-// Leçons d'un module : 5 à 8 titres, tous différents d'un module à l'autre.
+// Leçons d'un module : 6 à 9 titres, tous différents d'un module à l'autre.
 export function moduleSimule(demande) {
   const numero = Number(premier(/Module à écrire : n° (\d+),/, demande, '1'));
   const titre = premier(/Module à écrire : n° \d+, « ([^\n]*) »/, demande);
-  const aspects = ['les repères', 'les origines', 'les acteurs', 'les lieux', 'les dates', 'les chiffres', 'les débats', 'le bilan'];
-  const n = numero === 1 ? 6 : 5 + (numero % 4);
+  const aspects = ['les repères', 'les origines', 'les acteurs', 'les lieux', 'les dates', 'les chiffres', 'les débats', 'le bilan', 'un exemple'];
+  const n = numero === 1 ? 6 : 6 + (numero % 4);
   return { lecons: aspects.slice(0, n).map((a) => coupeTitre(`${a[0].toUpperCase()}${a.slice(1)} · ${titre}`, 60)) };
+}
+
+// « Aller plus loin » : 4 modules plus pointus, dont les titres ne répètent aucun titre du programme existant.
+export function prolongementSimule(demande) {
+  const titre = premier(/Parcours : « ([^\n]*) »/, demande);
+  const f = ficheDuParcours(titre);
+  const total = Number(premier(/Programme existant \((\d+) modules\)/, demande, '0'));
+  const dernier = [...demande.matchAll(/^ {2}Module \d+ · ([^\n]*)$/gm)].map((m) => m[1]).pop() || '';
+  const niveau = Number(premier(/Niveau à écrire : n° (\d+),/, demande, '5')) - 4;
+  const aspects = ['les cas limites', 'les techniques fines', 'l’histoire détaillée', 'les débats entre spécialistes'];
+  return {
+    modules: aspects.map((a, i) => ({
+      titre: coupeTitre(`${f.titre.slice(0, 25)} : ${a}, partie ${niveau}`, 60),
+      objectif: coupeTitre(`Aller plus loin sur ${a} de « ${f.titre} », avec plus de précision.`, 160),
+      prerequis: i === 0 && dernier ? [dernier] : [],
+    })).slice(0, total > 0 ? 4 : 3),
+  };
 }
 
 // --- Palier ----------------------------------------------------------------
@@ -328,18 +355,30 @@ export function palierSimule(demande) {
   };
 }
 
-// Leçon d'un parcours à programme : le palier, plus « à retenir » et moyen mnémotechnique. Une leçon sur six porte
-// un moyen mnémotechnique que la vérification ne confirme pas (il devient null).
+// Leçon d'un parcours à programme : le palier, plus « à retenir », moyen mnémotechnique, rappels, exemple et cartes.
+// Une leçon sur six porte un moyen mnémotechnique que la vérification ne confirme pas (il devient null), une sur sept
+// un exemple non confirmé (null), une sur cinq une carte non confirmée (retirée).
 export function leconSimulee(demande) {
   const titreParcours = premier(/Parcours : « ([^\n]*) »/, demande);
   const numero = Number(premier(/Palier à écrire : n° (\d+),/, demande, '1'));
   const f = ficheDuParcours(titreParcours);
   const palier = palierSimule(demande);
   const terme = palier.definitions[0].terme;
+  const rumeur = (cond) => (cond ? ' ' + MARQUE_RUMEUR : '');
+  const rappels = numero > 1 ? choix(f.definitions, numero + 2, 2).map(([t, d]) => coupeTitre(`${t} : ${d}`, 160)) : [];
+  const cartes = [0, 1, 2].map((k) => {
+    const q = f.qcm[(numero + k) % 7];
+    const reponse = q.reponses[q.bonne];
+    return { recto: coupeTitre(q.enonce, 120), verso: reponse.length >= 5 ? reponse : `La réponse est « ${reponse} ».` };
+  });
+  if (numero % 5 === 0) cartes.push({ recto: `Question de carte simulée sur « ${coupeTitre(f.titre, 30)} » ?`, verso: `Une réponse que les extraits ne confirment pas.${rumeur(true)}` });
   return {
     ...palier,
+    avant: rappels,
+    exemple: `Pour comprendre « ${terme} », on peut imaginer une situation simple du quotidien. Cet exemple est écrit à la main par le serveur local.${rumeur(numero % 7 === 0)}`,
     aRetenir: choix(f.enBref, numero, 3),
-    mnemo: `Pour retenir « ${terme} », répète le mot à voix haute en pensant à la leçon ${numero}.${numero % 6 === 0 ? ' ' + MARQUE_RUMEUR : ''}`,
+    mnemo: `Pour retenir « ${terme} », répète le mot à voix haute en pensant à la leçon ${numero}.${rumeur(numero % 6 === 0)}`,
+    cartes,
   };
 }
 

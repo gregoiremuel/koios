@@ -1,4 +1,4 @@
-// GET /api/palier?parcours=<id>&n=<k> : un palier d'un parcours (k de 1 à 500).
+// GET /api/palier?parcours=<id>&n=<k> : un palier d'un parcours (k de 1 à 1 500).
 // En cache : public, aucun quota. Sinon : connexion, quota, sources Wikipédia, rédaction, vérification par une
 // 2e IA, mise en cache. Si k dépasse le plan, le plan de l'étape suivante est écrit d'abord : 10 paliers (ancien
 // format, sans fin) ou les leçons du module suivant du programme (5 à 10 ; 404 quand le programme est terminé).
@@ -7,17 +7,16 @@ import {
   ErreurHttp, auth, enveloppe, exigerBase, json, quota,
 } from '../../lib/api.js';
 import {
-  ETAPE_TAILLE, ID_PARCOURS, MESSAGE_FIN, PALIER_MAX, decoderParcours, demarrerChrono, genererEtapeSuivante,
+  ETAPE_TAILLE, ID_PARCOURS, MESSAGE_FIN, PALIER_MAX, TERMES_MAX, decoderParcours, demarrerChrono, genererEtapeSuivante,
   genererModuleSuivant, genererPalier, idPalier, nbPaliers,
 } from '../../lib/paliers.js';
 
 const COLONNES = 'id, titre, contenu';
-const TERMES_MAX = 40;
 
-// Noms des termes déjà définis dans les leçons précédentes du parcours (les plus récentes d'abord, 40 au plus).
+// Noms des termes déjà définis dans les leçons précédentes du parcours (les plus récentes d'abord, 200 au plus).
 async function termesDefinis(env, parcours, k) {
   const { results } = await env.DB.prepare(
-    'SELECT contenu FROM paliers WHERE parcours = ? AND numero < ? ORDER BY numero DESC LIMIT 40',
+    'SELECT contenu FROM paliers WHERE parcours = ? AND numero < ? ORDER BY numero DESC LIMIT 80',
   )
     .bind(parcours, k)
     .all();
@@ -64,7 +63,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   const parcoursId = p.get('parcours');
   const brutN = p.get('n');
   if (!parcoursId || brutN === null) throw new ErreurHttp(400, 'Indique le parcours et le numéro du palier.');
-  if (!/^\d{1,3}$/.test(brutN) || Number(brutN) < 1 || Number(brutN) > PALIER_MAX) {
+  if (!/^\d{1,4}$/.test(brutN) || Number(brutN) < 1 || Number(brutN) > PALIER_MAX) {
     throw new ErreurHttp(400, `Numéro de palier invalide : un entier de 1 à ${PALIER_MAX}.`);
   }
   if (!ID_PARCOURS.test(parcoursId)) throw new ErreurHttp(404, 'Parcours introuvable.');

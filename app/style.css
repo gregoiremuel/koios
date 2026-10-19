@@ -98,7 +98,10 @@ p { margin: 0; }
 .champ:focus { border-color: var(--encre); }
 textarea.champ { min-height: 96px; padding: 12px 16px; resize: vertical; }
 .alerte { font-size: 14px; font-weight: 500; color: var(--faux); }
-.recherche { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.recherche { display: grid; gap: 12px; }
+.liens-recherche { display: flex; flex-wrap: wrap; gap: 0 20px; }
+.suggestions { padding: 4px 0 0; }
+.suggestions h2 { font-size: 16px; }
 
 /* Cartes et listes */
 .carte { border: 1px solid var(--ligne); border-radius: 12px; padding: 16px; display: grid; gap: 12px; background: var(--fond); }
@@ -523,6 +526,51 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
 .podium.trois li:nth-child(2) { order: 1; }
 .podium.trois li:nth-child(3) { order: 3; }
 @keyframes monte { from { transform: scaleY(0.3); } }
+
+/* Lot 4 : rappels, exemple, cartes, sources repliées, cours vérifié, fiche du module */
+.avant { padding: 16px; border: 1px solid var(--bord); border-radius: 12px; background: var(--surface); }
+.avant-liste { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+.avant-liste li::marker { color: var(--acc); }
+.exemple { padding: 16px; border: 1px solid var(--bord); border-radius: 12px; background: var(--pale); }
+.exemple .titre-section .ic { color: var(--acc); }
+.sources-pliees { border-top: 1px solid var(--ligne); }
+.sources-pliees summary { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; min-height: 44px; padding: 4px 0; list-style: none; cursor: pointer; font-weight: 600; font-size: 16px; }
+.sources-pliees summary::-webkit-details-marker { display: none; }
+.sources-pliees summary .aide-titre { display: flex; align-items: center; gap: 8px; }
+.sources-pliees summary .ic { color: var(--encre-2); }
+.sources-pliees[open] summary > .ic .i { transform: rotate(90deg); }
+.cartes-lecon { gap: 10px; }
+.cartes-grille { display: grid; gap: 12px; }
+.carte-item { display: grid; gap: 4px; }
+.carte-flip { display: block; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; perspective: 800px; -webkit-tap-highlight-color: transparent; }
+.flip-int { display: grid; min-height: 132px; transform-style: preserve-3d; transition: transform 250ms ease-out; }
+.carte-flip.retournee .flip-int { transform: rotateY(180deg); }
+.face { grid-area: 1 / 1; display: grid; align-content: center; gap: 6px; padding: 16px; border-radius: 16px; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.face.recto { border: 1px solid var(--bord); background: var(--pale); }
+.face.verso { background: var(--acc); color: #fff; transform: rotateY(180deg); }
+.face .sur { color: var(--acc); }
+.face.verso .sur { color: #fff; opacity: 0.85; }
+.face-texte { font-size: 17px; line-height: 1.45; font-weight: 600; }
+.face.verso .face-texte { font-weight: 500; }
+.carte-flip:active .flip-int { transform: scale(0.98); }
+.carte-flip.retournee:active .flip-int { transform: rotateY(180deg) scale(0.98); }
+.revision { gap: 14px; }
+.reponses-rev { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.reponses-rev[hidden], .suggestions[hidden] { display: none; }
+.onglets.cinq button { font-size: 14px; padding: 0 2px; }
+.cours-verifie { display: grid; grid-template-columns: 24px 1fr auto; gap: 12px; align-items: center; min-height: 64px; padding: 12px 16px; border: 1px solid #b9dcc8; border-radius: 12px; background: var(--juste-pale); color: var(--encre); text-decoration: none; }
+.cours-verifie > .ic:first-child { color: var(--juste); }
+.cours-verifie > .ic:last-child { color: var(--encre-2); }
+.cv-texte { display: grid; gap: 2px; min-width: 0; }
+.cv-texte b { font-weight: 600; line-height: 1.35; }
+.fiche-module { margin: 0 0 4px; }
+.prolonger { padding-top: 4px; }
+.fiche-lecon h2 { font-size: 20px; }
+.lien-titre { color: var(--encre); text-decoration: none; }
+@media (min-width: 720px) { .cartes-grille { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) {
+  .flip-int, .carte-flip:active .flip-int { transition: none !important; }
+}
 
 /* Moins de mouvement : tout s'affiche sans animer. La barre indéterminée devient un trait fixe. */
 @media (prefers-reduced-motion: reduce) {

@@ -1,4 +1,4 @@
-// GET /api/glossaire?parcours=<id>&jusqua=<k> : les mots définis dans les leçons 1 à k d'un parcours (k de 1 à 500).
+// GET /api/glossaire?parcours=<id>&jusqua=<k> : les mots définis dans les leçons 1 à k d'un parcours (k de 1 à 1 500).
 // Public, sans connexion ni quota. Lit seulement le cache (table paliers) : ne génère rien et ne compte pas de vue.
 // Reprend `definitions` et `reperes` de chaque leçon. Un terme qui revient (sans accents ni casse) garde la première
 // leçon où il apparaît. Tri alphabétique français. Parcours inconnu : liste vide.
@@ -38,7 +38,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   const brutK = p.get('jusqua');
   if (!parcours || brutK === null) throw new ErreurHttp(400, 'Indique le parcours et la leçon jusqu’où lire (jusqua).');
   if (!ID_PARCOURS.test(parcours)) throw new ErreurHttp(400, 'Identifiant de parcours invalide.');
-  if (!/^\d{1,3}$/.test(brutK) || Number(brutK) < 1 || Number(brutK) > PALIER_MAX) {
+  if (!/^\d{1,4}$/.test(brutK) || Number(brutK) < 1 || Number(brutK) > PALIER_MAX) {
     throw new ErreurHttp(400, `jusqua invalide : un entier de 1 à ${PALIER_MAX}.`);
   }
 

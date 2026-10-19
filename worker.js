@@ -19,6 +19,7 @@ import * as palier from './functions/api/palier.js';
 import * as quiz from './functions/api/quiz.js';
 import * as quizDirect from './functions/api/quiz-direct.js';
 import * as glossaire from './functions/api/glossaire.js';
+import * as fiche from './functions/api/fiche.js';
 import * as quizGeneral from './functions/api/quiz-general.js';
 import * as jour from './functions/api/jour.js';
 import * as tournoi from './functions/api/tournoi.js';
@@ -28,7 +29,7 @@ import * as partie from './functions/api/partie.js';
 const ROUTES = {
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
-  parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire,
+  parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire, fiche,
   'quiz-general': quizGeneral, jour, tournoi, groupe, partie,
 };
 
