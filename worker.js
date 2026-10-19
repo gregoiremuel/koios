@@ -62,7 +62,7 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  // Cron (wrangler.toml, toutes les 5 minutes) : un petit morceau de la génération de nuit (lib/nuit.js).
+  // Cron (wrangler.toml, toutes les 5 minutes) : un petit morceau de la file, la nuit ou si l'admin autorise la journée (lib/nuit.js).
   async scheduled(event, env, ctx) {
     ctx.waitUntil(traiterFile(env).then(
       (bilan) => console.log('File de nuit :', JSON.stringify(bilan)),

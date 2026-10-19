@@ -22,11 +22,15 @@ import {
 import { generateur, tirer, tirerParmi } from '../lib/questions.js';
 import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, oublierEpuisements, redacteurs, verificateurs,
-  GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini,
+  GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini, etatModelesGemini, marquerModeleGemini, nomsEpuises,
   CLAUDE_MODELE, CLAUDE_URL, GEMINI_MODELES, corpsClaude, estIgnore, fournisseurPerso, marquerEpuise, tousEpuises,
 } from '../lib/fournisseurs.js';
 import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
-import { debloquer, definirPause, etatFile, traiterFile } from '../lib/nuit.js';
+import {
+  PLAFOND_JOUR, debloquer, definirJournee, definirPause, enJournee, etatFile, traiterFile as traiterFileReel,
+} from '../lib/nuit.js';
+// Les passages de test se font « à 2 h UTC » (dans la fenêtre de nuit), sauf si le test fixe son heure.
+const traiterFile = (e, o = {}) => traiterFileReel(e, { maintenant: new Date(Date.UTC(2026, 9, 20, 2, 0, 0)), ...o });
 import { onRequestGet as adminGet, onRequestPost as adminPost } from '../functions/api/admin.js';
 import { onRequestPost as cleIaPost } from '../functions/api/cle-ia.js';
 import {
@@ -2201,7 +2205,7 @@ test('fournisseurs : chaînes de rédaction et de vérification avec Gemini et G
   const noms = (l) => l.map((f) => f.famille + ':' + f.nom);
   const rl = redacteurs(TOUTES);
   assert.deepEqual(rl.map((f) => f.famille), ['gemini', 'glm', 'grok', 'workers-ai']);
-  assert.equal(rl[0].nom, 'gemini-2.5-flash');
+  assert.equal(rl[0].nom, 'gemini-3-flash-preview');
   assert.equal(rl[2].nom, 'grok-3-mini');
   assert.deepEqual(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI }).map((f) => f.famille), ['gemini', 'workers-ai']);
   assert.deepEqual(redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK }).map((f) => f.famille), ['grok', 'workers-ai']);
@@ -2224,7 +2228,7 @@ test('Gemini : adresse, en-tête x-goog-api-key, system -> systemInstruction, JS
   const sortie = await gem.appeler(MSG, { maxTokens: 77, temperature: 0.1, delaiMs: 1000 });
   assert.deepEqual(extraireObjet(sortie), { ok: 2 });
   const a = ext.appels[0];
-  assert.equal(a.url.href, GEMINI_BASE + 'gemini-2.5-flash:generateContent');
+  assert.equal(a.url.href, GEMINI_BASE + 'gemini-3-flash-preview:generateContent');
   assert.equal(a.url.search, '', 'jamais de clé dans l’adresse');
   assert.equal(new Headers(a.init.headers).get('x-goog-api-key'), CLE_GEMINI);
   assert.deepEqual(JSON.parse(a.init.body), {
@@ -2233,7 +2237,7 @@ test('Gemini : adresse, en-tête x-goog-api-key, system -> systemInstruction, JS
       { role: 'model', parts: [{ text: 'Salut' }] },
       { role: 'user', parts: [{ text: 'Suite' }] },
     ],
-    generationConfig: { maxOutputTokens: 77, temperature: 0.1, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
+    generationConfig: { maxOutputTokens: 77, temperature: 0.1, responseMimeType: 'application/json', thinkingConfig: { thinkingLevel: 'minimal' } },
     systemInstruction: { parts: [{ text: 'Sois bref' }] },
   });
   assert.equal(corpsGemini(MSG, { maxTokens: 5, temperature: 0, modele: 'gemini-2.0-flash' }).generationConfig.thinkingConfig, undefined, 'pas de réflexion à couper en 2.0');
@@ -2243,13 +2247,17 @@ test('Gemini : adresse, en-tête x-goog-api-key, system -> systemInstruction, JS
   assert.equal(extraireObjet(await gem.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), null);
   // Modèle refusé (404) ou quota du modèle (429) : modèle suivant, retenu ensuite.
   reinitExt();
-  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('no', { status: 404 }) : /flash-latest/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":3}'));
+  ext.gemini = (u) => (/3-flash-preview/.test(u.pathname) ? new Response('no', { status: 404 }) : /gemini-2\.5-flash:/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":3}'));
   const [g2] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
   assert.deepEqual(extraireObjet(await g2.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 3 });
   assert.equal(ext.appels.length, 3);
   assert.equal(estEpuise('gemini'), false, 'un modèle de repli a répondu');
-  assert.equal(g2.couple().modele, 'gemini-2.0-flash');
-  assert.equal(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI })[0].nom, 'gemini-2.0-flash', 'couple retenu pour l’isolat');
+  assert.equal(g2.couple().modele, 'gemini-flash-latest');
+  assert.equal(g2.nom, 'gemini-flash-latest', 'le badge montre le modèle qui a répondu');
+  // Pas de modèle figé : le prochain appel repart du premier modèle non écarté (3-flash indisponible, 2.5 épuisé : flash-latest).
+  assert.equal(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI })[0].nom, 'gemini-flash-latest');
+  reinitExt();
+  oublierEpuisements();
   reinitExt();
 });
 
@@ -2317,7 +2325,7 @@ test('diagnostic : protégé par DIAG_KEY, teste tous les fournisseurs configur�
   ok200(r);
   assert.deepEqual(r.corps.resultats.map((x) => x.famille), ['gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
   assert.deepEqual(r.corps.resultats.map((x) => x.etat), ['ok', 'echec', 'ok', 'ok', 'ok']);
-  assert.equal(r.corps.resultats[0].couple.modele, 'gemini-2.5-flash');
+  assert.equal(r.corps.resultats[0].couple.modele, 'gemini-3-flash-preview');
   assert.deepEqual(r.corps.resultats[2].couple, { url: GROQ_URL, modele: 'llama-3.3-70b-versatile' });
   assert.equal(r.corps.resultats[1].quota, 'épuisé');
   const texte = JSON.stringify(r.corps);
@@ -3747,8 +3755,8 @@ test('palier GET : Gemini 429 -> GLM rédige, Grok vérifie ; Gemini mis de côt
   ok200(r);
   assert.deepEqual(r.corps.palier.verification.ia, ['glm-4.7-flash', 'grok-3-mini']);
   assert.equal(estEpuise('gemini'), true);
-  // Gemini essaie ses 3 modèles (chacun a son quota), puis plus rien : il est mis de côté.
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), ['gemini', 'gemini', 'gemini', 'glm', 'grok']);
+  // Gemini essaie ses 6 modèles (chacun a son quota), puis plus rien : il est mis de côté.
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), ['gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'gemini', 'glm', 'grok']);
   reinitExt();
 });
 
@@ -7107,8 +7115,8 @@ async function captant(fn) {
 
 // --- A. Gemini rapide, diagnostic lisible --------------------------------------
 
-test('Gemini (lot 5) : modèles dans l’ordre 2.5, flash-latest, 2.0 ; réflexion coupée sur toute la série flash', async () => {
-  assert.deepEqual(GEMINI_MODELES, ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash']);
+test('Gemini (lot 5) : cascade des 6 modèles, du meilleur au moins bon ; réflexion coupée sur toute la série flash', async () => {
+  assert.deepEqual(GEMINI_MODELES, ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.0-flash-lite']);
   const cfg = (modele, extra = {}) => corpsGemini(MSG, { maxTokens: 5, temperature: 0, modele, ...extra }).generationConfig.thinkingConfig;
   assert.deepEqual(cfg('gemini-2.5-flash'), { thinkingBudget: 0 });
   assert.deepEqual(cfg('gemini-flash-latest'), { thinkingLevel: 'minimal' });
@@ -7123,17 +7131,17 @@ test('Gemini : un 400 dû à thinkingConfig est retenté sur le même modèle SA
     ? new Response('{"error":{"message":"Unknown name thinkingConfig"}}', { status: 400 }) : reponseGemini('{"ok":6}'));
   const [g] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
   assert.deepEqual(extraireObjet(await g.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 6 });
-  assert.deepEqual(ext.appels.map((a) => a.url.pathname.split('/').pop()), ['gemini-2.5-flash:generateContent', 'gemini-2.5-flash:generateContent']);
+  assert.deepEqual(ext.appels.map((a) => a.url.pathname.split('/').pop()), ['gemini-3-flash-preview:generateContent', 'gemini-3-flash-preview:generateContent']);
   assert.ok(JSON.parse(ext.appels[0].init.body).generationConfig.thinkingConfig);
   assert.equal(JSON.parse(ext.appels[1].init.body).generationConfig.thinkingConfig, undefined);
-  assert.deepEqual(g.erreursModeles.map((x) => [x.modele, x.statut, !!x.sansReflexion]), [['gemini-2.5-flash', 400, false]]);
+  assert.deepEqual(g.erreursModeles.map((x) => [x.modele, x.statut, !!x.sansReflexion]), [['gemini-3-flash-preview', 400, false]]);
   reinitExt();
 });
 
 test('diagnostic : Gemini liste l’erreur de CHAQUE modèle candidat ; Grok 401 partout = « cle-invalide », ignoré 1 h', async () => {
   reinitExt();
-  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('{"error":{"message":"model overloaded ' + CLE_GEMINI + '"}}', { status: 404 })
-    : /flash-latest/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":true}'));
+  ext.gemini = (u) => (/3-flash-preview/.test(u.pathname) ? new Response('{"error":{"message":"model overloaded ' + CLE_GEMINI + '"}}', { status: 404 })
+    : /gemini-2\.5-flash:/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":true}'));
   ext.grok = () => new Response('bad ' + CLE_GROK, { status: 401 });
   ext.groq = () => new Response('bad', { status: 401 });
   const env = { ...TOUTES, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } };
@@ -7142,7 +7150,7 @@ test('diagnostic : Gemini liste l’erreur de CHAQUE modèle candidat ; Grok 401
   ok200(r);
   const [gem, , grk] = r.corps.resultats;
   assert.equal(gem.etat, 'ok');
-  assert.deepEqual(gem.erreursModeles.map((x) => [x.modele, x.code]), [['gemini-2.5-flash', 404], ['gemini-flash-latest', 429]]);
+  assert.deepEqual(gem.erreursModeles.map((x) => [x.modele, x.code]), [['gemini-3-flash-preview', 404], ['gemini-2.5-flash', 429]]);
   assert.match(gem.erreursModeles[0].message, /overloaded/);
   assert.equal(grk.etat, 'cle-invalide');
   assert.match(grk.erreur, /clé invalide/);
@@ -7198,7 +7206,7 @@ test('clé perso Gemini : rédige en premier, vérification par la famille du se
   assert.equal(glmAppels.length, 1, 'la vérification vient du serveur, d’une autre famille');
   assert.equal(sc.par('verif').length, 1);
   assert.equal(new Headers(glmAppels[0].init.headers).get('authorization'), 'Bearer ' + CLE_GLM, 'la clé perso ne part jamais vers un autre fournisseur');
-  assert.deepEqual(r.corps.palier.verification.ia, ['gemini-2.5-flash', 'glm-4.7-flash']);
+  assert.deepEqual(r.corps.palier.verification.ia, ['gemini-3-flash-preview', 'glm-4.7-flash']);
   assert.equal(r.corps.palier.verification.statut, 'recoupe');
   // Jamais renvoyée, jamais en base, jamais dans le journal.
   assert.ok(!JSON.stringify(r.corps).includes(CLE_PERSO), 'pas dans la réponse');
@@ -7609,17 +7617,164 @@ test('relecture lot 5 : admin — 20 essais par jour et par adresse ; diagnostic
   ok200(await appel(diagnosticGet, { env: e, requete: '?cle=sésame' }));
 });
 
-test('relecture lot 5 : plafond quotidien de 150 tâches de nuit', async () => {
+test('relecture lot 5 : plafond quotidien de 300 tâches', async () => {
   await prepareProgramme();
   await debloquer(envAdmin(), 'la-tour-eiffel');
   const jour = new Date().toISOString().slice(0, 10);
-  db.base.prepare('INSERT OR REPLACE INTO quotas (cle, n, jour) VALUES (?, ?, ?)').run('file:jour', 150, jour);
+  db.base.prepare('INSERT OR REPLACE INTO quotas (cle, n, jour) VALUES (?, ?, ?)').run('file:jour', 300, jour);
   const sc = scenario(partiesStandard());
   brancher(sc);
   const b = await traiterFile({ DB: db, AI: sc.ai });
   assert.equal(b.prises, 0);
   assert.equal(b.plafond, true);
   assert.equal(lignes("SELECT etat FROM file_attente WHERE etat != 'attente'").length, 0, 'tout reste en attente');
+});
+
+// --- C2. Cascade Gemini par modèle, fenêtre nuit / jour ------------------------------
+
+const GEM = { cle: { AI: {}, GEMINI_API_KEY: CLE_GEMINI } };
+const modelesAppeles = () => ext.appels.filter((a) => a.fournisseur === 'gemini').map((a) => a.url.pathname.split('/').pop().replace(':generateContent', ''));
+const etatsGemini = () => Object.fromEntries(etatModelesGemini().map((m) => [m.modele, m.etat]));
+// Faux Gemini : `pannes` = { modèle: () => Response } ; les autres modèles répondent.
+const fauxGemini = (pannes) => (u) => {
+  const modele = u.pathname.split('/').pop().replace(':generateContent', '');
+  return pannes[modele] ? pannes[modele]() : reponseGemini('{"ok":1}');
+};
+const appelGemini = () => tousLesFournisseurs(GEM.cle).find((f) => f.famille === 'gemini').appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+const MIN10 = 10 * 60 * 1000;
+
+test('cascade Gemini : 429 -> modèle marqué épuisé 10 min et suivant dans le même appel ; l’appel suivant repart du meilleur disponible', async () => {
+  reinitExt();
+  ext.gemini = fauxGemini({ 'gemini-3-flash-preview': () => new Response('quota', { status: 429 }) });
+  assert.deepEqual(extraireObjet(await appelGemini()), { ok: 1 });
+  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash']);
+  assert.equal(etatsGemini()['gemini-3-flash-preview'], 'epuise');
+  assert.equal(estEpuise('gemini'), false, 'la famille n’est pas épuisée tant qu’un modèle reste');
+  // 2e appel : le modèle marqué n'est pas rappelé, on ne reste pas figé sur le modèle de repli non plus.
+  ext.appels.length = 0;
+  await appelGemini();
+  assert.deepEqual(modelesAppeles(), ['gemini-2.5-flash']);
+  // Après 10 minutes, on repart du meilleur.
+  horloge.t += MIN10 + 1000;
+  ext.appels.length = 0;
+  await appelGemini();
+  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash'], 'il répond 429 de nouveau : remarqué, le suivant répond');
+  assert.equal(etatsGemini()['gemini-3-flash-preview'], 'epuise');
+  reinitExt();
+});
+
+test('cascade Gemini : quota « par jour » = 3 h ; modèle inconnu (404 ou 400) = indisponible 24 h ; 5xx = suivant sans marquer', async () => {
+  reinitExt();
+  ext.gemini = fauxGemini({
+    'gemini-3-flash-preview': () => new Response('{"error":{"message":"Quota exceeded ... GenerateRequestsPerDayPerProjectPerModel-FreeTier"}}', { status: 429 }),
+    'gemini-2.5-flash': () => new Response('not found', { status: 404 }),
+    'gemini-flash-latest': () => new Response('{"error":{"message":"models/gemini-flash-latest is not found for API version v1beta"}}', { status: 400 }),
+    'gemini-2.5-flash-lite': () => new Response('boom', { status: 503 }),
+  });
+  await appelGemini();
+  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']);
+  assert.deepEqual(etatsGemini(), {
+    'gemini-3-flash-preview': 'epuise', 'gemini-2.5-flash': 'indisponible', 'gemini-flash-latest': 'indisponible',
+    'gemini-2.5-flash-lite': 'ok', 'gemini-2.0-flash': 'ok', 'gemini-2.0-flash-lite': 'ok',
+  });
+  // Le 5xx n'est pas marqué : il est retenté à l'appel suivant, les autres sont sautés.
+  ext.appels.length = 0;
+  await appelGemini();
+  assert.deepEqual(modelesAppeles(), ['gemini-2.5-flash-lite', 'gemini-2.0-flash']);
+  // Après 3 h (et 10 min), le modèle « par jour » revient ; l'indisponible reste écarté jusqu'à 24 h.
+  horloge.t += MIN10 + 1000;
+  assert.equal(etatsGemini()['gemini-3-flash-preview'], 'epuise');
+  horloge.t += 3 * 60 * 60 * 1000;
+  assert.deepEqual([etatsGemini()['gemini-3-flash-preview'], etatsGemini()['gemini-2.5-flash']], ['ok', 'indisponible']);
+  horloge.t += 21 * 60 * 60 * 1000;
+  assert.equal(etatsGemini()['gemini-2.5-flash'], 'ok');
+  reinitExt();
+});
+
+test('cascade Gemini : famille épuisée seulement si tous les modèles le sont ; le diagnostic liste l’état de chacun sans appeler les modèles marqués', async () => {
+  reinitExt();
+  const toutes429 = Object.fromEntries(GEMINI_MODELES.map((m) => [m, () => new Response('quota', { status: 429 })]));
+  ext.gemini = fauxGemini(toutes429);
+  await assert.rejects(() => appelGemini(), (e) => e.epuise === true && e.details.length === 6);
+  assert.equal(modelesAppeles().length, 6);
+  assert.equal(estEpuise('gemini'), true);
+  assert.deepEqual(nomsEpuises(), ['Gemini']);
+  assert.equal(tousEpuises({ AI: undefined, GEMINI_API_KEY: CLE_GEMINI }), true);
+  // Tout est marqué : un nouvel appel échoue tout de suite, sans toucher à Gemini.
+  ext.appels.length = 0;
+  await assert.rejects(() => appelGemini(), (e) => e.epuise === true);
+  assert.equal(ext.appels.length, 0);
+  // Diagnostic : l'état de chaque modèle, aucun appel à un modèle marqué.
+  const env = { ...GEM.cle, DIAG_KEY: 'sésame' };
+  const d = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  ok200(d);
+  assert.equal(modelesAppeles().length, 0, 'aucun modèle marqué n’est appelé par le diagnostic');
+  assert.deepEqual(d.corps.modelesGemini.map((m) => [m.modele, m.etat]), GEMINI_MODELES.map((m) => [m, 'epuise']));
+  assert.ok(d.corps.modelesGemini.every((m) => /^\d{4}-\d\d-\d\dT/.test(m.jusqua)));
+  // Un seul modèle libéré : la famille repart avec lui.
+  horloge.t += MIN10 + 1000;
+  ext.gemini = fauxGemini({ ...toutes429, 'gemini-2.0-flash-lite': () => reponseGemini('{"ok":2}') });
+  marquerModeleGemini('gemini-3-flash-preview', 'epuise', MIN10); // un seul modèle écarté parmi les six
+  assert.equal(estEpuise('gemini'), false);
+  reinitExt();
+});
+
+test('cascade Gemini : clé personnelle sans mémoire partagée ; réflexion coupée avec repli conservés dans la cascade', async () => {
+  reinitExt();
+  ext.gemini = fauxGemini({ 'gemini-3-flash-preview': () => new Response('quota', { status: 429 }) });
+  const perso = fournisseurPerso({ clePerso: { fournisseur: 'gemini', cle: CLE_PERSO } });
+  await perso.appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+  assert.deepEqual(modelesAppeles(), ['gemini-3-flash-preview', 'gemini-2.5-flash']);
+  assert.deepEqual(etatsGemini()['gemini-3-flash-preview'], 'ok', 'le quota d’une clé personnelle n’écarte rien pour le serveur');
+  reinitExt();
+});
+
+test('file : hors de la nuit (0 à 5 h UTC) le cron ne travaille pas, sauf « Travailler aussi en journée » ; état et action de l’admin', async () => {
+  await prepareProgramme();
+  await debloquer(envAdmin(), 'la-tour-eiffel');
+  const sc = scenario(partiesStandard());
+  brancher(sc);
+  const envNuit = { DB: db, AI: sc.ai };
+  const a = (h, m = 0) => ({ maintenant: new Date(Date.UTC(2026, 9, 20, h, m)) });
+  // Journée : rien n'est pris ni appelé.
+  for (const h of [6, 12, 23]) {
+    const b = await traiterFile(envNuit, a(h));
+    assert.deepEqual([b.horsFenetre, b.prises, b.pause], [true, 0, false], 'à ' + h + ' h UTC');
+  }
+  assert.equal(sc.appels.length, 0);
+  assert.equal(lignes("SELECT COUNT(*) AS n FROM file_attente WHERE etat != 'attente'")[0].n, 0);
+  // Nuit : 0 h et 5 h 55 UTC travaillent.
+  assert.equal((await traiterFile(envNuit, a(0, 0))).prises, 2);
+  assert.equal((await traiterFile(envNuit, a(5, 55))).prises, 2);
+  assert.equal((await traiterFile(envNuit, a(6, 0))).horsFenetre, true);
+  // Admin : état renvoyé par GET, action « jour » true/false (booléen obligatoire).
+  const poster = (corps) => appel(adminPost, { env: envAdmin(), methode: 'POST', entetes: enteteAdmin, corps });
+  assert.equal((await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin })).corps.jour, false);
+  erreurFr(await poster({ action: 'jour' }), 400);
+  erreurFr(await poster({ action: 'jour', valeur: 'oui' }), 400);
+  assert.equal(await enJournee(envAdmin()), false);
+  const on = await poster({ action: 'jour', valeur: true });
+  ok200(on);
+  assert.equal(on.corps.jour, true);
+  assert.equal((await appel(adminGet, { env: envAdmin(), entetes: enteteAdmin })).corps.jour, true);
+  // Autorisé : le cron travaille aussi à midi.
+  const b = await traiterFile(envNuit, a(12));
+  assert.deepEqual([b.horsFenetre, b.prises], [false, 2]);
+  // La pause reste prioritaire en journée.
+  await definirPause(envAdmin(), true);
+  assert.equal((await traiterFile(envNuit, a(12))).pause, true);
+  await definirPause(envAdmin(), false);
+  // Retour à « non ».
+  assert.equal((await poster({ action: 'jour', valeur: false })).corps.jour, false);
+  assert.equal((await traiterFile(envNuit, a(12))).horsFenetre, true);
+  await definirJournee(envAdmin(), false);
+  // Par défaut (sans horloge fournie) la fenêtre se juge sur l'heure UTC courante : cohérent avec traiterFileReel.
+  const maintenant = new Date(Date.now());
+  const attendu = maintenant.getUTCHours() <= 5;
+  assert.equal((await traiterFileReel(envNuit)).horsFenetre, !attendu);
+  // Le cron se réveille toute la journée ; le plafond est de 300 par jour.
+  assert.match(readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), /^crons = \["\*\/5 \* \* \* \*"\]$/m);
+  assert.equal(PLAFOND_JOUR, 300);
 });
 
 // --- D. Bibliothèque et profondeur ---------------------------------------------------

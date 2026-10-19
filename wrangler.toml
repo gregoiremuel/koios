@@ -18,7 +18,8 @@ binding = "DB"
 database_name = "koios"
 database_id = "a8c63c1f-f40c-4204-b201-0914846bd0db"
 
-# Génération de nuit : toutes les 5 minutes de 0 h à 5 h 55 UTC (2 h à 7 h, heure de Paris), au plus 2 tâches, 150 par jour de la file (lib/nuit.js).
+# Génération de la file : réveil toutes les 5 minutes, toute la journée ; traiterFile ne travaille que de 0 h à 5 h 59 UTC (la nuit) ou si l'admin a
+# autorisé la journée. Au plus 2 tâches par passage, 300 par jour (lib/nuit.js).
 # Le secret ADMIN_KEY protège /api/admin (posé côté Cloudflare, jamais dans le dépôt).
 [triggers]
-crons = ["*/5 0-5 * * *"]
+crons = ["*/5 * * * *"]

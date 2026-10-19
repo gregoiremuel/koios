@@ -2,10 +2,11 @@
 // minuscule et rapporte l'état (durée, extrait court). Pour gemini, glm et grok, `couple` = (url, modèle) qui a répondu.
 // Pour Gemini, `erreursModeles` donne l'erreur (code et message court) de CHAQUE modèle candidat essayé ; pour Grok, l'état « cle-invalide »
 // (401 sur tous les couples) vaut un fournisseur ignoré pendant 1 heure.
+// `modelesGemini` : l'état de chaque modèle de la cascade (ok, epuise jusqu'à tel instant, indisponible) ; les modèles écartés ne sont pas appelés.
 // Protégé par le secret DIAG_KEY (aucune clé n'est affichée, ni dans les adresses, ni dans les erreurs).
 import { ErreurHttp, enveloppe, json, secretsEgaux } from '../../lib/api.js';
 import {
-  LLAMA, MISTRAL, cleGLM, cleGemini, cleGrok, nomsEpuises, nomsIgnores, tousLesFournisseurs,
+  LLAMA, MISTRAL, cleGLM, cleGemini, cleGrok, etatModelesGemini, nomsEpuises, nomsIgnores, tousLesFournisseurs,
 } from '../../lib/fournisseurs.js';
 
 async function essai(f, secrets) {
@@ -48,6 +49,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     modeles: [LLAMA, MISTRAL],
     epuisesAvant: nomsEpuises(),
     ignores: nomsIgnores(),
+    modelesGemini: etatModelesGemini(),
     resultats,
   });
 });

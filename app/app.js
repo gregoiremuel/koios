@@ -801,7 +801,7 @@
       api("POST", "admin", { action: "debloquer", parcours: p.id }, 30000).then(function (r) {
         afficherAdminFormation(p, zone, r);
         var n = r.ajoutees || 0, i2 = zone.querySelector(".info-nuit");
-        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent la nuit, de 2\u00a0h à 7\u00a0h (heure de Paris), 2 par 2." : "Tout est déjà en file."; i2.hidden = false; }
+        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent la nuit (0\u00a0h à 6\u00a0h UTC), 2 par 2, et en journée si tu l’autorises dans l’espace admin." : "Tout est déjà en file."; i2.hidden = false; }
       }, function (e) { bouton.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
     });
     info.className = "meta info-nuit";
@@ -2887,21 +2887,25 @@
     montrer(attente("Ouverture de l’espace admin…"), "profil", "Espace admin");
     var corps = el("div", { "class": "pile ecart" }), alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
     function compteur(valeur, libelle) { return el("div", {}, [el("strong", { text: String(valeur) }), el("span", { "class": "meta", text: libelle })]); }
-    function agir(action) {
+    function agir(action, valeur) {
       alerte.hidden = true;
-      return api("POST", "admin", { action: action }, 15000).then(remplir, function (e) { alerte.textContent = messageErreur(e); alerte.hidden = false; });
+      var envoi = { action: action };
+      if (valeur !== undefined) envoi.valeur = valeur;
+      return api("POST", "admin", envoi, 15000).then(remplir, function (e) { alerte.textContent = messageErreur(e); alerte.hidden = false; });
     }
     function remplir(j) {
       var t = j.taches || {};
       corps.textContent = "";
       corps.appendChild(el("div", { "class": "pile serree" }, [
-        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit, de 2\u00a0h à 7\u00a0h (heure de Paris), 2 tâches toutes les 5 minutes, 150 par jour au plus." }),
+        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit (0\u00a0h à 6\u00a0h UTC)" + (j.jour ? " et en journée" : "") + ", 2 tâches toutes les 5 minutes, 300 par jour au plus." }),
         el("div", { "class": "chiffres-cles" }, [compteur((t.attente || 0) + (t.en_cours || 0), "En attente"), compteur(t.fait || 0, "Faites"), compteur(t.echec || 0, "Échecs")])]));
       var pause = el("button", { "class": j.pause ? "btn" : "btn second", type: "button", text: j.pause ? "Reprendre" : "Pause" });
       pause.addEventListener("click", function () { pause.disabled = true; agir(j.pause ? "reprendre" : "pause"); });
+      var jour = el("button", { "class": "btn second", type: "button", text: "Travailler aussi en journée\u00a0: " + (j.jour ? "oui" : "non") });
+      jour.addEventListener("click", function () { jour.disabled = true; agir("jour", !j.jour); });
       var vider = el("button", { "class": "btn second", type: "button", text: "Vider la file d’attente" });
       vider.addEventListener("click", function () { if (window.confirm("Retirer les tâches en attente ou en échec" + F + "?")) agir("vider"); });
-      corps.appendChild(el("div", { "class": "pile" }, [pause, vider]));
+      corps.appendChild(el("div", { "class": "pile" }, [pause, jour, vider]));
       var d = j.derniereErreur;
       corps.appendChild(el("div", { "class": "pile serree" }, [
         el("p", { "class": "meta derniere-erreur", text: d ? "Dernière erreur" + N + ": " + (d.type === "module" ? "module " : "leçon ") + d.numero + " de " + d.parcours + " · " + d.erreur : "Aucune erreur pour l’instant." }),

@@ -5,11 +5,13 @@
 //   POST /api/admin {action: 'debloquer', parcours} : met en file toute la formation (leçons des modules ouverts, ouverture des
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
+//   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h UTC).
+//                                       L'état est renvoyé par GET et POST dans `jour`.
 import {
   ErreurHttp, enveloppe, exigerBase, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import {
-  debloquer, definirPause, etatFile, viderFile,
+  debloquer, definirJournee, definirPause, etatFile, viderFile,
 } from '../../lib/nuit.js';
 
 // 20 mauvais essais par jour et par adresse : au-delà, même la bonne clé est refusée. Les accès réussis ne comptent pas.
@@ -46,9 +48,14 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     await definirPause(env, corps.action === 'pause');
     return json({ ok: true, ...(await etatFile(env)) });
   }
+  if (corps.action === 'jour') {
+    if (typeof corps.valeur !== 'boolean') throw new ErreurHttp(400, 'Indique valeur : true ou false.');
+    await definirJournee(env, corps.valeur);
+    return json({ ok: true, ...(await etatFile(env)) });
+  }
   if (corps.action === 'vider') {
     const retirees = await viderFile(env);
     return json({ ok: true, retirees, ...(await etatFile(env)) });
   }
-  throw new ErreurHttp(400, 'Action inconnue : debloquer, pause, reprendre ou vider.');
+  throw new ErreurHttp(400, 'Action inconnue : debloquer, pause, reprendre, jour ou vider.');
 });
