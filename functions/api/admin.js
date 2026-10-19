@@ -12,14 +12,19 @@ import {
   debloquer, definirPause, etatFile, viderFile,
 } from '../../lib/nuit.js';
 
-// 20 essais par jour et par adresse, comptés avant la comparaison : une clé ne se devine pas à coups d'essais.
+// 20 mauvais essais par jour et par adresse : au-delà, même la bonne clé est refusée. Les accès réussis ne comptent pas.
 async function exigerAdmin(request, env) {
-  if (env.DB) {
-    const ip = request.headers.get('cf-connecting-ip') || 'inconnue';
-    if (!(await quota(env, 'admin:ip:' + ip, 20))) throw new ErreurHttp(403, 'Accès refusé.');
+  const cle = env.DB ? 'admin:ip:' + (request.headers.get('cf-connecting-ip') || 'inconnue') : null;
+  if (cle) {
+    const jour = new Date().toISOString().slice(0, 10);
+    const ligne = await env.DB.prepare('SELECT n FROM quotas WHERE cle = ? AND jour = ?').bind(cle, jour).first();
+    if (ligne && ligne.n >= 20) throw new ErreurHttp(403, 'Accès refusé.');
   }
   const fournie = request.headers.get('x-admin-cle') || '';
-  if (!(await secretsEgaux(fournie, env.ADMIN_KEY))) throw new ErreurHttp(403, 'Accès refusé.');
+  if (!(await secretsEgaux(fournie, env.ADMIN_KEY))) {
+    if (cle) await quota(env, cle, 20);
+    throw new ErreurHttp(403, 'Accès refusé.');
+  }
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
