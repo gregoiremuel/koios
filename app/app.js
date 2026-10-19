@@ -16,6 +16,7 @@
   if (!etat || etat.version !== 2) etat = { version: 2, xp: 0, parcours: {}, erreurs: [], jours: (etat && etat.jours) || {}, maj: 0 };
   ["parcours", "jours"].forEach(function (k) { if (!etat[k]) etat[k] = {}; });
   if (!etat.erreurs) etat.erreurs = [];
+  if (!etat.reussies) etat.reussies = {};
   var serveur = { base: false, ia: false };
   var apresAccueil = null;
 
@@ -103,6 +104,7 @@
     var vus = {};
     (a.erreurs || []).concat(b.erreurs || []).forEach(function (e) { var k = e.palier + "#" + e.index; if (!vus[k]) { vus[k] = 1; r.erreurs.push(e); } });
     r.erreurs = r.erreurs.slice(-100);
+    r.reussies = {}; [a.reussies || {}, b.reussies || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { r.reussies[k] = 1; }); });
     [a.jours, b.jours || {}].forEach(function (j) { Object.keys(j).forEach(function (d) { r.jours[d] = r.jours[d] || j[d]; }); });
     return r;
   }
@@ -135,6 +137,14 @@
     var k = it.palier + "#" + it.index;
     if (!etat.erreurs.some(function (e) { return e.palier + "#" + e.index === k; })) etat.erreurs.push({ palier: it.palier, index: it.index, titre: it.titre });
     etat.erreurs = etat.erreurs.slice(-100);
+  }
+  function premiereReussite(it) { // l'XP d'une question ne se gagne qu'une fois
+    var k = it.palier + "#" + it.index;
+    if (etat.reussies[k]) return false;
+    etat.reussies[k] = 1;
+    var cles = Object.keys(etat.reussies);
+    if (cles.length > 3000) delete etat.reussies[cles[0]];
+    return true;
   }
   function oublierErreur(it) { var k = it.palier + "#" + it.index; etat.erreurs = etat.erreurs.filter(function (e) { return e.palier + "#" + e.index !== k; }); }
 
@@ -203,7 +213,7 @@
   function badge(v) {
     if (!v) return null;
     if (v.statut === "verifie") return el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]);
-    if (v.statut === "recoupe") return el("span", { "class": "badge recoupe" }, [icone("liste"), "Recoupé par 2 IA"]);
+    if (v.statut === "recoupe") return el("span", { "class": "badge recoupe" }, [icone("liste"), "Recoupé automatiquement"]);
     return el("span", { "class": "badge partiel" }, [icone("liste"), "Recoupé en partie"]);
   }
 
@@ -244,7 +254,13 @@
   function rangeeParcours(id, titre, img, detail, droite) {
     return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("fleche")])]);
   }
-  function detailSuivi(s) { var r = 5 - (s.fait % 5); return s.fait ? "Palier " + s.fait + " · quiz dans " + pluriel(r, "palier", "paliers") : "Pas encore commencé"; }
+  function quizEnAttente(s) { var k = Math.floor((s.fait || 0) / 5) * 5; return k > 0 && (s.quiz || {})[k] === undefined ? k : 0; }
+  function detailSuivi(s) {
+    if (!s.fait) return "Pas encore commencé";
+    if (quizEnAttente(s)) return "Palier " + s.fait + " · " + (quizEnAttente(s) % 10 === 0 ? "défi d’étape" : "quiz") + " disponible";
+    var r = 5 - (s.fait % 5); return "Palier " + s.fait + " · quiz dans " + pluriel(r, "palier", "paliers");
+  }
+  function avanceJalon(s) { return quizEnAttente(s) ? 100 : ((s.fait || 0) % 5) / 5 * 100; }
   function vueMaison() {
     var miens = Object.keys(etat.parcours).map(function (id) { return { id: id, s: etat.parcours[id] }; }).filter(function (x) { return x.s.titre; }).sort(function (a, b) { return (b.s.date || "") > (a.s.date || "") ? 1 : -1; });
     var blocs = [entete(), carteRecherche()];
@@ -254,9 +270,9 @@
         el("span", { "class": "sur", text: "Reprendre" }),
         r.s.image && r.s.image.src ? el("img", { "class": "photo-r", src: r.s.image.src, alt: "", loading: "lazy" }) : null,
         el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
-        el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + ((r.s.fait % 5) / 5 * 100) + "%" })]),
+        el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + avanceJalon(r.s) + "%" })]),
         el("span", { "class": "meta", text: detailSuivi(r.s) }),
-        lien("#/p/" + encodeURIComponent(r.id), r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer", "btn")
+        lien("#/p/" + encodeURIComponent(r.id) + (quizEnAttente(r.s) ? (quizEnAttente(r.s) % 10 === 0 ? "/defi/" : "/quiz/") + quizEnAttente(r.s) : ""), quizEnAttente(r.s) ? "Passer le " + (quizEnAttente(r.s) % 10 === 0 ? "défi d’étape" : "quiz") : (r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer"), "btn")
       ]));
       if (miens.length > 1) {
         var ul = el("ul", { "class": "liste" });
@@ -282,11 +298,11 @@
     chargerParcours(id).then(function (p) {
       retenir(p); S.ecrire("koios.etat", etat);
       var s = suivi(p.id), prevus = paliersPrevus(p);
-      var zone = el("div", { "class": "pile" });
+      var zone = el("div", { "class": "pile", id: "panneau", role: "tabpanel" });
       var tabs = el("div", { "class": "onglets", role: "tablist", "aria-label": "Sections du parcours" });
       var choix = [["parcours", "Paliers"], ["quiz", "Quiz"], ["defis", "Défis"]];
       choix.forEach(function (c) {
-        var b = el("button", { type: "button", role: "tab", "aria-selected": c[0] === (onglet || "parcours") ? "true" : "false", text: c[1] });
+        var b = el("button", { type: "button", role: "tab", "aria-controls": "panneau", "aria-selected": c[0] === (onglet || "parcours") ? "true" : "false", text: c[1] });
         b.addEventListener("click", function () { history.replaceState(null, "", "#/p/" + encodeURIComponent(p.id) + (c[0] === "parcours" ? "" : "/" + c[0])); tabs.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); }); remplir(c[0]); });
         tabs.appendChild(b);
       });
@@ -299,7 +315,7 @@
       montrer(el("div", { "class": "page" }, [
         el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/" }, [icone("retour"), "Accueil"]), el("span"), puceXP()]),
         image(p.image, "tete"),
-        el("div", { "class": "pile serree" }, [p.verifie ? el("span", {}, [badge({ statut: "verifie" })]) : el("span", {}, [badge({ statut: "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
+        el("div", { "class": "pile serree" }, [el("span", {}, [badge({ statut: p.verifie ? "verifie" : "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
         el("div", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "meta", text: s.fait ? pluriel(s.fait, "palier terminé", "paliers terminés") : "Pas encore commencé" }), el("span", { "class": "meta gain", text: (s.xp || 0) + N + "XP" })]),
           el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + (p.verifie ? Math.round(s.fait / Math.max(prevus, 1) * 100) : ((s.fait % 10) * 10)) + "%" })])]),
         fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), "Parcours terminé. Rejoue les quiz et les défis pour consolider."]) : lien("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · palier " + suivant : "Commencer le palier 1", "btn"),
@@ -321,12 +337,12 @@
         var t = titrePalier(p, n) || (n <= s.fait + 1 ? "Palier " + n : "Palier à venir");
         var etatP = n <= s.fait ? "fait" : (n === s.fait + 1 ? "actuel" : "");
         var ouvert = n <= s.fait + 1;
-        var contenu = [el("span", { "class": "pastille", text: n <= s.fait ? null : String(n), "aria-hidden": "true" }, [n <= s.fait ? icone("juste") : null]), el("span", {}, [el("b", { text: t }), el("span", { "class": "etat", text: n <= s.fait ? "Terminé" : (ouvert ? "À faire" : "Verrouillé") })]), ouvert ? icone("fleche") : icone("signet")];
+        var contenu = [el("span", { "class": "pastille", text: n <= s.fait ? null : String(n), "aria-hidden": "true" }, [n <= s.fait ? icone("juste") : null]), el("span", {}, [el("b", { text: t }), el("span", { "class": "etat", text: n <= s.fait ? "Terminé" : (ouvert ? "À faire" : "Verrouillé") })]), ouvert ? icone("fleche") : icone("cadenas")];
         ul.appendChild(el("li", { "class": etatP }, [ouvert ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + n, "aria-label": "Palier " + n + N + ": " + t }, contenu) : el("span", { "class": "bloque" }, contenu)]));
         if (n % 5 === 0) {
           var k = n, nom = n % 10 === 0 ? "Défi d’étape" : "Quiz", score = (s.quiz || {})[k];
           var dispo = s.fait >= k;
-          var c2 = [el("span", { "class": "pastille", "aria-hidden": "true" }, [icone(score !== undefined ? "juste" : (n % 10 === 0 ? "trophee" : "liste"))]), el("span", {}, [el("b", { text: nom + " · paliers " + (k - (n % 10 === 0 ? 9 : 4)) + " à " + k }), el("span", { "class": "etat", text: score !== undefined ? "Meilleur score" + N + ": " + score + F + "%" : (dispo ? "Disponible" : "S’ouvre au palier " + k) })]), dispo ? icone("fleche") : icone("signet")];
+          var c2 = [el("span", { "class": "pastille", "aria-hidden": "true" }, [icone(score !== undefined ? "juste" : (n % 10 === 0 ? "trophee" : "liste"))]), el("span", {}, [el("b", { text: nom + " · paliers " + (k - (n % 10 === 0 ? 9 : 4)) + " à " + k }), el("span", { "class": "etat", text: score !== undefined ? "Meilleur score" + N + ": " + score + F + "%" : (dispo ? "Disponible" : "S’ouvre au palier " + k) })]), dispo ? icone("fleche") : icone("cadenas")];
           ul.appendChild(el("li", { "class": "jalon" + (score !== undefined ? " fait" : "") }, [dispo ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + (n % 10 === 0 ? "defi" : "quiz") + "/" + k }, c2) : el("span", { "class": "bloque" }, c2)]));
         }
       }
@@ -339,11 +355,11 @@
   function ongletQuiz(p, s) {
     return el("div", { "class": "pile" }, [
       el("div", { "class": "carte" }, [el("h2", { text: "Quiz direct" }), el("p", { "class": "meta", text: "Dix questions sur tout le sujet, avec l’explication de chaque réponse. Disponible tout de suite." }), lien("#/p/" + encodeURIComponent(p.id) + "/quiz/direct", "Lancer le quiz", "btn")]),
-      s.fait >= 5 ? el("div", { "class": "carte" }, [el("h2", { text: "Quiz des paliers" }), el("p", { "class": "meta", text: "Rejoue les quiz déjà ouverts depuis l’onglet Paliers." })]) : el("p", { "class": "verrou" }, [icone("signet"), "Les quiz de paliers s’ouvrent tous les 5 paliers."])
+      s.fait >= 5 ? el("div", { "class": "carte" }, [el("h2", { text: "Quiz des paliers" }), el("p", { "class": "meta", text: "Rejoue les quiz déjà ouverts depuis l’onglet Paliers." })]) : el("p", { "class": "verrou" }, [icone("cadenas"), "Les quiz de paliers s’ouvrent tous les 5 paliers."])
     ]);
   }
   function ongletDefis(p, s) {
-    if (s.fait < 5) return el("p", { "class": "verrou" }, [icone("signet"), "Mini‑jeux et duels s’ouvrent au palier 5. Encore " + pluriel(5 - s.fait, "palier", "paliers") + "."]);
+    if (s.fait < 5) return el("p", { "class": "verrou" }, [icone("cadenas"), "Mini‑jeux et duels s’ouvrent au palier 5. Encore " + pluriel(5 - s.fait, "palier", "paliers") + "."]);
     var ul = el("ul", { "class": "liste" });
     [["vraifaux", "Vrai ou faux express", "Huit affirmations, réponds vite."], ["paires", "Associe les notions", "Relie chaque terme à sa définition."], ["ordre", "Remets dans l’ordre", "Classe les dates de tes paliers."], ["duel", "Duel avec un ami", "Dix questions, les mêmes pour vous deux."]].forEach(function (j) {
       ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(p.id) + "/jeu/" + j[0] }, [el("span", { "class": "vignette" }, [icone(j[0] === "duel" ? "epee" : j[0] === "paires" ? "liste" : j[0] === "ordre" ? "sablier" : "ampoule")]), el("span", {}, [el("b", { text: j[1] }), el("span", { "class": "meta", text: j[2] })]), icone("fleche")])]));
@@ -361,18 +377,19 @@
       if (!l) throw Object.assign(new Error("introuvable"), { statut: 404 });
       retenir(p);
       var s = suivi(p.id), V = window.Visuels || {};
+      if (n > s.fait + 1) { montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [el("p", { "class": "verrou" }, [icone("cadenas"), "Ce palier s’ouvre après le palier " + (n - 1) + "."]), lien("#/p/" + encodeURIComponent(p.id) + "/" + (s.fait + 1), "Aller au palier " + (s.fait + 1), "btn")])]), "accueil", "Palier verrouillé"); return; }
       var dl = null;
-      var defs = (l.definitions || []).concat(l.reperes || []);
+      var defs = (l.definitions || []).concat((l.frise || []).length >= 2 ? [] : (l.reperes || []));
       if (defs.length) { dl = el("dl", { "class": "definitions" }); defs.forEach(function (d) { dl.appendChild(el("div", {}, [el("dt", { text: d.terme }), el("dd", { text: d.definition })])); }); }
       var srcs = null;
       if ((l.sources || []).length) { srcs = el("ul", { "class": "sources-lecon" }); l.sources.forEach(function (x) { srcs.appendChild(el("li", {}, [x[1] ? el("a", { href: x[1], target: "_blank", rel: "noopener", text: x[0] }) : el("span", { text: x[0] })])); }); }
       var v = l.verification || {};
-      var noteV = v.statut === "verifie" ? v.note : (v.ia ? "Rédigé par " + v.ia[0] + " à partir des sources, puis contrôlé affirmation par affirmation par " + v.ia[1] + (v.retirees ? " (" + pluriel(v.retirees, "affirmation non confirmée retirée", "affirmations non confirmées retirées") + ")." : ".") : "Rédigé à partir des sources ci‑dessous.");
+      var noteV = v.statut === "verifie" ? v.note : (v.ia ? "Rédigé par l’IA " + v.ia[0] + " à partir des sources ci‑dessus (surtout Wikipédia), puis contrôlé affirmation par affirmation par l’IA " + v.ia[1] + (v.retirees ? " ; " + pluriel(v.retirees, "affirmation non confirmée a été retirée", "affirmations non confirmées ont été retirées") + "." : ".") + " Pas de relecture humaine." : "Rédigé à partir des sources ci‑dessus.");
       // Question de compréhension
       var bonus = 0, qIndex = (l.questions || []).findIndex(function (q) { return q.type === "qcm"; });
       var verifBloc = null;
       if (qIndex >= 0) {
-        verifBloc = el("section", { "class": "carte" }, [el("span", { "class": "sur", text: "Vérifie ta compréhension" })]);
+        verifBloc = el("section", { "class": "bloc-verif" }, [el("h2", { text: "Vérifie ta compréhension" })]);
         verifBloc.appendChild(rendreQuestion(l.questions[qIndex], function (juste) {
           var it = { palier: l.id, index: qIndex, titre: l.titre };
           if (juste) { bonus = XP.verif; oublierErreur(it); } else noterErreur(it);
@@ -402,14 +419,14 @@
           sectionL("Comment", texteL(l.sections && l.sections.comment)),
           sectionL("Pourquoi", texteL(l.sections && l.sections.pourquoi)),
           sectionL("Où et quand", texteL(l.sections && l.sections.ouQuand)),
-          sectionL((l.reperes || []).length && !(l.definitions || []).length ? "Repères" : "Définitions", dl),
+          sectionL(!(l.definitions || []).length ? "Repères" : "Définitions", dl),
           sectionL("Frise", V.frise ? V.frise(l.frise) : null),
           sectionL("En chiffres", V.barres ? V.barres(l.chiffres) : null),
           sectionL("Réseau des notions", V.reseau ? V.reseau(l.notions) : null),
           l.citation && V.citation ? V.citation(l.citation) : null,
           l.histoire ? el("div", { "class": "anecdote" }, [el("span", { "class": "sur", text: "L’histoire" }), el("p", { text: l.histoire })]) : null,
           sectionL("Sources", srcs),
-          el("p", { "class": "verif" }, [icone("verifie"), noteV])
+          el("p", { "class": "verif" + (v.statut === "verifie" ? " ok" : "") }, [icone(v.statut === "verifie" ? "verifie" : "liste"), noteV])
         ]),
         verifBloc, finir
       ]), null, l.titre);
@@ -502,7 +519,7 @@
       suite.addEventListener("click", function () { k += 1; afficher(); });
       scene.appendChild(rendreQuestion(it.question, function (juste) {
         points.children[k].className = juste ? "ok" : "ko";
-        if (juste) { justes += 1; gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
+        if (juste) { justes += 1; if (premiereReussite(it)) gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
         else { rates.push(it); if (!opt.sansErreurs) noterErreur(it); }
         suite.hidden = false; setTimeout(function () { suite.focus({ preventScroll: true }); suite.scrollIntoView({ block: "nearest" }); }, 0);
       }));
@@ -517,7 +534,7 @@
       var revoir = el("div", { "class": "pile" });
       rates.forEach(function (it) {
         var q = it.question;
-        revoir.appendChild(el("details", { "class": "plier carte" }, [el("summary", { text: q.enonce || q.affirmation || "Question" }), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
+        revoir.appendChild(el("details", { "class": "plier ligne" }, [el("summary", {}, [el("span", {}, [el("b", { text: it.titre || "Question" }), el("span", { "class": "meta", text: (q.enonce || q.affirmation || "").slice(0, 90) })]), icone("fleche")]), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
       });
       scene.appendChild(el("span", { "class": "sur", text: opt.titre + " · résultat" }));
       scene.appendChild(el("h1", { text: pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
@@ -583,7 +600,7 @@
         var toutes = [].concat.apply([], ls.map(questionsDe));
         if (type === "paires") return montrer(jeuPaires(p, ls), null, "Associe les notions");
         var items;
-        if (type === "vraifaux") items = melanger(toutes.filter(function (x) { return x.question.type === "vraifaux"; }).concat(melanger(toutes.filter(function (x) { return x.question.type === "qcm"; })))).slice(0, 8);
+        if (type === "vraifaux") { items = melanger(toutes.filter(function (x) { return x.question.type === "vraifaux"; })).slice(0, 8); if (items.length < 3) items = []; }
         else if (type === "ordre") {
           var frises = ls.filter(function (l) { return (l.frise || []).length >= 3; });
           items = melanger(toutes.filter(function (x) { return x.question.type === "ordre"; })).slice(0, 3);
@@ -613,7 +630,7 @@
       essais += 1;
       if (choix._d === d) { choix.classList.add("juste"); b.classList.add("juste"); choix.disabled = true; b.disabled = true; choix.setAttribute("aria-pressed", "false"); choix = null; trouves += 1; info.textContent = "Exact."; }
       else { b.classList.add("faux"); setTimeout(function () { b.classList.remove("faux"); }, 600); info.textContent = "Pas cette définition."; }
-      if (trouves === defs.length) { var g = Math.max(0, defs.length * 2 * XP.jeu - (essais - defs.length) * XP.jeu); gagner(g, p.id); fin.appendChild(el("p", { "class": "score" }, [el("strong", { text: trouves + "/" + defs.length }), el("span", { "class": "meta gain", text: "+" + g + N + "XP · " + pluriel(essais, "essai", "essais") })])); fin.appendChild(lien(base + "/jeu/paires", "Rejouer", "btn")); fin.appendChild(lien(base + "/defis", "Autres défis")); }
+      if (trouves === defs.length) { var sj = suivi(p.id); sj.jeux = sj.jeux || {}; var g = sj.jeux.paires ? 0 : Math.max(0, defs.length * 2 * XP.jeu - (essais - defs.length) * XP.jeu); sj.jeux.paires = 1; etat.parcours[p.id] = sj; if (g) gagner(g, p.id); else sauver(); fin.appendChild(el("p", { "class": "score" }, [el("strong", { text: trouves + "/" + defs.length }), el("span", { "class": "meta gain", text: "+" + g + N + "XP · " + pluriel(essais, "essai", "essais") })])); fin.appendChild(lien(base + "/jeu/paires", "Rejouer", "btn")); fin.appendChild(lien(base + "/defis", "Autres défis")); }
     }); colD.appendChild(b); });
     zone.appendChild(colG); zone.appendChild(colD);
     return el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: base + "/defis", "aria-label": "Quitter" }, [icone("faux")]), el("span"), puceXP()]), el("span", { "class": "sur", text: p.titre }), el("h1", { text: "Associe les notions" }), info, zone, fin]);
@@ -650,7 +667,7 @@
   function tableauDuel(d) {
     var ol = el("ol", { "class": "liste" });
     (d.scores || []).slice().sort(function (a, b) { return b.justes - a.justes || b.points - a.points; }).forEach(function (x, k) {
-      ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (profil && x.pseudo === profil.pseudo ? " (toi)" : "") }), el("span", { "class": "meta", text: x.justes + "/" + x.n })])]));
+      ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.justes + "/" + x.n })])]));
     });
     return ol;
   }
@@ -690,7 +707,7 @@
       montrer(quiz([it], { titre: "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
         etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
         zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine arrive demain." }));
-        zone.appendChild(lien("#/p/" + it.palier.split(":")[0] + "/" + it.palier.split(":")[1], "Lire le palier d’origine", "btn"));
+        zone.appendChild(lien("#/p/" + it.palier.split(":")[0], "Ouvrir ce parcours", "btn"));
         zone.appendChild(lien("#/jouer", "Retour aux jeux"));
       } }), null, "Question du jour");
     }, function () { montrer(erreurPage("Les questions ne se chargent pas.", "Indisponible"), "jouer"); });
@@ -738,7 +755,7 @@
       api("GET", "cercle").then(function (j) {
         classement.innerHTML = "";
         var ol = el("ol", { "class": "liste" });
-        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (profil && x.pseudo === profil.pseudo ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
+        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
         classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Personne n’a encore d’XP." }));
       }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); });
       if (enLigne()) api("GET", "duels").then(function (j) {

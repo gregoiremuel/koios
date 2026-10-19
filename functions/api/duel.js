@@ -149,7 +149,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
       id: ligne.id,
       createur: ligne.createur || 'Un joueur',
       questions: couples, // références {chapitre, index} ; l'app retrouve les questions
-      scores: scoresPublics(brut),
+      scores: scoresPublics(brut).map((s, i) => (lecteur && brut[i] && brut[i].joueur === lecteur.id ? { ...s, moi: true } : s)),
       // Vrai si le lecteur connecté a déjà joué ce duel (reconnu par son identifiant, jamais exposé).
       dejaJoue: !!(lecteur && brut.some((s) => s.joueur === lecteur.id)),
     },

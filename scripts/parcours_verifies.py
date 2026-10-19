@@ -17,8 +17,16 @@ RESUMES = {
 }
 
 
+def explication(t):
+    """Les corrections parlaient du Rival qui bluffe : on garde le fond, sans le personnage disparu."""
+    for a, b in (("C’était un bluff.", "Faux."), ("C’était un bluff :", "Faux :"), ("C'était un bluff.", "Faux."), ("Ce n’était pas un bluff.", "Vrai."), ("Il disait vrai.", "Vrai."), ("Il ne bluffait pas.", "Vrai.")):
+        t = t.replace(a, b)
+    import re
+    return re.sub(r"C’était un bluff(\s?):", "Faux\\1:", t)
+
+
 def question(e):
-    base = {"explication": e.get("correction", ""), "theme": e.get("theme", "")}
+    base = {"explication": explication(e.get("correction", "")), "theme": e.get("theme", "")}
     if e["type"] == "qcm":
         return {"type": "qcm", "enonce": e["enonce"], "reponses": e["reponses"], "bonne": e["bonne"], **base}
     if e["type"] == "bluff":

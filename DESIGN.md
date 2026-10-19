@@ -29,7 +29,7 @@ Historique : v1 musée, v2 librairie ludique, v3 bibliothèque d'étude, v4 bibl
 ## Typographie
 
 - **Libre Franklin** seule, 400, 500, 600 et 700.
-- Échelle : 12 (méta) · 14 · 16 (interface) · 17 (texte des leçons, interligne 1,6) · 20 · 24 · 30 (titres).
+- Échelle : 12 (méta) · 14 · 16 (interface) · 17 (texte des leçons, interligne 1,6) · 20 · 24 · 30 (titres) · 48 (score).
 - Chiffres alignés partout où l'on compte. Typographie française : fine insécable avant ; ? ! % », insécable avant : et après «, apostrophe ’.
 
 ## Composants

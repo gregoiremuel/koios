@@ -94,3 +94,10 @@ CREATE TABLE IF NOT EXISTS quiz_direct (
   contenu TEXT,
   cree TEXT
 );
+
+-- Photos libres (Unsplash) mises en cache par requête, y compris l'absence de résultat.
+CREATE TABLE IF NOT EXISTS images (
+  requete TEXT PRIMARY KEY,
+  contenu TEXT,
+  cree TEXT
+);

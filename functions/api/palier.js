@@ -1,6 +1,7 @@
 // GET /api/palier?parcours=<id>&n=<k> : un palier d'un parcours (k de 1 à 500).
 // En cache : public, aucun quota. Sinon : connexion, quota, sources Wikipédia, rédaction, vérification par une
 // 2e IA, mise en cache. Si k dépasse le plan, le plan de l'étape suivante (10 paliers) est écrit d'abord.
+import { typographier } from '../../lib/typo.js';
 import {
   ErreurHttp, auth, enveloppe, exigerBase, json, quota,
 } from '../../lib/api.js';
@@ -73,7 +74,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     parcours = decoderParcours(ligne);
   }
 
-  const palier = await genererPalier(env, { parcours, numero: k, horloge });
+  const palier = typographier(await genererPalier(env, { parcours, numero: k, horloge }));
 
   // Deux lecteurs peuvent lancer le même palier en même temps : le premier enregistré gagne.
   const ecrit = await env.DB.prepare(

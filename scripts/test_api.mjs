@@ -169,7 +169,7 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'joueurs', 'paliers', 'parcours', 'quiz_direct', 'quotas', 'signalements', 'sujets']);
+  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'images', 'joueurs', 'paliers', 'parcours', 'quiz_direct', 'quotas', 'signalements', 'sujets']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },

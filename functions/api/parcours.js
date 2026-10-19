@@ -1,6 +1,7 @@
 // GET /api/parcours?id=<id> : un parcours (public, compte une vue). GET /api/parcours : les 60 plus lus.
 // POST /api/parcours {titre} : crée un parcours (sources, plan de l'étape 1, résumé, photo de tête), une seule fois
 // pour tous les lecteurs. Un parcours qui existe déjà est renvoyé sans rien générer ni consommer de quota.
+import { typographier } from '../../lib/typo.js';
 import {
   ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
 } from '../../lib/api.js';
@@ -67,7 +68,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     throw new ErreurHttp(429, 'La bibliothèque est débordée aujourd’hui. Reviens demain.');
   }
 
-  const contenu = await genererParcours(env, titre, demarrerChrono());
+  const contenu = typographier(await genererParcours(env, titre, demarrerChrono()));
 
   // Deux lecteurs peuvent lancer le même parcours en même temps : le premier enregistré gagne.
   await env.DB.prepare(

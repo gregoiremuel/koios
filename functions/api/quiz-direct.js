@@ -1,6 +1,7 @@
 // POST /api/quiz-direct {parcours} : 10 questions avec explications, écrites à partir des sources du parcours et
 // vérifiées par une 2e IA. Mises en cache par parcours : un quiz déjà écrit est renvoyé sans rien consommer.
 // Réponse : {questions: [{palier: "<parcours>:quiz", titre, index, question}]}, comme GET /api/quiz.
+import { typographier } from '../../lib/typo.js';
 import {
   ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, quota,
 } from '../../lib/api.js';
@@ -30,7 +31,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     throw new ErreurHttp(429, 'Tu as déjà lancé 10 quiz aujourd’hui. Reviens demain.');
   }
 
-  const quiz = await genererQuizDirect(env, parcours, demarrerChrono());
+  const quiz = typographier(await genererQuizDirect(env, parcours, demarrerChrono()));
 
   // Deux lecteurs peuvent lancer le même quiz en même temps : le premier enregistré gagne.
   await env.DB.prepare('INSERT OR IGNORE INTO quiz_direct (parcours, contenu, cree) VALUES (?, ?, ?)')
