@@ -13,10 +13,15 @@ import * as chapitreIa from './functions/api/chapitre-ia.js';
 import * as melange from './functions/api/melange.js';
 import * as duel from './functions/api/duel.js';
 import * as duels from './functions/api/duels.js';
+import * as parcours from './functions/api/parcours.js';
+import * as palier from './functions/api/palier.js';
+import * as quiz from './functions/api/quiz.js';
+import * as quizDirect from './functions/api/quiz-direct.js';
 
 const ROUTES = {
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels,
+  parcours, palier, quiz, 'quiz-direct': quizDirect,
 };
 
 function erreur(statut, message) {

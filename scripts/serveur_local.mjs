@@ -2,10 +2,16 @@
 //   node scripts/serveur_local.mjs [port=8787]
 // Sert app/ (index.html sur /) et confie /api/* à worker.js, avec un faux environnement :
 //   - DB : SQLite en mémoire (node:sqlite), interface D1 (scripts/faux_d1.mjs) ; tout repart de zéro à chaque lancement ;
-//   - AI : IA simulée qui renvoie un plan ou un chapitre valide, aux titres tirés du sujet demandé ;
-//   - Wikipédia : `fetch` remplacé par un Wikipédia simulé (aucun appel réseau ; une requête contenant « zzz » ne
-//     trouve rien, pour voir l'ancrage « aucun »).
-// Les contenus simulés sont faux : ils servent à voir l'écran, pas à apprendre. Aucun secret.
+//   - AI : Workers AI simulé (plans, chapitres v1.1, plans d'étape, paliers, quiz et vérification de l'API v2) ;
+//   - GLM : `fetch` vers api.z.ai simulé (une clé factice calculée au lancement donne le rédacteur GLM, la vérification
+//     passe alors par le faux Mistral, comme en production) ;
+//   - Wikipédia FR et EN : `fetch` remplacé par un Wikipédia simulé (aucun appel réseau ; une requête contenant « zzz »
+//     ne trouve rien, pour voir « aucune source ») ; fiches écrites à la main pour la tour Eiffel, le mont Blanc et
+//     Sparte, page générique pour tout autre sujet ;
+//   - Pexels et Unsplash : simulés aussi, mais sans clé par défaut (l'image du parcours vient alors de Wikipédia).
+//     KOIOS_LOCAL_PHOTOS=pexels ou unsplash donne une clé factice et fait passer l'image par ce service.
+// Un palier sur quatre porte une phrase « non confirmée » que le faux vérificateur retire : son statut est « partiel ».
+// Les contenus simulés servent à voir l'écran, pas à apprendre. Aucun secret : les clés sont des valeurs calculées.
 
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
@@ -14,8 +20,9 @@ import { fileURLToPath } from 'node:url';
 
 import worker from '../worker.js';
 import { PROMPT_CHAPITRE, PROMPT_PLAN } from '../lib/sujets.js';
-import { sansAccents } from '../lib/wiki.js';
+import { PROMPT_ETAPE, PROMPT_PALIER, PROMPT_QUIZ, PROMPT_VERIFICATION } from '../lib/paliers.js';
 import { fauxD1 } from './faux_d1.mjs';
+import { PAGES, palierSimule, planSimule, quizSimule, trouverPage, verificationSimulee } from './faux_contenus.mjs';
 
 const RACINE = resolve(fileURLToPath(new URL('../app/', import.meta.url)));
 const TYPES = {
@@ -69,12 +76,18 @@ const ASSETS = {
   },
 };
 
+// --- Clés factices ---------------------------------------------------------
+
+// Des valeurs calculées au lancement, jamais écrites dans le code : le serveur local n'a besoin d'aucun vrai secret.
+const cleFactice = (nom) => `factice-${nom}-${process.pid}`;
+const attente = (ms) => new Promise((fin) => setTimeout(fin, ms));
+
 // --- IA simulée ------------------------------------------------------------
 
 const coupe = (texte, n) => (texte.length > n ? texte.slice(0, n - 1).trimEnd() + '…' : texte);
-const reponseIA = (objet) => ({ response: JSON.stringify(objet) });
 
-function planSimule(sujet) {
+// v1.1 : plan de sujet et chapitre (inchangés).
+function planV1(sujet) {
   const S = coupe(sujet, 50);
   const aspects = ['les origines', 'les grandes dates', 'les acteurs', 'les lieux', 'les techniques', 'les chiffres clés', 'les idées reçues', 'l’héritage'];
   return {
@@ -84,7 +97,7 @@ function planSimule(sujet) {
   };
 }
 
-function chapitreSimule(sujet, titre, numero) {
+function chapitreV1(sujet, titre, numero) {
   const S = coupe(sujet, 60);
   const T = coupe(titre, 80);
   const bonne = numero % 4;
@@ -134,76 +147,121 @@ function chapitreSimule(sujet, titre, numero) {
   };
 }
 
+// Réponse (objet) du faux modèle selon le prompt système ; lève une erreur si le prompt est inconnu.
+function reponseDe(systeme, demande) {
+  if (systeme === PROMPT_PLAN) return planV1(/Sujet du joueur : « ([^\n]*) »\n/.exec(demande)[1]);
+  if (systeme === PROMPT_CHAPITRE) {
+    const sujet = /Sujet : « ([^\n]*) » \(niveau/.exec(demande)[1];
+    const [, numero, titre] = /Chapitre à écrire : n° (\d+), « ([^\n]*) » — /.exec(demande);
+    return chapitreV1(sujet, titre, Number(numero));
+  }
+  if (systeme === PROMPT_ETAPE) return planSimule(demande);
+  if (systeme === PROMPT_PALIER) return palierSimule(demande);
+  if (systeme === PROMPT_QUIZ) return quizSimule(demande);
+  if (systeme === PROMPT_VERIFICATION) return verificationSimulee(demande);
+  throw new Error('demande inconnue du faux modèle');
+}
+
+// Workers AI : env.AI.run(modèle, { messages }) -> { response: "<json>" }.
 const IA = {
   async run(modele, { messages }) {
-    await new Promise((fin) => setTimeout(fin, 250)); // un peu de patience, comme avec un vrai modèle
-    const [systeme, demande] = [messages[0].content, messages[1].content];
-    if (systeme === PROMPT_PLAN) {
-      return reponseIA(planSimule(/Sujet du joueur : « ([^\n]*) »\n/.exec(demande)[1]));
-    }
-    if (systeme === PROMPT_CHAPITRE) {
-      const sujet = /Sujet : « ([^\n]*) » \(niveau/.exec(demande)[1];
-      const [, numero, titre] = /Chapitre à écrire : n° (\d+), « ([^\n]*) » — /.exec(demande);
-      return reponseIA(chapitreSimule(sujet, titre, Number(numero)));
-    }
-    throw new Error('demande inconnue du faux modèle ' + modele);
+    await attente(250); // un peu de patience, comme avec un vrai modèle
+    return { response: JSON.stringify(reponseDe(messages[0].content, messages[1].content)) };
   },
 };
 
-// --- Wikipédia simulé ------------------------------------------------------
+// --- Services simulés par fetch --------------------------------------------
 
-const PAGES = [
-  {
-    titre: 'Tour Eiffel',
-    texte: 'La tour Eiffel est une tour de fer puddlé construite à Paris pour l’Exposition universelle de 1889. Elle porte le nom de l’ingénieur Gustave Eiffel, dont l’entreprise la réalise. Haute de 312 mètres à l’origine, elle reste la plus haute construction du monde jusqu’en 1930. (Texte simulé.)',
-    image: 'Tour_Eiffel_Wikimedia_Commons.jpg',
-    vignette: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg',
-  },
-  { titre: 'Gustave Eiffel', texte: 'Gustave Eiffel est un ingénieur français, né à Dijon en 1832. Son entreprise construit de nombreux ponts et viaducs métalliques avant la tour qui porte son nom. Il consacre la fin de sa vie à la météorologie et à l’aérodynamique, dans un laboratoire installé au pied de la tour. (Texte simulé.)' },
-  { titre: 'Mont Blanc', texte: 'Le mont Blanc est le plus haut sommet des Alpes, à la frontière entre la France et l’Italie. Son altitude dépasse 4 800 mètres. Sa première ascension est réalisée en 1786, et le massif attire aujourd’hui alpinistes et randonneurs venus du monde entier. (Texte simulé.)' },
-  { titre: 'Sparte', texte: 'Sparte est une cité de la Grèce antique, dans le Péloponnèse, connue pour son organisation militaire et son éducation exigeante. Rivale d’Athènes, elle domine le Péloponnèse pendant plusieurs siècles avant de perdre sa puissance. (Texte simulé.)' },
-];
+const json = (objet, status = 200) => new Response(JSON.stringify(objet), { status, headers: { 'content-type': 'application/json' } });
+const entete = (init, nom) => new Headers((init && init.headers) || {}).get(nom) || '';
 
-function trouverPage(requete) {
-  const q = sansAccents(requete);
-  if (/zzz/.test(q)) return null;
-  // Page connue citée le plus tôt dans la requête (« Gustave Eiffel La tour Eiffel » -> Gustave Eiffel).
-  const connues = PAGES.map((p) => ({ p, rang: q.indexOf(sansAccents(p.titre)) })).filter((x) => x.rang !== -1);
-  if (connues.length) return connues.sort((a, b) => a.rang - b.rang)[0].p;
-  const mots = requete.split(':')[0].trim().split(/\s+/).slice(0, 4).join(' ');
-  const titre = mots.charAt(0).toUpperCase() + mots.slice(1);
-  return {
-    titre,
-    texte: [
-      `${titre} est un sujet que cette page simulée décrit pour essayer l’application. Elle ne contient aucun fait réel.`,
-      'Le serveur local remplace Wikipédia par ce texte : il permet de voir l’ancrage, les sources et l’affichage sans accès au réseau.',
-      'Une requête contenant « zzz » ne trouve aucune page, ce qui donne un sujet ou un chapitre sans ancrage.',
-    ].join('\n\n'),
-  };
+// GLM (z.ai) : réponse au format OpenAI. Refuse l'appel sans clé « Bearer ».
+async function glm(init) {
+  if (!entete(init, 'authorization').startsWith('Bearer ')) return json({ error: { message: 'clé absente' } }, 401);
+  const { messages } = JSON.parse(String((init && init.body) || '{}'));
+  if (!Array.isArray(messages) || messages.length < 2) return json({ error: { message: 'requête invalide' } }, 400);
+  await attente(250);
+  let objet;
+  try {
+    objet = reponseDe(messages[0].content, messages[1].content);
+  } catch (e) {
+    return json({ error: { message: e.message } }, 400);
+  }
+  return json({ choices: [{ index: 0, finish_reason: 'stop', message: { role: 'assistant', content: JSON.stringify(objet) } }] });
 }
 
-const jsonWiki = (objet) => new Response(JSON.stringify(objet), { status: 200, headers: { 'content-type': 'application/json' } });
+// Pexels et Unsplash : une photo simulée sur les hôtes attendus par lib/images.js (les fichiers n'existent pas).
+function pexels(u, init) {
+  if (!entete(init, 'authorization')) return json({ error: 'clé absente' }, 401);
+  if (/zzz/i.test(u.searchParams.get('query') || '')) return json({ photos: [] });
+  return json({
+    photos: [{
+      id: 1,
+      src: { landscape: 'https://images.pexels.com/photos/1/pexels-photo-1.jpeg?auto=compress&cs=tinysrgb&fit=crop&h=627&w=1200' },
+      url: 'https://www.pexels.com/photo/photo-simulee-1/',
+      photographer: 'Photographe simulé',
+    }],
+  });
+}
+
+function unsplash(u, init) {
+  if (!entete(init, 'authorization').startsWith('Client-ID ')) return json({ errors: ['clé absente'] }, 401);
+  if (/zzz/i.test(u.searchParams.get('query') || '')) return json({ total: 0, results: [] });
+  return json({
+    total: 1,
+    results: [{
+      id: 'simule',
+      urls: { regular: 'https://images.unsplash.com/photo-simulee?w=1080&fit=max' },
+      links: { html: 'https://unsplash.com/photos/photo-simulee' },
+      user: { name: 'Photographe simulé' },
+    }],
+  });
+}
+
+// Wikipédia FR et EN : recherche, lecture d'une page, lien interlangue.
+const pageDeTitre = (titre, langue) => PAGES.find((x) => (langue === 'en' ? x.titreEn : x.titre) === titre) || (/zzz/i.test(titre) ? null : trouverPage(titre, langue));
+
+function wikipedia(u) {
+  const langue = u.hostname.startsWith('en.') ? 'en' : 'fr';
+  const p = u.searchParams;
+  if (p.get('list') === 'search') {
+    const page = trouverPage(p.get('srsearch') || '', langue);
+    return json({ query: { search: page ? [{ ns: 0, title: langue === 'en' ? page.titreEn : page.titre }] : [] } });
+  }
+  const titre = p.get('titles') || '';
+  const page = pageDeTitre(titre, langue);
+  if (!page) return json({ query: { pages: { '-1': { ns: 0, title: titre, missing: '' } } } });
+  const nom = langue === 'en' ? page.titreEn : page.titre;
+  if (p.get('prop') === 'langlinks') {
+    return json({ query: { pages: { 1: { pageid: 1, ns: 0, title: nom, langlinks: [{ lang: 'en', '*': page.titreEn }] } } } });
+  }
+  const sortie = {
+    pageid: 1, ns: 0, title: nom, extract: page[langue],
+    fullurl: `https://${langue}.wikipedia.org/wiki/` + nom.replace(/ /g, '_'),
+  };
+  if (page.image) {
+    sortie.pageimage = page.image;
+    sortie.thumbnail = { source: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/a8/${page.image}/800px-${page.image}`, width: 800, height: 600 };
+  }
+  return json({ query: { pages: { 1: sortie } } });
+}
+
 const fetchReseau = globalThis.fetch;
 globalThis.fetch = async (url, init) => {
   const u = new URL(String(url));
-  if (u.hostname !== 'fr.wikipedia.org') return fetchReseau(url, init);
-  const p = u.searchParams;
-  if (p.get('list') === 'search') {
-    const page = trouverPage(p.get('srsearch') || '');
-    return jsonWiki({ query: { search: page ? [{ ns: 0, title: page.titre }] : [] } });
-  }
-  const titre = p.get('titles') || '';
-  const page = PAGES.find((x) => x.titre === titre) || (/zzz/i.test(titre) ? null : trouverPage(titre));
-  if (!page) return jsonWiki({ query: { pages: { '-1': { ns: 0, title: titre, missing: '' } } } });
-  const sortie = { pageid: 1, ns: 0, title: page.titre, extract: page.texte, fullurl: 'https://fr.wikipedia.org/wiki/' + page.titre.replace(/ /g, '_') };
-  if (page.image) sortie.pageimage = page.image;
-  if (page.vignette) sortie.thumbnail = { source: page.vignette, width: 800, height: 600 };
-  return jsonWiki({ query: { pages: { 1: sortie } } });
+  if (u.hostname === 'fr.wikipedia.org' || u.hostname === 'en.wikipedia.org') return wikipedia(u);
+  if (u.hostname === 'api.z.ai') return glm(init);
+  if (u.hostname === 'api.pexels.com') return pexels(u, init);
+  if (u.hostname === 'api.unsplash.com') return unsplash(u, init);
+  return fetchReseau(url, init);
 };
 
 // --- Serveur HTTP ----------------------------------------------------------
 
-const env = { DB: fauxD1(), AI: IA, ASSETS };
+const env = { DB: fauxD1(), AI: IA, ASSETS, GLM_API_KEY: cleFactice('glm') };
+const photos = process.env.KOIOS_LOCAL_PHOTOS;
+if (photos === 'pexels') env.PEXELS_KEY = cleFactice('pexels');
+if (photos === 'unsplash') env.UNSPLASH_KEY = cleFactice('unsplash');
 const ctx = { waitUntil() {} };
 const MAX_CORPS = 1024 * 1024;
 
@@ -254,5 +312,5 @@ serveur.on('error', (e) => {
   process.exit(1);
 });
 serveur.listen(port, () => {
-  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA et Wikipédia simulés)`);
+  console.log(`Koîos en local : http://localhost:${port}/  (base en mémoire, IA, GLM, Wikipédia, Pexels et Unsplash simulés)`);
 });

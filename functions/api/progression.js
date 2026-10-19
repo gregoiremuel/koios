@@ -5,6 +5,9 @@ import {
 
 const TONS = ['taquin', 'sobre'];
 const MAX_OCTETS = 64 * 1024;
+const XP_MAX = 1000000;
+const PALIERS_PAR_PARCOURS = 500;
+const PALIERS_MAX = 100000;
 
 async function joueurConnecte(request, env) {
   await exigerBase(env);
@@ -13,9 +16,26 @@ async function joueurConnecte(request, env) {
   return joueur;
 }
 
-function borner(valeur) {
+// Points du classement : l'XP du joueur, entier de 0 à 1 000 000.
+function bornerXp(valeur) {
   if (typeof valeur !== 'number' || !Number.isFinite(valeur)) return 0;
-  return Math.min(40, Math.max(0, Math.floor(valeur)));
+  return Math.min(XP_MAX, Math.max(0, Math.floor(valeur)));
+}
+
+// Paliers terminés d'un parcours (`fait`) : liste de numéros, objet {numéro: vrai} ou nombre. 500 au plus.
+function compterFaits(fait) {
+  const numero = (v) => {
+    const n = typeof v === 'string' && /^\d{1,3}$/.test(v) ? Number(v) : v;
+    return Number.isInteger(n) && n >= 1 && n <= PALIERS_PAR_PARCOURS ? n : null;
+  };
+  if (Array.isArray(fait)) return new Set(fait.map(numero).filter((n) => n !== null)).size;
+  if (fait && typeof fait === 'object') {
+    return Object.entries(fait).filter(([cle, v]) => v && numero(cle) !== null).length;
+  }
+  if (typeof fait === 'number' && Number.isFinite(fait)) {
+    return Math.min(PALIERS_PAR_PARCOURS, Math.max(0, Math.floor(fait)));
+  }
+  return 0;
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
@@ -49,16 +69,15 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
     throw new ErreurHttp(400, 'État de jeu attendu : un objet.');
   }
 
-  let points = 0;
+  // Le classement compte l'XP (`etat.xp`) et le nombre de paliers terminés (`etat.parcours[*].fait`).
+  const points = bornerXp(etat.xp);
   let valides = 0;
-  if (etat.chapitres && typeof etat.chapitres === 'object') {
-    for (const [cle, chapitre] of Object.entries(etat.chapitres)) {
-      // Le classement ne compte que les chapitres vérifiés : les brouillons IA (« ia:… ») n'y entrent pas.
-      if (!chapitre || typeof chapitre !== 'object' || cle.startsWith('ia:')) continue;
-      points += borner(chapitre.points);
-      if (chapitre.valide === true) valides += 1;
+  if (etat.parcours && typeof etat.parcours === 'object' && !Array.isArray(etat.parcours)) {
+    for (const parcours of Object.values(etat.parcours)) {
+      if (parcours && typeof parcours === 'object') valides += compterFaits(parcours.fait);
     }
   }
+  valides = Math.min(PALIERS_MAX, valides);
 
   await env.DB.prepare(
     'UPDATE joueurs SET pseudo = ?, ton = ?, etat = ?, points = ?, valides = ?, maj = ? WHERE id = ?',

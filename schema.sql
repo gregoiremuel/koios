@@ -68,3 +68,29 @@ CREATE TABLE IF NOT EXISTS duels (
   scores TEXT,
   cree TEXT
 );
+
+CREATE TABLE IF NOT EXISTS parcours (
+  id TEXT PRIMARY KEY,
+  titre TEXT,
+  contenu TEXT,
+  auteur TEXT,
+  vues INTEGER DEFAULT 0,
+  cree TEXT
+);
+
+CREATE TABLE IF NOT EXISTS paliers (
+  id TEXT PRIMARY KEY,
+  parcours TEXT,
+  numero INTEGER,
+  contenu TEXT,
+  vues INTEGER DEFAULT 0,
+  cree TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_paliers_parcours ON paliers(parcours);
+
+CREATE TABLE IF NOT EXISTS quiz_direct (
+  parcours TEXT PRIMARY KEY,
+  contenu TEXT,
+  cree TEXT
+);

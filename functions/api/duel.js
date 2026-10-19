@@ -1,5 +1,7 @@
 // Duels entre amis : mêmes questions, chacun son score.
 // POST /api/duel {questions: [{chapitre, index}], score: {justes, n, points}} (connexion) -> {id}
+//   chapitre : "hg-01" (chapitre vérifié), "ia:<sujet>:<k>" (chapitre IA), "<parcours>:<k>" (palier en cache)
+//   ou "<parcours>:quiz" (quiz direct en cache).
 // GET  /api/duel?id= (public) -> {duel: {id, createur, questions, scores}}
 // PUT  /api/duel {id, score} (connexion) : ajoute ou remplace le score de ce lecteur.
 // Les identifiants des joueurs restent dans la base : on n'expose que les pseudos.
@@ -7,6 +9,7 @@ import {
   ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON,
 } from '../../lib/api.js';
 import { EXERCICES_PAR_CHAPITRE, scoresPublics } from '../../lib/questions.js';
+import { lireIdQuiz, lireIdPalier } from '../../lib/paliers.js';
 import { lireIdChapitre } from '../../lib/sujets.js';
 
 const MAX_OCTETS = 4096;
@@ -23,14 +26,28 @@ function objet(v) {
   return !!v && typeof v === 'object' && !Array.isArray(v);
 }
 
-// 5 à 20 questions {chapitre: "ia:<sujet>:<k>" (chapitre IA) ou "hg-01" (chapitre vérifié), index: 0 à 2}.
+// Chapitres vérifiés (fichiers de l'app) : « hg-01 ». Un palier a 4 questions au plus, un quiz direct 10.
 const ID_VERIFIE = /^[a-z]{2}-\d{2}$/;
+const QUESTIONS_PALIER = 4;
+const QUESTIONS_QUIZ = 10;
+
+// Nombre d'exercices ou de questions que peut contenir la source d'une référence (null : référence invalide).
+function maxIndex(chapitre) {
+  if (ID_VERIFIE.test(chapitre) || lireIdChapitre(chapitre)) return EXERCICES_PAR_CHAPITRE;
+  if (lireIdPalier(chapitre)) return QUESTIONS_PALIER;
+  if (lireIdQuiz(chapitre)) return QUESTIONS_QUIZ;
+  return null;
+}
+
+// 5 à 20 questions {chapitre: "ia:<sujet>:<k>" (chapitre IA), "hg-01" (chapitre vérifié), "<parcours>:<k>" (palier)
+// ou "<parcours>:quiz" (quiz direct), index}.
 function validerQuestions(brut) {
   if (!Array.isArray(brut) || brut.length < 5 || brut.length > 20) {
     throw new ErreurHttp(400, 'Un duel compte de 5 à 20 questions.');
   }
   return brut.map((q) => {
-    if (!objet(q) || typeof q.chapitre !== 'string' || !(ID_VERIFIE.test(q.chapitre) || lireIdChapitre(q.chapitre)) || !Number.isInteger(q.index) || q.index < 0 || q.index >= EXERCICES_PAR_CHAPITRE) {
+    const max = objet(q) && typeof q.chapitre === 'string' ? maxIndex(q.chapitre) : null;
+    if (max === null || !Number.isInteger(q.index) || q.index < 0 || q.index >= max) {
       throw new ErreurHttp(400, 'Question invalide : chapitre et numéro d’exercice attendus.');
     }
     return { chapitre: q.chapitre, index: q.index };
@@ -56,20 +73,48 @@ function lireJSONColonne(texte, parDefaut) {
   }
 }
 
+const inconnue = () => new ErreurHttp(400, 'Question inconnue : chapitre absent de la bibliothèque.');
+
+async function verifierReferences(env, questions) {
+  const marque = (ids) => ids.map(() => '?').join(', ');
+  const chapitres = [...new Set(questions.map((q) => q.chapitre).filter((c) => lireIdChapitre(c)))];
+  if (chapitres.length) {
+    const { results } = await env.DB.prepare(`SELECT id FROM chapitres_ia WHERE id IN (${marque(chapitres)})`)
+      .bind(...chapitres)
+      .all();
+    if ((results || []).length !== chapitres.length) throw inconnue();
+  }
+  const paliers = [...new Set(questions.map((q) => q.chapitre).filter((c) => lireIdPalier(c)))];
+  if (paliers.length) {
+    const { results } = await env.DB.prepare(
+      `SELECT id, json_array_length(contenu, '$.questions') AS nq FROM paliers WHERE id IN (${marque(paliers)})`,
+    )
+      .bind(...paliers)
+      .all();
+    const nq = new Map((results || []).map((r) => [r.id, r.nq || 0]));
+    if (questions.some((q) => lireIdPalier(q.chapitre) && !(q.index < nq.get(q.chapitre)))) throw inconnue();
+  }
+  const quiz = [...new Set(questions.map((q) => lireIdQuiz(q.chapitre)).filter(Boolean))];
+  if (quiz.length) {
+    const { results } = await env.DB.prepare(
+      `SELECT parcours, json_array_length(contenu, '$.questions') AS nq FROM quiz_direct WHERE parcours IN (${marque(quiz)})`,
+    )
+      .bind(...quiz)
+      .all();
+    const nq = new Map((results || []).map((r) => [r.parcours, r.nq || 0]));
+    if (questions.some((q) => lireIdQuiz(q.chapitre) && !(q.index < nq.get(lireIdQuiz(q.chapitre))))) throw inconnue();
+  }
+}
+
 export const onRequestPost = enveloppe(async ({ request, env }) => {
   const joueur = await joueurConnecte(request, env);
   const corps = await lireJSON(request, MAX_OCTETS);
   const questions = validerQuestions(corps.questions);
   const score = validerScore(corps.score, questions.length);
 
-  // Chaque chapitre IA doit exister dans le cache : un duel doit pouvoir se jouer (les chapitres vérifiés sont des fichiers de l'app).
-  const ids = [...new Set(questions.map((q) => q.chapitre).filter((c) => !ID_VERIFIE.test(c)))];
-  if (ids.length) {
-    const { results } = await env.DB.prepare(`SELECT id FROM chapitres_ia WHERE id IN (${ids.map(() => '?').join(', ')})`)
-      .bind(...ids)
-      .all();
-    if ((results || []).length !== ids.length) throw new ErreurHttp(400, 'Question inconnue : chapitre absent de la bibliothèque.');
-  }
+  // Chaque chapitre IA, palier ou quiz doit exister dans le cache : un duel doit pouvoir se jouer
+  // (les chapitres vérifiés sont des fichiers de l'app). Palier et quiz : la question demandée doit exister.
+  await verifierReferences(env, questions);
 
   const maintenant = new Date().toISOString();
   const scores = [{ joueur: joueur.id, pseudo: joueur.pseudo, ...score, date: maintenant }];
