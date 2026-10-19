@@ -2,7 +2,7 @@
 //   node scripts/serveur_local.mjs [port=8787]
 // Sert app/ (index.html sur /) et confie /api/* à worker.js, avec un faux environnement :
 //   - DB : SQLite en mémoire (node:sqlite), interface D1 (scripts/faux_d1.mjs) ; tout repart de zéro à chaque lancement ;
-//   - AI : Workers AI simulé (plans, chapitres v1.1, plans d'étape, paliers, quiz et vérification de l'API v2) ;
+//   - AI : Workers AI simulé (plans, chapitres v1.1, programmes et modules, leçons, paliers, quiz et vérification de l'API v2) ;
 //   - GLM : `fetch` vers api.z.ai simulé (une clé factice calculée au lancement donne le rédacteur GLM, la vérification
 //     passe alors par le faux Mistral, comme en production) ;
 //   - Wikipédia FR et EN : `fetch` remplacé par un Wikipédia simulé (aucun appel réseau ; une requête contenant « zzz »
@@ -11,6 +11,7 @@
 //   - Pexels et Unsplash : simulés aussi, mais sans clé par défaut (l'image du parcours vient alors de Wikipédia).
 //     KOIOS_LOCAL_PHOTOS=pexels ou unsplash donne une clé factice et fait passer l'image par ce service.
 // Un palier sur quatre porte une phrase « non confirmée » que le faux vérificateur retire : son statut est « partiel ».
+// Une leçon sur six porte un moyen mnémotechnique non confirmé : il est retiré (mnemo null).
 // Les contenus simulés servent à voir l'écran, pas à apprendre. Aucun secret : les clés sont des valeurs calculées.
 
 import { createServer } from 'node:http';
@@ -20,9 +21,13 @@ import { fileURLToPath } from 'node:url';
 
 import worker from '../worker.js';
 import { PROMPT_CHAPITRE, PROMPT_PLAN } from '../lib/sujets.js';
-import { PROMPT_ETAPE, PROMPT_PALIER, PROMPT_QUIZ, PROMPT_VERIFICATION } from '../lib/paliers.js';
+import {
+  PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_QUIZ, PROMPT_VERIFICATION,
+} from '../lib/paliers.js';
 import { fauxD1 } from './faux_d1.mjs';
-import { PAGES, palierSimule, planSimule, quizSimule, trouverPage, verificationSimulee } from './faux_contenus.mjs';
+import {
+  PAGES, leconSimulee, moduleSimule, palierSimule, planSimule, programmeSimule, quizSimule, trouverPage, verificationSimulee,
+} from './faux_contenus.mjs';
 
 const RACINE = resolve(fileURLToPath(new URL('../app/', import.meta.url)));
 const TYPES = {
@@ -156,6 +161,9 @@ function reponseDe(systeme, demande) {
     return chapitreV1(sujet, titre, Number(numero));
   }
   if (systeme === PROMPT_ETAPE) return planSimule(demande);
+  if (systeme === PROMPT_PROGRAMME) return programmeSimule(demande);
+  if (systeme === PROMPT_MODULE) return moduleSimule(demande);
+  if (systeme === PROMPT_LECON) return leconSimulee(demande);
   if (systeme === PROMPT_PALIER) return palierSimule(demande);
   if (systeme === PROMPT_QUIZ) return quizSimule(demande);
   if (systeme === PROMPT_VERIFICATION) return verificationSimulee(demande);

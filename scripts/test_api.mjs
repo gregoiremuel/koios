@@ -25,9 +25,11 @@ import {
   CREDIT_WIKIMEDIA, imageDeTete, imagePexels, imageUnsplash, requeteImage,
 } from '../lib/images.js';
 import {
-  EXEMPLE_ETAPE, EXEMPLE_PALIER, MOTS_INTERDITS, PROMPT_ETAPE, PROMPT_PALIER, PROMPT_QUIZ, PROMPT_VERIFICATION,
-  aplatir, contientInterdit, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz, referenceDe, validerEtape,
-  validerQuestion, validerQuiz, validerRedaction, validerVerification,
+  EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, MESSAGE_FIN, MOTS_INTERDITS,
+  PROMPT_ETAPE, PROMPT_LECON, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_QUIZ, PROMPT_VERIFICATION,
+  TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
+  modulesDe, referenceDe, validerEtape, validerModule, validerProgramme, validerQuestion, validerQuiz,
+  validerRedaction, validerVerification,
 } from '../lib/paliers.js';
 import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
@@ -1884,6 +1886,12 @@ const AVEC_GLM = { GLM_API_KEY: CLE_GLM };
 
 const palierBrut = () => structuredClone(EXEMPLE_PALIER);
 const etapeBrute = () => structuredClone(EXEMPLE_ETAPE);
+const programmeBrut = () => structuredClone(EXEMPLE_PROGRAMME);
+const moduleBrut = () => structuredClone(EXEMPLE_MODULE);
+const module2Brut = () => ({
+  lecons: ['Le projet de Koechlin et Nouguier', 'Stephen Sauvestre et l’allure', 'Le concours de l’Exposition', 'Les premiers plans', 'Le calcul des efforts du vent'],
+});
+const leconBrute = () => structuredClone(EXEMPLE_LECON);
 const etape2Brute = () => ({
   etape: 'Pour aller plus loin',
   paliers: [
@@ -1926,6 +1934,7 @@ function scenario(parts) {
   const n = {};
   const etapeDe = (systeme) => ({
     [PROMPT_ETAPE]: 'etape', [PROMPT_PALIER]: 'palier', [PROMPT_VERIFICATION]: 'verif', [PROMPT_QUIZ]: 'quiz',
+    [PROMPT_PROGRAMME]: 'programme', [PROMPT_MODULE]: 'module', [PROMPT_LECON]: 'lecon',
   })[systeme] || 'inconnu';
   function repondre(via, modele, messages) {
     const etape = etapeDe(messages[0].content);
@@ -1969,19 +1978,36 @@ const verifSi = (motif) => ({ messages }) => {
   return { nonConfirmees };
 };
 const verifNumeros = (...numeros) => ({ nonConfirmees: numeros });
-const partiesStandard = () => ({ etape: [etapeBrute()], palier: [palierBrut()], verif: [verifNumeros()], quiz: [quizBrut()] });
+const partiesStandard = () => ({
+  etape: [etapeBrute()], palier: [palierBrut()], verif: [verifNumeros()], quiz: [quizBrut()],
+  programme: [programmeBrut()], module: [moduleBrut()], lecon: [leconBrute()],
+});
 const TOTAL = 25; // affirmations de EXEMPLE_PALIER : 7 phrases, 2 définitions, 3 dates, 4 chiffres, 1 histoire, 4 × 2 questions
+const TOTAL_LECON = 29; // EXEMPLE_LECON : les 25 ci-dessus, 3 « à retenir » et 1 moyen mnémotechnique
 
 const envDe = (sc, extra = {}) => ({ DB: db, AI: sc.ai, ...extra });
 function brancher(sc) {
   ext.glm = sc.glm;
 }
 
-async function creerParcoursTest(joueur, titre = 'La tour Eiffel', parts = {}) {
-  const sc = scenario({ ...partiesStandard(), ...parts });
-  const r = await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: joueur.jeton, corps: { titre } });
-  ok200(r);
-  return r.corps.parcours;
+// Parcours de l'ancien format (étapes de 10 paliers, sans programme), inséré tel que l'ancienne création l'écrivait.
+async function creerParcoursTest(joueur, titre = 'La tour Eiffel') {
+  const id = slug(titre);
+  const contenu = {
+    resume: EXEMPLE_ETAPE.resume,
+    image: {
+      src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg',
+      alt: 'Illustration de « Tour Eiffel »',
+      credit: 'Image : Wikimédia',
+      lien: 'https://fr.wikipedia.org/wiki/Fichier:Tour_Eiffel_Wikimedia_Commons.jpg',
+    },
+    motImage: EXEMPLE_ETAPE.motImage,
+    etapes: [{ numero: 1, titre: EXEMPLE_ETAPE.etape, paliers: EXEMPLE_ETAPE.paliers.map((t, i) => ({ numero: i + 1, titre: t })) }],
+    sources: [['Wikipédia · Tour Eiffel', 'https://fr.wikipedia.org/wiki/Tour_Eiffel'], ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower']],
+  };
+  db.base.prepare('INSERT INTO parcours (id, titre, contenu, auteur, vues, cree) VALUES (?, ?, ?, ?, 0, ?)')
+    .run(id, titre, JSON.stringify(contenu), joueur.id, '2026-10-19T08:00:00.000Z');
+  return decoderParcours({ id, titre, contenu: JSON.stringify(contenu) });
 }
 function lirePalier(joueur, parcours, n, sc, extra = {}) {
   brancher(sc);
@@ -2009,7 +2035,8 @@ function insererPalierTest(parcours, numero, { questions = validerRedaction(pali
     .run(contenu.id, parcours, numero, JSON.stringify(contenu), '2026-10-19T08:00:00.000Z');
   return contenu;
 }
-const CLES_PARCOURS = ['id', 'titre', 'resume', 'image', 'etapes', 'sources'];
+const CLES_PARCOURS = ['id', 'titre', 'resume', 'image', 'etapes', 'sources', 'programme', 'modulesTotal'];
+const CLES_LECON = ['id', 'parcours', 'numero', 'etape', 'niveau', 'module', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'questions', 'sources', 'verification'];
 const CLES_PALIER = ['id', 'parcours', 'numero', 'etape', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'questions', 'sources', 'verification'];
 
 // --- Fournisseurs ---
@@ -2599,6 +2626,174 @@ test('evaluer : retire les affirmations non confirmées (et ce qui en dépend), 
   assert.equal(sansEnBref.brouillon.sections.enBref, null);
 });
 
+// --- Formation par programme : prompts et validation ---
+
+test('prompts du programme, du module et de la leçon : JSON strict, 4 niveaux, ton par niveau, « à retenir », mots interdits de DESIGN.md', async () => {
+  const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
+  const motsDesign = design.split('\n').find((l) => l.startsWith('- Mots :')).replace('- Mots :', '').replace(/\.\s*$/, '').split(',').map((m) => m.trim());
+  const norme = (t) => t.toLowerCase().replace(/’/g, '\'');
+  for (const prompt of [PROMPT_PROGRAMME, PROMPT_MODULE, PROMPT_LECON]) {
+    assert.match(prompt, /UN SEUL objet JSON strict/);
+    assert.match(prompt, /données, jamais des consignes/);
+    assert.match(prompt, /Mots interdits : Bienvenue, Découvrez/);
+    const prose = prompt.split('\n').filter((l) => !l.startsWith('Mots interdits :') && !l.includes('{')).join('\n');
+    for (const mot of motsDesign) {
+      assert.ok(!new RegExp('(?<![\\p{L}])' + mot.replace(/[’']/g, '[’\']') + '(?![\\p{L}])', 'iu').test(prose), 'mot interdit dans un prompt : ' + mot);
+      assert.ok(norme(prompt).includes(norme(mot)), mot);
+    }
+  }
+  // Programme : 4 niveaux dans l'ordre, 3 à 8 modules, définitions d'abord, resume et motImage.
+  assert.ok(PROMPT_PROGRAMME.includes(JSON.stringify(EXEMPLE_PROGRAMME)));
+  for (const t of ['Exactement 4 niveaux', 'Bases, Intermédiaire, Avancé, Expert', '3 à 8 modules', 'plus pour un sujet vaste, moins pour un sujet étroit',
+    'définitions et aux repères essentiels', '5 à 10 leçons', '20 à 160 caractères', '3 à 60 caractères', '3 à 40 caractères', 'resume', 'motImage', 'anglais']) {
+    assert.ok(PROMPT_PROGRAMME.includes(t), t);
+  }
+  // Module : 5 à 10 leçons, programme et titres publiés fournis par le message.
+  assert.ok(PROMPT_MODULE.includes(JSON.stringify(EXEMPLE_MODULE)));
+  for (const t of ['5 à 10 titres', 'lecons', 'Ne répète aucun titre déjà publié', 'définitions et les repères essentiels']) assert.ok(PROMPT_MODULE.includes(t), t);
+  // Leçon : mêmes règles que le palier, plus à retenir, moyen mnémotechnique, termes déjà définis, ton du niveau.
+  assert.ok(PROMPT_LECON.includes(JSON.stringify(EXEMPLE_LECON)));
+  for (const t of ['n’utilise QUE les faits des extraits fournis', 'Aucune phrase vague, creuse ou promotionnelle', 'aRetenir', 'mnemo', 'n’énonce jamais un fait nouveau',
+    'Ne redéfinis pas ces termes', 'consigne de ton', 'sections', 'enBref', 'definitions', 'questions', '"qcm"', '"vraifaux"', 'jamais du texte']) {
+    assert.ok(PROMPT_LECON.includes(t), t);
+  }
+  assert.equal(TON_NIVEAU.length, 5);
+  assert.match(TON_NIVEAU[1], /^Bases : pars de zéro\. Définis tout mot technique\. Phrases très simples\./);
+  assert.match(TON_NIVEAU[2], /^Intermédiaire : relie les notions.*causes.*enchaînements/);
+  assert.match(TON_NIVEAU[3], /^Avancé : .*cas.*nuances.*débats/);
+  assert.match(TON_NIVEAU[4], /^Expert : .*sources.*controverses.*limites des connaissances/);
+  assert.match(PROMPT_VERIFICATION, /Moyen mnémotechnique/);
+  // Les exemples respectent leurs propres règles.
+  assert.ok(validerProgramme(EXEMPLE_PROGRAMME).valeur, validerProgramme(EXEMPLE_PROGRAMME).raison);
+  assert.ok(validerModule(EXEMPLE_MODULE).valeur, validerModule(EXEMPLE_MODULE).raison);
+  assert.ok(validerRedaction(EXEMPLE_LECON, { lecon: true }).valeur, validerRedaction(EXEMPLE_LECON, { lecon: true }).raison);
+  assert.equal(MESSAGE_FIN, 'Formation terminée : tu as fait le tour de ce sujet.');
+});
+
+test('validerProgramme : 4 niveaux, 3 à 8 modules, titres et objectifs aux bonnes longueurs, aucun titre en double ; modules numérotés', async () => {
+  const modif = (fn) => { const b = programmeBrut(); fn(b); return validerProgramme(b); };
+  const ok = validerProgramme(programmeBrut());
+  assert.ok(ok.valeur, ok.raison);
+  assert.deepEqual(Object.keys(ok.valeur), ['niveaux', 'resume', 'motImage']);
+  assert.equal(ok.valeur.motImage, 'Eiffel Tower Paris');
+  assert.deepEqual(ok.valeur.niveaux.map((n) => n.numero), [1, 2, 3, 4]);
+  assert.deepEqual(ok.valeur.niveaux.flatMap((n) => n.modules.map((m) => m.numero)), nombres(1, 12), 'modules numérotés globalement');
+  assert.deepEqual(modulesDe(ok.valeur).map((m) => [m.numero, m.niveau.numero]), [[1, 1], [2, 1], [3, 1], [4, 2], [5, 2], [6, 2], [7, 3], [8, 3], [9, 3], [10, 4], [11, 4], [12, 4]]);
+  const refus = (r, motif) => assert.ok(r.raison, 'devrait être refusé : ' + motif);
+  refus(validerProgramme(null), 'null');
+  refus(validerProgramme([]), 'tableau');
+  refus(modif((b) => { b.niveaux.pop(); }), '3 niveaux');
+  refus(modif((b) => { b.niveaux.push(structuredClone(b.niveaux[0])); }), '5 niveaux');
+  refus(modif((b) => { b.niveaux = 'quatre'; }), 'niveaux en texte');
+  refus(modif((b) => { b.niveaux[1] = 'Intermédiaire'; }), 'niveau en texte');
+  refus(modif((b) => { b.niveaux[1].titre = 'ab'; }), 'titre de niveau trop court');
+  refus(modif((b) => { b.niveaux[1].titre = 'x'.repeat(41); }), 'titre de niveau trop long');
+  refus(modif((b) => { b.niveaux[1].titre = b.niveaux[0].titre.toUpperCase(); }), 'titres de niveau en double');
+  refus(modif((b) => { b.niveaux[2].modules.pop(); b.niveaux[2].modules.pop(); }), '1 module');
+  refus(modif((b) => { b.niveaux[2].modules.pop(); }), '2 modules');
+  refus(modif((b) => { b.niveaux[2].modules = Array.from({ length: 9 }, (_, i) => ({ titre: 'Module numéro ' + i, objectif: 'Un objectif assez long pour être valide.' })); }), '9 modules');
+  refus(modif((b) => { b.niveaux[0].modules[0].titre = 'ab'; }), 'titre de module trop court');
+  refus(modif((b) => { b.niveaux[0].modules[0].titre = 'x'.repeat(61); }), 'titre de module trop long');
+  refus(modif((b) => { b.niveaux[0].modules[0].objectif = 'Trop court.'; }), 'objectif trop court');
+  refus(modif((b) => { b.niveaux[0].modules[0].objectif = 'x'.repeat(161); }), 'objectif trop long');
+  refus(modif((b) => { delete b.niveaux[0].modules[0].objectif; }), 'objectif absent');
+  refus(modif((b) => { b.niveaux[0].modules[0].titre = 12; }), 'titre non texte');
+  refus(modif((b) => { b.niveaux[0].modules[1] = 'Une tour pour 1889'; }), 'module en texte');
+  refus(modif((b) => { b.niveaux[3].modules[0].titre = b.niveaux[0].modules[0].titre.toUpperCase(); }), 'titre de module en double, à la casse près');
+  refus(modif((b) => { b.niveaux[3].modules[0].titre = 'Définitions et repères'.normalize('NFD'); }), 'titre de module en double, accents décomposés');
+  refus(modif((b) => { b.niveaux[0].modules[0].titre = 'Un monument incontournable'; }), 'mot promotionnel');
+  refus(modif((b) => { b.niveaux[0].modules[0].objectif = 'Découvrez la tour de fer et son histoire à Paris.'; }), 'mot promotionnel dans l’objectif');
+  refus(modif((b) => { delete b.resume; }), 'resume absent');
+  refus(modif((b) => { b.resume = 'Une seule phrase assez longue pour passer la longueur minimale demandée.'; }), 'resume à 1 phrase');
+  // Titres libres de niveau (3 à 40 caractères) ; de 3 à 8 modules ; motImage invalide -> null.
+  assert.ok(modif((b) => { b.niveaux[0].titre = 'Les fondations'; b.niveaux[3].titre = 'Au plus haut niveau'; }).valeur);
+  assert.equal(modif((b) => { b.niveaux[0].modules = Array.from({ length: 8 }, (_, i) => ({ titre: 'Module de base ' + i, objectif: 'Un objectif assez long pour être valide.' })); }).valeur.niveaux[0].modules.length, 8);
+  assert.equal(modif((b) => { b.motImage = 'Tour Eiffel à Paris'; }).valeur.motImage, null);
+  assert.equal(modif((b) => { delete b.motImage; }).valeur.motImage, null);
+});
+
+test('validerModule : 5 à 10 titres de leçons courts et différents, sans répéter ceux qui sont publiés', async () => {
+  const modif = (fn, options = {}) => { const b = moduleBrut(); fn(b); return validerModule(b, options); };
+  const ok = validerModule(moduleBrut());
+  assert.ok(ok.valeur, ok.raison);
+  assert.deepEqual(ok.valeur, { paliers: EXEMPLE_MODULE.lecons });
+  assert.equal(validerModule(module2Brut(), { existants: EXEMPLE_MODULE.lecons }).valeur.paliers.length, 5);
+  assert.equal(modif((b) => { b.lecons = EXEMPLE_PROGRAMME.niveaux.flatMap((n) => n.modules.map((m) => m.titre)).slice(0, 10); }).valeur.paliers.length, 10);
+  const refus = (r, motif) => assert.ok(r.raison, 'devrait être refusé : ' + motif);
+  refus(validerModule(null), 'null');
+  refus(modif((b) => { b.lecons = b.lecons.slice(0, 4); }), '4 titres');
+  refus(modif((b) => { b.lecons = [...b.lecons, ...b.lecons.map((t) => t + ' (suite)')]; }), '12 titres');
+  refus(modif((b) => { b.lecons = 'cinq titres'; }), 'lecons en texte');
+  refus(modif((b) => { b.lecons[2] = 'ab'; }), 'titre trop court');
+  refus(modif((b) => { b.lecons[2] = 'x'.repeat(61); }), 'titre trop long');
+  refus(modif((b) => { b.lecons[2] = b.lecons[3].toUpperCase(); }), 'titres identiques à la casse près');
+  refus(modif((b) => { b.lecons[2] = 'Bienvenue dans la tour'; }), 'mot promotionnel');
+  refus(modif(() => {}, { existants: ['LE VOCABULAIRE DE LA TOUR'] }), 'titre déjà publié');
+  assert.equal(modif((b) => { b.paliers = b.lecons; delete b.lecons; }).valeur.paliers.length, 6, 'ancien nom de champ toléré');
+  assert.equal(modif((b) => { b.lecons = b.lecons.map((titre) => ({ titre })); }).valeur.paliers.length, 6, 'titres donnés sous forme d’objets');
+});
+
+test('validerRedaction en mode leçon : aRetenir obligatoire (2 à 4 phrases), mnemo facultatif ; le mode palier est inchangé', async () => {
+  const lecon = (fn) => { const b = leconBrute(); fn(b); return validerRedaction(b, { lecon: true }); };
+  const r = validerRedaction(leconBrute(), { lecon: true });
+  assert.ok(r.valeur, r.raison);
+  assert.deepEqual(Object.keys(r.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'questions']);
+  assert.deepEqual(r.valeur.aRetenir, EXEMPLE_LECON.aRetenir);
+  assert.equal(r.valeur.mnemo, EXEMPLE_LECON.mnemo);
+  assert.equal(aplatir(r.valeur).flatMap((u) => u.textes).length, TOTAL_LECON);
+  const refus = (x, motif) => assert.ok(x.raison, 'devrait être refusé : ' + motif);
+  refus(lecon((b) => { delete b.aRetenir; }), 'aRetenir absent');
+  refus(lecon((b) => { b.aRetenir = 'Une phrase assez longue pour passer.'; }), 'aRetenir en texte');
+  refus(lecon((b) => { b.aRetenir = ['Une seule phrase assez longue.']; }), '1 phrase');
+  refus(lecon((b) => { b.aRetenir = []; }), 'aRetenir vide');
+  refus(lecon((b) => { b.aRetenir = ['Courte.', 'Une phrase assez longue pour passer.']; }), '1 phrase valide sur 2');
+  refus(lecon((b) => { b.aRetenir = ['x'.repeat(161), 'y'.repeat(161)]; }), 'phrases trop longues');
+  refus(lecon((b) => { b.aRetenir = ['Bienvenue dans la tour de fer de Paris.', 'Une phrase assez longue pour passer.']; }), 'mot promotionnel');
+  assert.equal(lecon((b) => { b.aRetenir = Array.from({ length: 6 }, (_, i) => 'Une phrase assez longue numéro ' + i + '.'); }).valeur.aRetenir.length, 4, '4 gardées au plus');
+  assert.equal(lecon((b) => { b.aRetenir = ['Une phrase assez longue pour passer.', 'Courte.', 'Une autre phrase assez longue pour passer.']; }).valeur.aRetenir.length, 2, 'les phrases invalides sont écartées');
+  assert.equal(lecon((b) => { b.aRetenir = ['Une phrase assez longue pour passer.', 'Une phrase assez longue pour passer.']; }).raison !== undefined, true, 'doublons');
+  // mnemo : 20 à 200 caractères, sinon null ; absent -> null.
+  assert.equal(lecon((b) => { b.mnemo = null; }).valeur.mnemo, null);
+  assert.equal(lecon((b) => { delete b.mnemo; }).valeur.mnemo, null);
+  assert.equal(lecon((b) => { b.mnemo = 'Trop court'; }).valeur.mnemo, null);
+  assert.equal(lecon((b) => { b.mnemo = 'x'.repeat(201); }).valeur.mnemo, null);
+  assert.equal(lecon((b) => { b.mnemo = 12; }).valeur.mnemo, null);
+  assert.equal(lecon((b) => { b.mnemo = 'Un moyen au cœur de la mémoire, incontournable pour tous.'; }).valeur.mnemo, null, 'mot promotionnel');
+  assert.equal(lecon((b) => { b.mnemo = 'x'.repeat(200); }).valeur.mnemo.length, 200);
+  // Une seule définition suffit en mode leçon (les termes déjà définis ne reviennent pas) ; deux en mode palier.
+  assert.equal(lecon((b) => { b.definitions.pop(); }).valeur.definitions.length, 1);
+  refus(lecon((b) => { b.definitions = []; }), 'aucune définition');
+  assert.ok(validerRedaction((() => { const b = palierBrut(); b.definitions.pop(); return b; })()).raison, 'mode palier : 2 définitions');
+  // Mode palier : ni aRetenir ni mnemo, même si l'IA en écrit.
+  const palier = validerRedaction(leconBrute());
+  assert.deepEqual(Object.keys(palier.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'questions']);
+});
+
+test('evaluer en mode leçon : un « à retenir » non confirmé est retiré, un moyen mnémotechnique non confirmé devient null', async () => {
+  const viable = (b) => b.sections.enBref !== null && b.questions.length >= 1;
+  const ev = (numeros) => evaluer(validerRedaction(leconBrute(), { lecon: true }).valeur, numeros, 2, viable);
+  const textes = aplatir(validerRedaction(leconBrute(), { lecon: true }).valeur).flatMap((u) => u.textes);
+  assert.equal(textes.length, TOTAL_LECON);
+  // Ordre : 17 = histoire, 18 à 20 = à retenir, 21 = mnémo, puis les questions (22 à 29).
+  assert.match(textes[17], /^La tour est bâtie pour l’Exposition universelle de 1889/);
+  assert.equal(textes[20], 'Moyen mnémotechnique : ' + EXEMPLE_LECON.mnemo);
+  assert.match(textes[21], /^Question : Pour quelle occasion/);
+  const rien = ev([]);
+  assert.deepEqual([rien.affirmations, rien.retirees, rien.aRefaire], [29, 0, false]);
+  assert.deepEqual(rien.brouillon.aRetenir, EXEMPLE_LECON.aRetenir);
+  const un = ev([19]);
+  assert.deepEqual(un.brouillon.aRetenir, [EXEMPLE_LECON.aRetenir[0], EXEMPLE_LECON.aRetenir[2]]);
+  assert.equal(un.brouillon.mnemo, EXEMPLE_LECON.mnemo);
+  assert.deepEqual(un.rejets, [EXEMPLE_LECON.aRetenir[1]]);
+  const sansMnemo = ev([21]);
+  assert.equal(sansMnemo.brouillon.mnemo, null);
+  assert.deepEqual(sansMnemo.brouillon.aRetenir, EXEMPLE_LECON.aRetenir);
+  assert.equal(sansMnemo.retirees, 1);
+  assert.deepEqual(Object.keys(sansMnemo.brouillon), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'questions']);
+  const tout = ev([18, 19, 20, 21]);
+  assert.deepEqual([tout.brouillon.aRetenir, tout.brouillon.mnemo, tout.retirees, tout.viable], [[], null, 4, true]);
+});
+
 // --- POST|GET /api/parcours ---
 
 const WIKI_CREATION = { fr: 3, en: 2 }; // recherche FR + lecture FR + lien interlangue ; recherche EN + lecture EN
@@ -2623,7 +2818,7 @@ test('parcours POST : 401 sans connexion, 400 sur titre invalide, 413, 503 sans 
   assert.equal(lignes('SELECT * FROM parcours').length, 0);
 });
 
-test('parcours POST : création sans GLM (Llama écrit le plan, image de la page Wikipédia), forme, appels et quotas', async () => {
+test('parcours POST : création sans GLM (Llama écrit programme et module 1, image de la page Wikipédia), forme, appels et quotas', async () => {
   toutVoir();
   const j = await creerJoueur();
   const sc = scenario(partiesStandard());
@@ -2634,12 +2829,23 @@ test('parcours POST : création sans GLM (Llama écrit le plan, image de la page
   assert.deepEqual(Object.keys(p), CLES_PARCOURS);
   assert.equal(p.id, 'la-tour-eiffel');
   assert.equal(p.titre, 'La tour Eiffel');
-  assert.equal(p.resume, EXEMPLE_ETAPE.resume);
+  assert.equal(p.resume, EXEMPLE_PROGRAMME.resume);
+  // Programme d'ensemble : 4 niveaux, modules numérotés globalement de 1 à 12.
+  assert.equal(p.modulesTotal, 12);
+  assert.deepEqual(Object.keys(p.programme), ['niveaux']);
+  assert.equal(p.programme.niveaux.length, 4);
+  assert.deepEqual(p.programme.niveaux.map((n) => n.numero), [1, 2, 3, 4]);
+  assert.deepEqual(p.programme.niveaux.map((n) => n.titre.replace('\u00a0', ' ')), EXEMPLE_PROGRAMME.niveaux.map((n) => n.titre), 'espace insécable avant « : »');
+  assert.deepEqual(Object.keys(p.programme.niveaux[0]), ['numero', 'titre', 'modules']);
+  assert.deepEqual(Object.keys(p.programme.niveaux[0].modules[0]), ['numero', 'titre', 'objectif']);
+  assert.deepEqual(p.programme.niveaux.flatMap((n) => n.modules.map((m) => m.numero)), nombres(1, 12));
+  assert.deepEqual(p.programme.niveaux[1].modules[0], { numero: 4, ...EXEMPLE_PROGRAMME.niveaux[1].modules[0] });
+  // Module 1 ouvert : étape 1 = module 1, ses leçons sont numérotées à partir de 1.
   assert.equal(p.etapes.length, 1);
-  assert.deepEqual(Object.keys(p.etapes[0]), ['numero', 'titre', 'paliers']);
-  assert.equal(p.etapes[0].numero, 1);
-  assert.equal(p.etapes[0].titre, 'Les bases de la tour');
-  assert.deepEqual(p.etapes[0].paliers, EXEMPLE_ETAPE.paliers.map((titre, i) => ({ numero: i + 1, titre })));
+  assert.deepEqual(Object.keys(p.etapes[0]), ['numero', 'titre', 'niveau', 'objectif', 'paliers']);
+  assert.deepEqual([p.etapes[0].numero, p.etapes[0].titre, p.etapes[0].niveau], [1, 'Définitions et repères', 1]);
+  assert.equal(p.etapes[0].objectif, EXEMPLE_PROGRAMME.niveaux[0].modules[0].objectif);
+  assert.deepEqual(p.etapes[0].paliers, EXEMPLE_MODULE.lecons.map((titre, i) => ({ numero: i + 1, titre })));
   assert.deepEqual(p.image, {
     src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Tour_Eiffel_Wikimedia_Commons.jpg/800px-Tour_Eiffel_Wikimedia_Commons.jpg',
     alt: 'Illustration de « Tour Eiffel »',
@@ -2651,36 +2857,43 @@ test('parcours POST : création sans GLM (Llama écrit le plan, image de la page
     ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower'],
   ]);
   assert.ok(!('motImage' in p) && !('auteur' in p));
-  // Wikipédia FR et EN, avec le User-Agent 2.0 ; le texte anglais est coupé à 6 000 caractères.
+  // Wikipédia FR et EN, avec le User-Agent 2.0 ; le texte anglais est coupé à 6 000 caractères. Un seul jeu de pages.
   assert.deepEqual(hotes(wiki.appels), [...Array(WIKI_CREATION.en).fill('en.wikipedia.org'), ...Array(WIKI_CREATION.fr).fill('fr.wikipedia.org')]);
   for (const a of wiki.appels) assert.equal(new Headers(a.init.headers).get('user-agent'), USER_AGENT_V2);
-  // Un appel d'IA : Llama, plan d'étape.
-  assert.equal(sc.appels.length, 1);
-  const [a] = sc.appels;
-  assert.deepEqual([a.etape, a.via, a.modele], ['etape', 'ai', LLAMA]);
-  assert.equal(a.entree.messages[0].content, PROMPT_ETAPE);
-  const demande = a.entree.messages[1].content;
+  // Deux appels d'IA, dans l'ordre : le programme d'ensemble, puis les leçons du module 1 (Llama).
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['programme', 'ai', LLAMA], ['module', 'ai', LLAMA]]);
+  const [prog, mod] = sc.appels;
+  assert.equal(prog.entree.messages[0].content, PROMPT_PROGRAMME);
+  const demande = prog.entree.messages[1].content;
   assert.match(demande, /Parcours : « La tour Eiffel »/);
-  assert.match(demande, /Étape à écrire : n° 1/);
   assert.match(demande, /=== Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel » ===/);
   assert.match(demande, /=== Extrait 2 · Wikipedia \(en\), page « Eiffel Tower » ===/);
   assert.ok(demande.includes('La tour Eiffel est décrit ici pour les tests.'));
   assert.ok(!demande.includes('NE PAS LIRE') && !demande.includes('DO NOT READ'));
   assert.ok(demande.length < 6000 * 2 + 1200, 'au plus 6 000 caractères par langue');
+  assert.equal(mod.entree.messages[0].content, PROMPT_MODULE);
+  const m1 = mod.entree.messages[1].content;
+  assert.match(m1, /Programme d’ensemble :\nNiveau 1 · Bases : les repères\n  Module 1 · Définitions et repères \(module à écrire\)\n  Module 2 · Une tour pour 1889\n/);
+  assert.match(m1, /Module à écrire : n° 1, « Définitions et repères »/);
+  assert.match(m1, /Niveau : n° 1, « Bases : les repères »/);
+  assert.match(m1, /Objectif du module : Poser le vocabulaire/);
+  assert.ok(!m1.includes('déjà publiés'), 'aucun titre publié pour le module 1');
+  assert.match(m1, /Extrait 1 · Wikipédia \(fr\)/);
   assert.deepEqual(ext.appels, [], 'ni GLM, ni Pexels, ni Unsplash sans clé');
-  // Base et quotas.
+  // Base et quotas : un seul quota pour toute la création.
   const [ligne] = lignes('SELECT id, titre, auteur, vues FROM parcours');
   assert.deepEqual(ligne, { id: 'la-tour-eiffel', titre: 'La tour Eiffel', auteur: j.id, vues: 0 });
   const stocke = JSON.parse(lignes('SELECT contenu FROM parcours')[0].contenu);
-  assert.deepEqual(Object.keys(stocke), ['resume', 'image', 'motImage', 'etapes', 'sources']);
+  assert.deepEqual(Object.keys(stocke), ['resume', 'image', 'motImage', 'etapes', 'sources', 'programme']);
   assert.equal(stocke.motImage, 'Eiffel Tower Paris');
+  assert.deepEqual(stocke.programme, p.programme);
   assert.deepEqual(lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'parcours%' ORDER BY cle"), [
     { cle: 'parcours:joueur:' + j.id, n: 1 },
     { cle: 'parcours:total', n: 1 },
   ]);
 });
 
-test('parcours POST : GLM écrit le plan (modèle choisi par GLM_MODELE), la photo de tête vient de Pexels', async () => {
+test('parcours POST : GLM écrit programme et module (modèle choisi par GLM_MODELE), la photo de tête vient de Pexels', async () => {
   toutVoir();
   const j = await creerJoueur();
   const sc = scenario(partiesStandard());
@@ -2689,30 +2902,30 @@ test('parcours POST : GLM écrit le plan (modèle choisi par GLM_MODELE), la pho
   const e = envDe(sc, { ...AVEC_GLM, GLM_MODELE: 'glm-4.5-air', PEXELS_KEY: 'cle-pexels', UNSPLASH_KEY: 'cle-unsplash' });
   const r = await appel(parcoursPost, { env: e, methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
-  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['etape', 'glm', 'glm-4.5-air']]);
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'pexels'], 'Unsplash n’est pas appelé quand Pexels répond');
-  assert.equal(ext.appels[1].url.searchParams.get('query'), 'Eiffel Tower Paris', 'requête d’image en anglais (motImage)');
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['programme', 'glm', 'glm-4.5-air'], ['module', 'glm', 'glm-4.5-air']]);
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'pexels'], 'Unsplash n’est pas appelé quand Pexels répond');
+  assert.equal(ext.appels[2].url.searchParams.get('query'), 'Eiffel Tower Paris', 'requête d’image en anglais (motImage)');
   assert.deepEqual(r.corps.parcours.image, {
     src: 'https://images.pexels.com/photos/1/landscape.jpeg',
     alt: 'Photo illustrant « La tour Eiffel »',
     credit: 'Photo : Jeanne Dupont sur Pexels',
     lien: 'https://www.pexels.com/photo/tour-1/',
   });
-  assert.equal(r.corps.parcours.resume, EXEMPLE_ETAPE.resume);
+  assert.equal(r.corps.parcours.resume, EXEMPLE_PROGRAMME.resume);
 });
 
 test('parcours POST : GLM en panne (repli sur Llama) et Unsplash quand Pexels n’a rien', async () => {
   toutVoir();
   const j = await creerJoueur();
-  const sc = scenario({ ...partiesStandard(), etape: [new Error('GLM saturé'), etapeBrute()] });
+  const sc = scenario({ ...partiesStandard(), programme: [new Error('GLM saturé'), programmeBrut()] });
   ext.glm = sc.glm;
   ext.pexels = () => reponseWiki({ photos: [] });
   ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
   const e = envDe(sc, { ...AVEC_GLM, PEXELS_KEY: 'p', UNSPLASH_KEY: 'u' });
   const r = await appel(parcoursPost, { env: e, methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
-  assert.deepEqual(sc.appels.map((a) => [a.via, a.modele]), [['glm', 'glm-4.7-flash'], ['ai', LLAMA]]);
-  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'pexels', 'unsplash']);
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['programme', 'glm', 'glm-4.7-flash'], ['programme', 'ai', LLAMA], ['module', 'glm', 'glm-4.7-flash']]);
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['glm', 'glm', 'pexels', 'unsplash']);
   assert.equal(r.corps.parcours.image.credit, 'Photo : Paul Martin sur Unsplash');
   assert.equal(r.corps.parcours.image.lien, 'https://unsplash.com/photos/u1?utm_source=koios&utm_medium=referral');
   // Aucune photo en ligne ni image Wikipédia : image nulle, le parcours existe quand même.
@@ -2751,7 +2964,7 @@ test('parcours POST : un parcours en cache est renvoyé sans IA, sans Wikipédia
   assert.equal(lignes('SELECT vues FROM parcours')[0].vues, 0, 'créer ou retrouver ne compte pas de vue');
 });
 
-test('parcours POST : aucune source (422), plan invalide ou IA en panne (502) ; rien n’est enregistré', async () => {
+test('parcours POST : aucune source (422), programme ou module invalide, IA en panne (502) ; rien n’est enregistré', async () => {
   toutVoir();
   const j = await creerJoueur();
   const post = (sc, titre = 'La tour Eiffel') => appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre } });
@@ -2764,40 +2977,63 @@ test('parcours POST : aucune source (422), plan invalide ou IA en panne (502) ; 
   }
   reinitWiki();
   erreurFr(await post(scenario(partiesStandard()), 'Zorglub inconnu'), 422);
-  // Plan invalide deux fois (Llama puis Mistral), ou texte sans JSON, ou pannes.
-  const neuf = etapeBrute();
-  neuf.paliers.pop();
-  const sc1 = scenario({ ...partiesStandard(), etape: [neuf] });
-  erreurFr(await post(sc1), 502);
-  assert.deepEqual(sc1.appels.map((a) => a.modele), [LLAMA, MISTRAL]);
-  const sc2 = scenario({ ...partiesStandard(), etape: ['Désolé, je ne peux pas.', new Error('panne')] });
+  // Programme invalide deux fois (Llama puis Mistral), ou texte sans JSON, ou pannes.
+  const trois = programmeBrut();
+  trois.niveaux.pop();
+  const sc1 = scenario({ ...partiesStandard(), programme: [trois] });
+  erreurFr(await post(sc1), 502, /n’a pas réussi/);
+  assert.deepEqual(sc1.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme', MISTRAL]]);
+  const sc2 = scenario({ ...partiesStandard(), programme: ['Désolé, je ne peux pas.', new Error('panne')] });
   erreurFr(await post(sc2), 502);
   assert.equal(sc2.appels.length, 2);
-  const repli = scenario({ ...partiesStandard(), etape: [neuf, etapeBrute()] });
+  const repli = scenario({ ...partiesStandard(), programme: [trois, programmeBrut()] });
   ok200(await post(repli));
-  assert.deepEqual(repli.appels.map((a) => a.modele), [LLAMA, MISTRAL]);
+  assert.deepEqual(repli.appels.map((a) => [a.etape, a.modele]), [['programme', LLAMA], ['programme', MISTRAL], ['module', LLAMA]]);
   assert.equal(lignes('SELECT * FROM parcours').length, 1);
-  // Résumé à une phrase : plan refusé.
+  // Liste de leçons invalide (4 titres) deux fois : rien n'est enregistré, même si le programme était bon.
   viderBibliotheque();
-  const court = etapeBrute();
+  const quatre = moduleBrut();
+  quatre.lecons = quatre.lecons.slice(0, 4);
+  const sc3 = scenario({ ...partiesStandard(), module: [quatre] });
+  erreurFr(await post(sc3), 502);
+  assert.deepEqual(sc3.appels.map((a) => a.etape), ['programme', 'module', 'module']);
+  assert.equal(lignes('SELECT * FROM parcours').length, 0);
+  // Résumé à une phrase : programme refusé.
+  const court = programmeBrut();
   court.resume = 'Une seule phrase assez longue pour passer la longueur minimale demandée.';
-  erreurFr(await post(scenario({ ...partiesStandard(), etape: [court] })), 502);
+  erreurFr(await post(scenario({ ...partiesStandard(), programme: [court] })), 502);
   assert.equal(lignes('SELECT * FROM parcours').length, 0);
 });
 
 test('parcours POST : un motImage invalide est retiré (la photo est cherchée avec le titre), le parcours est quand même créé', async () => {
   toutVoir();
   const j = await creerJoueur();
-  const brut = etapeBrute();
+  const brut = programmeBrut();
   brut.motImage = 'Tour Eiffel à Paris, très belle !';
-  brut.etape = 'x';
   ext.pexels = () => reponseWiki({ photos: [photoPexels()] });
-  const sc = scenario({ ...partiesStandard(), etape: [brut] });
+  const sc = scenario({ ...partiesStandard(), programme: [brut] });
   const r = await appel(parcoursPost, { env: envDe(sc, { PEXELS_KEY: 'p' }), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
   assert.equal(ext.appels[0].url.searchParams.get('query'), 'La tour Eiffel');
-  assert.equal(r.corps.parcours.etapes[0].titre, 'Étape 1', 'titre d’étape invalide : « Étape 1 »');
+  assert.equal(r.corps.parcours.etapes[0].titre, 'Définitions et repères', 'le titre de l’étape est celui du module');
   assert.equal(JSON.parse(lignes('SELECT contenu FROM parcours')[0].contenu).motImage, null);
+});
+
+test('parcours POST : la typographie française est appliquée au programme et à l’étape', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const brut = programmeBrut();
+  brut.niveaux[0].titre = 'Bases : les repères';
+  brut.niveaux[0].modules[1].objectif = 'Comprendre pourquoi la tour est bâtie : pour l’Exposition de 1889 ?';
+  const mod = moduleBrut();
+  mod.lecons[1] = 'Où et quand : un lieu ?';
+  const sc = scenario({ ...partiesStandard(), programme: [brut], module: [mod] });
+  const r = await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
+  ok200(r);
+  const p = r.corps.parcours;
+  assert.equal(p.programme.niveaux[0].titre, 'Bases : les repères');
+  assert.equal(p.programme.niveaux[0].modules[1].objectif, 'Comprendre pourquoi la tour est bâtie : pour l’Exposition de 1889 ?');
+  assert.equal(p.etapes[0].paliers[1].titre, 'Où et quand : un lieu ?');
 });
 
 test('parcours POST : 10 par jour et par lecteur, 80 par jour au total (le cache n’en consomme pas)', async () => {
@@ -2809,7 +3045,7 @@ test('parcours POST : 10 par jour et par lecteur, 80 par jour au total (le cache
   const lancer = (lecteur, titre) => appel(parcoursPost, { env: e, methode: 'POST', jeton: lecteur.jeton, corps: { titre } });
   for (let i = 0; i < 10; i++) ok200(await lancer(j, 'La tour Eiffel ' + i));
   erreurFr(await lancer(j, 'La tour Eiffel onze'), 429);
-  assert.equal(sc.par('etape').length, 10);
+  assert.equal(sc.par('programme').length, 10);
   assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'parcours:total'")[0].n, 10, 'le refus d’un lecteur n’entame pas le total');
   const cache = await lancer(j, 'La tour Eiffel 3');
   ok200(cache);
@@ -2828,9 +3064,9 @@ test('parcours POST : deux lecteurs sur le même parcours en même temps, le pre
   const j = await creerJoueur();
   const sc = scenario({
     ...partiesStandard(),
-    etape: [() => {
+    programme: [() => {
       insererParcours('la-tour-eiffel', { titre: 'La tour Eiffel' });
-      return etapeBrute();
+      return programmeBrut();
     }],
   });
   const r = await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
@@ -3262,6 +3498,346 @@ test('palier GET : 30 par jour et par lecteur, 300 par jour au total (le cache n
   const sans = await creerJoueur('Sans');
   erreurFr(await lirePalier(sans, 'p2', 3, sc), 429);
   ok200(await lirePalier(sans, 'p2', 2, sc));
+});
+
+// --- Formation par programme : leçons, ouverture des modules, fin ---
+
+// Parcours à programme inséré directement : `ouverts` modules déjà ouverts, `lecons` leçons chacun.
+function insererProgramme(id, { titre = id, ouverts = 1, lecons = 5, vues = 0 } = {}) {
+  const programme = { niveaux: validerProgramme(EXEMPLE_PROGRAMME).valeur.niveaux };
+  const etapes = modulesDe(programme).slice(0, ouverts).map((m, i) => ({
+    numero: m.numero,
+    titre: m.titre,
+    niveau: m.niveau.numero,
+    objectif: m.objectif,
+    paliers: Array.from({ length: lecons }, (_, k) => ({ numero: i * lecons + k + 1, titre: `Leçon ${i * lecons + k + 1} du module ${m.numero}` })),
+  }));
+  const contenu = {
+    resume: EXEMPLE_PROGRAMME.resume,
+    image: null,
+    motImage: null,
+    etapes,
+    sources: [['Wikipédia · Tour Eiffel', 'https://fr.wikipedia.org/wiki/Tour_Eiffel'], ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower']],
+    programme,
+  };
+  db.base.prepare('INSERT INTO parcours (id, titre, contenu, auteur, vues, cree) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(id, titre, JSON.stringify(contenu), 'auteur', vues, '2026-10-19T08:00:00.000Z');
+}
+const lireParcours = async (id) => (await appel(parcoursGet, { requete: '?id=' + id })).corps.parcours;
+async function prepareProgramme() {
+  toutVoir();
+  const j = await creerJoueur();
+  const sc = scenario(partiesStandard());
+  ok200(await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } }));
+  wiki.appels.length = 0;
+  return j;
+}
+
+test('leçon (parcours à programme) : forme, niveau et module, « à retenir », mnémo, appels, vérification et quotas', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario(partiesStandard());
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  const p = r.corps.palier;
+  assert.deepEqual(Object.keys(p), CLES_LECON);
+  assert.deepEqual([p.id, p.parcours, p.numero, p.etape, p.titre], ['la-tour-eiffel:1', 'la-tour-eiffel', 1, 1, EXEMPLE_MODULE.lecons[0]]);
+  assert.deepEqual(p.niveau, { numero: 1, titre: 'Bases : les repères' });
+  assert.deepEqual(p.module, { numero: 1, titre: 'Définitions et repères' });
+  assert.deepEqual(p.aRetenir, EXEMPLE_LECON.aRetenir);
+  assert.equal(p.mnemo.replace(/[\u00a0\u202f]/g, ' '), EXEMPLE_LECON.mnemo.replace(/[\u00a0\u202f]/g, ' '), 'typographie française appliquée');
+  assert.equal(p.definitions.length, 2);
+  assert.equal(p.sections.enBref, EXEMPLE_PALIER.sections.enBref.join(' '));
+  assert.deepEqual(p.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: TOTAL_LECON, retirees: 0, statut: 'recoupe' });
+  // Deux appels : rédaction de la leçon (prompt de leçon, Llama), vérification (Mistral).
+  assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['lecon', 'ai', LLAMA], ['verif', 'ai', MISTRAL]]);
+  const [ecriture, verif] = sc.appels;
+  assert.equal(ecriture.entree.messages[0].content, PROMPT_LECON);
+  const demande = ecriture.entree.messages[1].content;
+  assert.match(demande, /Parcours : « La tour Eiffel »/);
+  assert.match(demande, /Niveau n° 1 : « Bases\s: les repères »\nConsigne de ton : Bases : pars de zéro\. Définis tout mot technique\. Phrases très simples\./);
+  assert.match(demande, /Module n° 1 : « Définitions et repères »\nObjectif du module : Poser le vocabulaire/);
+  for (const [i, t] of EXEMPLE_MODULE.lecons.entries()) assert.ok(demande.includes(`${i + 1}. ${t}`), 'leçons du module : ' + t);
+  assert.match(demande, /Palier à écrire : n° 1, « Le vocabulaire de la tour »/);
+  assert.ok(!demande.includes('Termes déjà définis'), 'aucun terme défini pour la première leçon');
+  assert.match(demande, /Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel »/);
+  // Vérification : 29 affirmations, dont les 3 « à retenir » et le moyen mnémotechnique.
+  const v = verif.entree.messages[1].content;
+  assert.match(v, /\n18\. La tour est bâtie pour l’Exposition universelle de 1889, à Paris\.\n19\. Sa structure/);
+  assert.match(v, /\n21\. Moyen mnémotechnique : Pour fixer 1889/);
+  assert.match(v, /\n29\. Explication : /);
+  assert.ok(!/\n30\. /.test(v));
+  assert.deepEqual(JSON.parse(lignes('SELECT contenu FROM paliers')[0].contenu), p);
+  assert.deepEqual(quotasPalier(), [{ cle: 'palier:joueur:' + j.id, n: 1 }, { cle: 'palier:total', n: 1 }]);
+  // Budget de la leçon : 4000 jetons (3 500 pour un palier de l'ancien format).
+  const jetons = [];
+  const scJ = scenario(partiesStandard());
+  const ai = { run: (modele, entree) => { jetons.push(entree.max_tokens); return scJ.ai.run(modele, entree); } };
+  ok200(await lirePalier(j, 'la-tour-eiffel', 2, scJ, { AI: ai }));
+  assert.deepEqual(jetons, [4000, 600]);
+});
+
+test('leçon : les termes déjà définis par les leçons précédentes sont fournis (40 au plus, noms seulement), pas les suivantes', async () => {
+  const j = await prepareProgramme();
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, scenario(partiesStandard())));
+  const sc = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 2, sc));
+  const demande = sc.appels[0].entree.messages[1].content;
+  assert.match(demande, /Termes déjà définis dans les leçons précédentes \(ne les redéfinis pas, appuie-toi dessus\) :\n- Fer puddlé\n- Rivet\n/);
+  assert.ok(!demande.includes('Un fer obtenu') && !demande.includes('Tige métallique'), 'les noms seulement, pas les définitions');
+  // La leçon 1 ne voit pas la leçon 2 déjà en cache.
+  const sc1 = scenario(partiesStandard());
+  db.base.prepare('DELETE FROM paliers WHERE numero = 1').run();
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc1));
+  assert.ok(!sc1.appels[0].entree.messages[1].content.includes('Termes déjà définis'));
+  // 40 termes au plus, les plus récents d'abord, sans doublon.
+  for (const n of [3, 4, 5, 8]) {
+    const contenu = { id: `la-tour-eiffel:${n}`, definitions: Array.from({ length: 25 }, (_, i) => ({ terme: `Terme ${n}-${i}`, definition: 'x' })) };
+    db.base.prepare('INSERT OR REPLACE INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, ?, ?, 0, ?)')
+      .run(contenu.id, 'la-tour-eiffel', n, n === 3 ? 'pas du json' : JSON.stringify(contenu), '2026-10-19T08:00:00.000Z');
+  }
+  db.base.prepare("INSERT INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES ('autre:1', 'autre', 1, ?, 0, 'x')").run(JSON.stringify({ definitions: [{ terme: 'Autre parcours' }] }));
+  const sc40 = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 6, sc40));
+  const liste = sc40.appels[0].entree.messages[1].content.split('Termes déjà définis dans les leçons précédentes (ne les redéfinis pas, appuie-toi dessus) :\n')[1].split('\n=== Extrait')[0].trim().split('\n');
+  assert.equal(liste.length, 40);
+  assert.ok(liste.every((l) => l.startsWith('- ')));
+  assert.deepEqual([liste[0], liste[24], liste[25], liste[39]], ['- Terme 5-0', '- Terme 5-24', '- Terme 4-0', '- Terme 4-14'], 'les plus récents d’abord');
+  assert.ok(!liste.some((l) => l.startsWith('- Terme 8-') || l.includes('Autre parcours')), 'seulement les leçons antérieures du même parcours');
+  // Parcours de l'ancien format : pas de termes, prompt de palier.
+  await creerParcoursTest(j, 'Ancien format');
+  const scA = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'ancien-format', 1, scA));
+  assert.equal(scA.appels[0].entree.messages[0].content, PROMPT_PALIER);
+  assert.ok(!scA.appels[0].entree.messages[1].content.includes('Termes déjà définis'));
+});
+
+test('leçon : « à retenir » et moyen mnémotechnique passent par la vérification (non confirmés : retirés)', async () => {
+  const j = await prepareProgramme();
+  const brut = leconBrute();
+  brut.aRetenir[1] = 'Les ouvriers boivent du vin rouge LUNE chaque soir sur le chantier.';
+  brut.mnemo = 'Pense à la LUNE posée sur la pointe de la tour, comme un chapeau.';
+  const sc = scenario({ ...partiesStandard(), lecon: [brut], verif: [verifSi(/LUNE/)] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  const p = r.corps.palier;
+  assert.deepEqual(p.aRetenir, [EXEMPLE_LECON.aRetenir[0], EXEMPLE_LECON.aRetenir[2]]);
+  assert.equal(p.mnemo, null);
+  assert.deepEqual(p.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: TOTAL_LECON, retirees: 2, statut: 'partiel' });
+  assert.ok(!JSON.stringify(p).includes('LUNE'));
+  assert.equal(sc.appels.length, 2, 'moins de 40 % retiré : pas de nouvelle rédaction');
+  // Mnémo confirmé : il reste. Mnémo invalide dès la rédaction : null, sans refus.
+  const sc2 = scenario({ ...partiesStandard(), lecon: [{ ...leconBrute(), mnemo: 'Court' }] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.equal(r2.corps.palier.mnemo, null);
+  assert.equal(r2.corps.palier.verification.affirmations, TOTAL_LECON - 1);
+  // Sans « à retenir » valable : rédaction refusée, on essaie l'autre modèle (Mistral).
+  const sans = leconBrute();
+  delete sans.aRetenir;
+  const sc3 = scenario({ ...partiesStandard(), lecon: [sans, leconBrute()] });
+  const r3 = await lirePalier(j, 'la-tour-eiffel', 3, sc3);
+  ok200(r3);
+  assert.deepEqual(sc3.appels.map((a) => [a.etape, a.modele]), [['lecon', LLAMA], ['lecon', MISTRAL], ['verif', LLAMA]]);
+  assert.equal(r3.corps.palier.aRetenir.length, 3);
+});
+
+test('module : la leçon suivante hors plan ouvre le module suivant (numéros qui continuent, niveau, objectif), un seul quota', async () => {
+  const j = await prepareProgramme();
+  assert.equal((await lireParcours('la-tour-eiffel')).etapes[0].paliers.length, 6);
+  const sc = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 7, sc);
+  ok200(r);
+  assert.deepEqual(sc.appels.map((a) => a.etape), ['module', 'lecon', 'verif']);
+  const mod = sc.par('module')[0].entree.messages;
+  assert.equal(mod[0].content, PROMPT_MODULE);
+  assert.match(mod[1].content, /Module à écrire : n° 2, « Une tour pour 1889 »/);
+  assert.match(mod[1].content, /Module 1 · Définitions et repères\n  Module 2 · Une tour pour 1889 \(module à écrire\)/);
+  assert.match(mod[1].content, /Objectif du module : Comprendre pourquoi la tour est bâtie pour l’Exposition universelle\./);
+  assert.match(mod[1].content, /Titres de leçons déjà publiés \(à ne pas répéter\) :\n- Le vocabulaire de la tour\n/);
+  for (const t of EXEMPLE_MODULE.lecons) assert.ok(mod[1].content.includes('- ' + t), t);
+  assert.match(mod[1].content, /Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel »/);
+  // L'étape 2 est enregistrée : leçons 7 à 11 ; la leçon 7 en fait partie.
+  const p = await lireParcours('la-tour-eiffel');
+  assert.equal(p.etapes.length, 2);
+  assert.deepEqual(p.etapes[1], {
+    numero: 2,
+    titre: 'Une tour pour 1889',
+    niveau: 1,
+    objectif: 'Comprendre pourquoi la tour est bâtie pour l’Exposition universelle.',
+    paliers: module2Brut().lecons.map((titre, i) => ({ numero: 7 + i, titre })),
+  });
+  assert.deepEqual(r.corps.palier.module, { numero: 2, titre: 'Une tour pour 1889' });
+  assert.equal(r.corps.palier.etape, 2);
+  assert.equal(r.corps.palier.numero, 7);
+  assert.equal(r.corps.palier.titre, 'Le projet de Koechlin et Nouguier');
+  assert.match(sc.par('lecon')[0].entree.messages[1].content, /Module n° 2 : « Une tour pour 1889 »\nObjectif du module : Comprendre/);
+  assert.match(sc.par('lecon')[0].entree.messages[1].content, /\n7\. Le projet de Koechlin et Nouguier\n8\. Stephen Sauvestre/);
+  assert.deepEqual(quotasPalier(), [{ cle: 'palier:joueur:' + j.id, n: 1 }, { cle: 'palier:total', n: 1 }]);
+  assert.equal((await appel(parcoursGet)).corps.parcours[0].paliers, 11, 'la liste compte les leçons connues');
+  // La leçon 8 n'ouvre rien ; la 12 ouvre le module 3.
+  const sc8 = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 8, sc8));
+  assert.equal(sc8.par('module').length, 0);
+  const sc12 = scenario({ ...partiesStandard(), module: [{ lecons: ['Les débuts de l’entreprise', 'Les ponts et viaducs', 'La statue de la Liberté', 'Le laboratoire d’aérodynamique', 'Les dernières années'] }] });
+  const r12 = await lirePalier(j, 'la-tour-eiffel', 12, sc12);
+  ok200(r12);
+  assert.deepEqual([r12.corps.palier.etape, r12.corps.palier.module.titre, r12.corps.palier.numero], [3, 'Gustave Eiffel et son entreprise', 12]);
+  assert.equal((await lireParcours('la-tour-eiffel')).etapes[2].paliers[4].numero, 16);
+});
+
+test('module : le niveau change avec le module (ton du niveau dans la leçon) ; la numérotation suit le nombre réel de leçons', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 3, lecons: 7 });
+  const sc = scenario({ ...partiesStandard(), module: [{ lecons: Array.from({ length: 10 }, (_, i) => 'Leçon du module quatre ' + (i + 1)) }] });
+  const r = await lirePalier(j, 'prog', 22, sc);
+  ok200(r);
+  const p = await lireParcours('prog');
+  assert.deepEqual(p.etapes[3].paliers.map((x) => x.numero), nombres(22, 31));
+  assert.deepEqual([p.etapes[3].niveau, p.etapes[3].titre], [2, 'Le projet et ses auteurs']);
+  assert.deepEqual(r.corps.palier.niveau, { numero: 2, titre: 'Intermédiaire : la construction' });
+  assert.match(sc.par('lecon')[0].entree.messages[1].content, /Niveau n° 2 : « Intermédiaire : la construction »\nConsigne de ton : Intermédiaire : relie les notions/);
+  assert.match(sc.par('module')[0].entree.messages[1].content, /Niveau : n° 2, « Intermédiaire : la construction »/);
+  // Tons des quatre niveaux, d'après le niveau du module.
+  for (const [ouverts, niveau, ton] of [[6, 3, 'Avancé : travaille'], [9, 4, 'Expert : appuie-toi']]) {
+    toutVoir();
+    const j2 = await creerJoueur();
+    insererProgramme('prog', { titre: 'La tour Eiffel', ouverts, lecons: 5 });
+    const s2 = scenario(partiesStandard());
+    const r2 = await lirePalier(j2, 'prog', ouverts * 5 + 1, s2);
+    ok200(r2);
+    assert.equal(r2.corps.palier.niveau.numero, niveau);
+    assert.ok(s2.par('lecon')[0].entree.messages[1].content.includes('Consigne de ton : ' + ton), ton);
+  }
+});
+
+test('module : trop loin 404, module plus court que la leçon demandée 404 (le module reste), module invalide 502 (rien d’enregistré)', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 2, lecons: 5 });
+  const sc = scenario(partiesStandard());
+  // Seul le module qui suit peut s'ouvrir : 10 leçons connues, 11 à 20 permis, 21 trop loin.
+  erreurFr(await lirePalier(j, 'prog', 21, sc), 404, /Palier introuvable : lis d’abord les paliers précédents/);
+  erreurFr(await lirePalier(j, 'prog', 500, sc), 404, /Palier introuvable/);
+  assert.equal(sc.appels.length, 0);
+  assert.equal(quotasPalier().length, 0);
+  // Liste de leçons invalide, puis en panne : 502, le parcours reste inchangé.
+  const court = moduleBrut();
+  court.lecons.length = 3;
+  const sc1 = scenario({ ...partiesStandard(), module: [court] });
+  erreurFr(await lirePalier(j, 'prog', 11, sc1), 502, /suite de ce parcours/);
+  assert.deepEqual(sc1.appels.map((a) => [a.etape, a.modele]), [['module', LLAMA], ['module', MISTRAL]]);
+  assert.equal((await lireParcours('prog')).etapes.length, 2);
+  // Un titre déjà publié est refusé.
+  const repete = module2Brut();
+  repete.lecons[0] = 'Leçon 3 du module 1';
+  erreurFr(await lirePalier(j, 'prog', 11, scenario({ ...partiesStandard(), module: [repete] })), 502);
+  // Wikipédia injoignable : pas de liste de leçons sans sources.
+  wiki.panne = 500;
+  const sc2 = scenario(partiesStandard());
+  erreurFr(await lirePalier(j, 'prog', 11, sc2), 502, /sources/);
+  assert.equal(sc2.appels.length, 0);
+  wiki.panne = null;
+  // Le module ouvert compte 5 leçons : la 17 n'existe pas (le module 3 est tout de même enregistré).
+  const sc3 = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  erreurFr(await lirePalier(j, 'prog', 17, sc3), 404, /Palier introuvable : lis d’abord les paliers précédents/);
+  assert.deepEqual(sc3.appels.map((a) => a.etape), ['module']);
+  const p = await lireParcours('prog');
+  assert.deepEqual([p.etapes.length, p.etapes[2].paliers.map((x) => x.numero)], [3, nombres(11, 15)]);
+  assert.equal(lignes('SELECT * FROM paliers').length, 0);
+  ok200(await lirePalier(j, 'prog', 11, scenario(partiesStandard())));
+});
+
+test('fin de formation : tous les modules ouverts, la leçon suivante répond 404 « Formation terminée » (public, sans IA, sans quota)', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 11, lecons: 5 });
+  const sc = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  // Le dernier module (12) s'ouvre : 56 à 60.
+  const r = await lirePalier(j, 'prog', 56, sc);
+  ok200(r);
+  const p = await lireParcours('prog');
+  assert.equal(p.etapes.length, 12);
+  assert.equal(p.modulesTotal, 12);
+  assert.deepEqual([r.corps.palier.niveau.numero, r.corps.palier.module.numero], [4, 12]);
+  // Plus rien après : même message sans connexion, quel que soit le numéro demandé au-delà.
+  const quotas = lignes('SELECT cle, n FROM quotas ORDER BY cle');
+  const sc2 = scenario(partiesStandard());
+  for (const [jeton, n] of [[j.jeton, 61], [undefined, 61], [j.jeton, 66], [j.jeton, 500]]) {
+    const rep = await appel(palierGet, { env: envDe(sc2), jeton, requete: `?parcours=prog&n=${n}` });
+    erreurFr(rep, 404, /^Formation terminée : tu as fait le tour de ce sujet\.$/);
+  }
+  const rep = await appel(palierGet, { env: { DB: db, AI: undefined }, requete: '?parcours=prog&n=61' });
+  assert.deepEqual([rep.statut, rep.corps], [404, { erreur: MESSAGE_FIN }]);
+  assert.equal(sc2.appels.length, 0);
+  assert.deepEqual(lignes('SELECT cle, n FROM quotas ORDER BY cle'), quotas);
+  // Les leçons existantes restent lisibles.
+  ok200(await lirePalier(j, 'prog', 60, sc2));
+  // Tant qu'il reste un module à ouvrir, c'est le garde habituel : 10 de plus au plus.
+  insererProgramme('autre', { titre: 'Autre', ouverts: 11, lecons: 5 });
+  erreurFr(await lirePalier(j, 'autre', 66, scenario(partiesStandard())), 404, /Palier introuvable : lis d’abord/);
+});
+
+test('parcours à programme : GET renvoie programme et modulesTotal ; l’ancien format renvoie programme null et modulesTotal 0', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 2, lecons: 5, vues: 3 });
+  insererParcours('ancien', { titre: 'Ancien', etapes: 2, vues: 1 });
+  const p = await lireParcours('prog');
+  assert.deepEqual(Object.keys(p), CLES_PARCOURS);
+  assert.equal(p.modulesTotal, 12);
+  assert.equal(p.programme.niveaux.length, 4);
+  assert.equal(p.programme.niveaux[0].modules[0].objectif, EXEMPLE_PROGRAMME.niveaux[0].modules[0].objectif);
+  assert.equal(p.etapes.length, 2);
+  const a = await lireParcours('ancien');
+  assert.deepEqual(Object.keys(a), CLES_PARCOURS);
+  assert.deepEqual([a.programme, a.modulesTotal, a.etapes.length], [null, 0, 2]);
+  assert.deepEqual(a.etapes[1], { numero: 2, titre: 'Étape 2', paliers: nombres(11, 20).map((numero) => ({ numero, titre: `Palier ${numero} de Ancien` })) });
+  // Liste : inchangée (même clés), nombre de leçons connues.
+  const liste = (await appel(parcoursGet)).corps.parcours;
+  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers']);
+  assert.deepEqual(liste.map((x) => [x.id, x.paliers]), [['prog', 10], ['ancien', 20]]);
+  // Ancien format : une leçon hors plan écrit encore une étape de 10 paliers, sans fin (aucune « formation terminée »).
+  const sc = scenario({ ...partiesStandard(), etape: [etape2Brute()] });
+  const r = await lirePalier(j, 'ancien', 21, sc);
+  ok200(r);
+  assert.deepEqual(sc.appels.map((x) => x.etape), ['etape', 'palier', 'verif']);
+  assert.equal(sc.par('etape')[0].entree.messages[0].content, PROMPT_ETAPE);
+  assert.deepEqual(Object.keys(r.corps.palier), CLES_PALIER);
+  assert.equal((await lireParcours('ancien')).etapes.length, 3);
+  assert.equal((await lireParcours('ancien')).modulesTotal, 0);
+});
+
+test('création d’un parcours : le programme (40 s) puis le module 1 (30 s) respectent les délais et le temps restant', async () => {
+  toutVoir();
+  const j = await creerJoueur();
+  const delais = [];
+  const vrai = globalThis.setTimeout;
+  globalThis.setTimeout = (fn, ms, ...reste) => { delais.push(ms); return vrai(fn, ms, ...reste); };
+  try {
+    ok200(await appel(parcoursPost, { env: envDe(scenario(partiesStandard())), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } }));
+    const longs = delais.filter((d) => d > 1000);
+    assert.equal(longs.length, 2, longs.join(' '));
+    assert.ok(longs[0] <= REGLAGES.delaiProgrammeMs && longs[0] > 39000, 'programme : ' + longs[0]);
+    assert.ok(longs[1] <= REGLAGES.delaiPlanMs && longs[1] > 29000, 'module : ' + longs[1]);
+    assert.deepEqual([REGLAGES.delaiProgrammeMs, REGLAGES.delaiPlanMs, REGLAGES.budgetMs], [40000, 30000, 85000]);
+    // Un programme de 40 s : il reste 45 s, le module garde ses 30 s ; un programme de 60 s : 25 s restent.
+    viderBibliotheque();
+    delais.length = 0;
+    const lent = scenario({ ...partiesStandard(), programme: [() => { horloge.t += 60000; return programmeBrut(); }] });
+    ok200(await appel(parcoursPost, { env: envDe(lent), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } }));
+    const apres = delais.filter((d) => d > 1000);
+    assert.ok(apres[1] <= 25000 && apres[1] > 24000, 'module après 60 s : ' + apres[1]);
+    // Plus de temps du tout : pas d'appel pour le module, 502.
+    viderBibliotheque();
+    horloge.t = 0;
+    const epuise = scenario({ ...partiesStandard(), programme: [() => { horloge.t += 82000; return programmeBrut(); }] });
+    erreurFr(await appel(parcoursPost, { env: envDe(epuise), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } }), 502);
+    assert.deepEqual(epuise.appels.map((a) => a.etape), ['programme']);
+  } finally {
+    globalThis.setTimeout = vrai;
+    horloge.t = 0;
+  }
 });
 
 // --- Délais ---

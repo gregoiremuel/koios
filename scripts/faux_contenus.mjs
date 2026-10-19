@@ -1,5 +1,6 @@
 // Contenus simulés de l'API v2 pour scripts/serveur_local.mjs : pages Wikipédia (FR et EN), plans d'étape,
-// paliers (sections, définitions, frise, chiffres, notions, questions), quiz et vérification.
+// programmes d'ensemble (4 niveaux, modules), listes de leçons d'un module, paliers et leçons (sections, définitions,
+// frise, chiffres, notions, à retenir, moyen mnémotechnique, questions), quiz et vérification.
 // Trois sujets ont de vraies fiches (Tour Eiffel, mont Blanc, Sparte) ; les autres reçoivent un contenu de
 // forme valide, étiqueté « simulé ». Les faits des fiches sont exacts, mais tout est écrit à la main : rien ne
 // vient d'une IA ni d'un site. Aucune dépendance, aucun secret.
@@ -259,6 +260,37 @@ export function planSimule(demande) {
   return { etape: numero === 2 ? f.etape2 : `Étape ${numero} : approfondissement`, paliers: base };
 }
 
+// --- Programme d'ensemble et modules (formation par niveaux) -----------------
+
+const coupeTitre = (t, n) => (t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t);
+
+// 4 niveaux de 3 ou 4 modules, avec les titres de la fiche (réels pour les trois sujets, simulés sinon).
+export function programmeSimule(demande) {
+  const titre = premier(/Parcours : « ([^\n]*) »/, demande);
+  const f = ficheDuParcours(titre);
+  const objectif = (t) => coupeTitre(`Comprendre ce que recouvre « ${t} » dans le sujet, avec ses repères.`, 160);
+  const module = (t) => ({ titre: coupeTitre(t, 60), objectif: objectif(t) });
+  return {
+    resume: f.resume,
+    motImage: f.motImage,
+    niveaux: [
+      { titre: 'Bases : les repères', modules: ['Définitions et repères', ...f.paliers1.slice(0, 2)].map(module) },
+      { titre: 'Intermédiaire : relier les notions', modules: f.paliers1.slice(2, 6).map(module) },
+      { titre: 'Avancé : cas et débats', modules: f.paliers2.slice(0, 3).map(module) },
+      { titre: 'Expert : sources et limites', modules: f.paliers2.slice(3, 7).map(module) },
+    ],
+  };
+}
+
+// Leçons d'un module : 5 à 8 titres, tous différents d'un module à l'autre.
+export function moduleSimule(demande) {
+  const numero = Number(premier(/Module à écrire : n° (\d+),/, demande, '1'));
+  const titre = premier(/Module à écrire : n° \d+, « ([^\n]*) »/, demande);
+  const aspects = ['les repères', 'les origines', 'les acteurs', 'les lieux', 'les dates', 'les chiffres', 'les débats', 'le bilan'];
+  const n = numero === 1 ? 6 : 5 + (numero % 4);
+  return { lecons: aspects.slice(0, n).map((a) => coupeTitre(`${a[0].toUpperCase()}${a.slice(1)} · ${titre}`, 60)) };
+}
+
 // --- Palier ----------------------------------------------------------------
 
 const MARQUE_RUMEUR = '[rumeur]';
@@ -293,6 +325,21 @@ export function palierSimule(demande) {
     notions: numero % 2 === 1 ? f.notions : null,
     histoire: numero % 2 === 0 ? f.histoire[i % 2] : null,
     questions,
+  };
+}
+
+// Leçon d'un parcours à programme : le palier, plus « à retenir » et moyen mnémotechnique. Une leçon sur six porte
+// un moyen mnémotechnique que la vérification ne confirme pas (il devient null).
+export function leconSimulee(demande) {
+  const titreParcours = premier(/Parcours : « ([^\n]*) »/, demande);
+  const numero = Number(premier(/Palier à écrire : n° (\d+),/, demande, '1'));
+  const f = ficheDuParcours(titreParcours);
+  const palier = palierSimule(demande);
+  const terme = palier.definitions[0].terme;
+  return {
+    ...palier,
+    aRetenir: choix(f.enBref, numero, 3),
+    mnemo: `Pour retenir « ${terme} », répète le mot à voix haute en pensant à la leçon ${numero}.${numero % 6 === 0 ? ' ' + MARQUE_RUMEUR : ''}`,
   };
 }
 
