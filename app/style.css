@@ -496,6 +496,34 @@ details.creer-salon { padding-top: 4px; }
 details.creer-salon summary { gap: 10px; font-size: 16px; min-height: 48px; padding: 0 16px; border: 1px solid var(--ligne-forte); border-radius: 12px; }
 details.creer-salon[open] summary { margin-bottom: 8px; }
 
+/* Formation à plusieurs et jeu en direct */
+.rangee.membre { grid-template-columns: 32px 1fr; align-items: start; min-height: 72px; padding: 12px 0; }
+.rang-num { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 16px; background: var(--surface); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.membre-corps { display: grid; gap: 4px; min-width: 0; }
+.membre-corps b { font-size: 16px; font-weight: 600; line-height: 1.3; }
+.membre .progres { margin-top: 4px; }
+.code-bloc { display: grid; justify-items: center; gap: 6px; padding: 16px; border: 1px solid var(--ligne); border-radius: 16px; background: var(--surface); text-align: center; }
+.code-partie { margin: 0; padding-left: 0.16em; font-size: 48px; line-height: 1.1; font-weight: 700; letter-spacing: 0.16em; font-variant-numeric: tabular-nums; user-select: all; }
+.lien-partie { max-width: 100%; word-break: break-all; }
+.code-saisie { text-transform: uppercase; letter-spacing: 0.1em; }
+.code-saisie::placeholder { text-transform: none; letter-spacing: 0; }
+.temps { font-size: 20px; line-height: 1.2; font-weight: 700; font-variant-numeric: tabular-nums; }
+.progres.chrono { height: 4px; background: var(--ligne); }
+.progres.chrono i { width: 100%; background: var(--encre); transform: scaleX(var(--r, 1)); transform-origin: left center; transition: transform 250ms linear; animation: none; }
+.option.choisi { border-color: var(--encre); border-bottom-width: 3px; background: var(--surface); }
+.option.choisi .lettre { background: var(--encre); border-color: var(--encre); color: #fff; }
+.podium { list-style: none; margin: 0; padding: 0; display: flex; align-items: flex-end; gap: 8px; }
+.podium li { flex: 1 1 0; min-width: 0; display: grid; justify-items: center; gap: 2px; text-align: center; }
+.podium li > b { font-size: 16px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.podium .marche { width: 100%; display: grid; place-items: center; margin-top: 6px; border: 1px solid var(--ligne); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--surface); font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; transform-origin: bottom center; animation: monte 250ms ease-out backwards; }
+.podium .r1 .marche { height: 112px; background: var(--encre); border-color: var(--encre); color: #fff; }
+.podium .r2 .marche { height: 84px; }
+.podium .r3 .marche { height: 64px; }
+.podium.trois li:nth-child(1) { order: 2; }
+.podium.trois li:nth-child(2) { order: 1; }
+.podium.trois li:nth-child(3) { order: 3; }
+@keyframes monte { from { transform: scaleY(0.3); } }
+
 /* Moins de mouvement : tout s'affiche sans animer. La barre indéterminée devient un trait fixe. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }

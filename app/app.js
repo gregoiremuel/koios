@@ -607,6 +607,8 @@
         if (window.poserIcones) window.poserIcones(zone);
       }
       var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1), prog = parProgramme(p), mf = prog ? modulesFaits(p, s.fait) : 0;
+      var zoneGroupe = el("div", { "class": "pile serree" });
+      boutonGroupe(p, zoneGroupe, vive);
       montrer(el("div", { "class": "page " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/" }, [icone("retour"), "Accueil"]), el("span"), puceXP()]),
         couverture(p),
@@ -614,6 +616,7 @@
         el("div", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "meta", text: (s.fait ? pluriel(s.fait, "leçon terminée", "leçons terminées") : "Pas encore commencé") + (prog && s.fait ? " · " + mf + " sur " + pluriel(p.modulesTotal, "module", "modules") : "") }), el("span", { "class": "meta gain", text: (s.xp || 0) + N + "XP" })]),
           el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + (prog ? Math.round(mf / Math.max(p.modulesTotal, 1) * 100) : p.verifie ? Math.round(s.fait / Math.max(prevus, 1) * 100) : ((s.fait % 10) * 10)) + "%" })])]),
         fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), prog ? "Formation terminée. Rejoue les quiz et les défis pour consolider." : "Formation terminée. Rejoue les quiz et les défis pour consolider."]) : lienAvance("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · leçon " + suivant : "Commencer la leçon 1", "btn"),
+        zoneGroupe,
         tabs, zone
       ]), "accueil", p.titre);
       remplir(onglet || "parcours");
@@ -1543,9 +1546,18 @@
       partage.addEventListener("click", function () {
         partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te propose " + (tournoi ? "le tournoi de la semaine" : "un " + nom) + (d.titre && !tournoi ? " sur " + guill(d.titre) : "") + F + ": " + pluriel(nq, "question", "questions") + ".", urlSalon(d.id), function (t) { retourPartage.textContent = t; });
       });
+      var direct = null, infoDirect = el("p", { "class": "alerte", role: "status", hidden: "" });
+      if ((salon || tournoi) && enLigne() && nq >= 5) {
+        direct = el("button", { "class": "btn second", type: "button" }, [icone("eclair"), el("span", { text: "Jouer en direct" })]);
+        direct.addEventListener("click", function () {
+          direct.disabled = true; infoDirect.hidden = true;
+          api("POST", "partie", { action: "creer", titre: (d.titre || "Partie en direct").slice(0, 60), questions: (d.questions || []).slice(0, 20) }).then(function (j2) { location.hash = "#/partie/" + j2.id; },
+            function (e) { direct.disabled = false; infoDirect.textContent = messageErreur(e, "Tu as déjà créé 20 parties aujourd’hui. Reviens demain."); infoDirect.hidden = false; });
+        });
+      }
       montrer(el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/amis" }, [icone("retour"), "Amis"]), el("span"), puceXP()]),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: titreP }), el("h1", { text: h1 }), el("p", { "class": "meta", text: meta.join(" · ") })]),
-        el("div", { "class": "pile" }, actions.concat([info, partage, retourPartage])),
+        el("div", { "class": "pile" }, actions.concat([info, partage, retourPartage, direct, direct ? el("p", { "class": "meta", text: "Jusqu’à 12 joueurs, en même temps" + (nq > 20 ? ". Les 20 premières questions seulement." : ".") }) : null, infoDirect])),
         el("h2", { text: salon || tournoi ? "Classement" : "Tableau" }),
         (d.scores || []).length ? tableauDuel(d) : el("p", { "class": "meta", text: "Personne n’a encore joué. Sois le premier." })
       ]), null, h1);
@@ -1696,6 +1708,7 @@
     var classement = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Chargement…" })]);
     var duels = el("div", { "class": "pile serree" });
     var salons = el("div", { "class": "pile serree" });
+    var groupes = el("div", { "class": "pile serree" }, [el("p", { "class": "attente", text: "Chargement…" })]);
     var info = el("p", { "class": "meta", role: "status" });
     var inviter = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Inviter un ami" })]);
     inviter.addEventListener("click", function () { partager("Koîos", "Apprends n’importe quel sujet, leçon par leçon, et défie‑moi.", location.origin + "/", function (t) { info.textContent = t; }); });
@@ -1712,12 +1725,15 @@
       el("section", { "class": "pile serree" }, [el("p", { "class": "meta", style: "font-size:16px", text: "Envoie un lien" + N + ": ton ami rejoint Koîos et peut jouer tes salons et relever tes duels." }), inviter, info]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Salons" }), salons, creer]),
       carteTournoi(),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Mes groupes" }), groupes]),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Rejoindre une partie" }), el("p", { "class": "meta", text: "Jusqu’à 12 joueurs répondent en même temps. Entre le code de ton ami. Pour en lancer une, ouvre un salon et touche " + guill("Jouer en direct") + "." }), formulaireCode()]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Duels" }), duels]),
       el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement])
     ]), "amis", "Amis");
     if (window.poserIcones) window.poserIcones(creer);
     pretServeur.then(function () {
-      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Les salons demandent la connexion en ligne."); return; }
+      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Les salons demandent la connexion en ligne."); groupes.innerHTML = ""; groupes.appendChild(el("p", { "class": "meta", text: "Les groupes demandent la connexion en ligne." })); return; }
+      remplirGroupes(groupes);
       api("GET", "cercle").then(function (j) {
         classement.innerHTML = "";
         var ol = el("ol", { "class": "liste" });
@@ -1735,6 +1751,382 @@
         else { var ud = el("ul", { "class": "liste" }); mesDuels.forEach(function (d) { ud.appendChild(rangeeSalon(d)); }); duels.innerHTML = ""; duels.appendChild(ud); }
         if (window.poserIcones) { window.poserIcones(salons); window.poserIcones(duels); }
       }, function () { pasDeDuel("Les duels ne se chargent pas pour l’instant."); pasDeSalon("Les salons ne se chargent pas pour l’instant."); });
+    });
+  }
+
+  /* ---------- Formation à plusieurs ---------- */
+  function urlGroupe(id) { return location.origin + location.pathname + "#/groupe/" + id; }
+  function depuis(iso) {
+    var m = Math.floor((Date.now() - Date.parse(iso)) / 60000);
+    if (!(m >= 1)) return "à l’instant";
+    if (m < 60) return "il y a " + m + N + "min";
+    if (m < 1440) return "il y a " + Math.floor(m / 60) + N + "h";
+    return "il y a " + Math.floor(m / 1440) + N + "j";
+  }
+  /* Rangée d'un membre : rang, pseudo (toi), leçons faites, XP gagnée sur la formation, dernière activité, barre de progression. */
+  function rangeeMembre(m, ref) {
+    var pct = ref ? Math.min(100, Math.round(m.lecons / ref * 100)) : 0;
+    var detail = m.lecons || m.xp ? pluriel(m.lecons, "leçon faite", "leçons faites") + " · " + m.xp + N + "XP" + (m.activite ? " · " + depuis(m.activite) : "") : "Pas encore commencé";
+    return el("li", {}, [el("div", { "class": "rangee membre" }, [
+      el("b", { "class": "rang-num", text: String(m.rang) }),
+      el("span", { "class": "membre-corps" }, [
+        el("b", { text: m.pseudo + (m.moi ? " (toi)" : "") }),
+        el("span", { "class": "meta", text: detail }),
+        el("span", { "class": "progres", role: "progressbar", "aria-label": "Avancée de " + m.pseudo, "aria-valuemin": "0", "aria-valuemax": String(ref), "aria-valuenow": String(Math.min(m.lecons, ref)) }, [el("i", { style: "width:" + pct + "%" })])
+      ])
+    ])]);
+  }
+  /* Sur la page d'une formation : « Suivre à plusieurs » crée un groupe ; si j'en ai déjà un pour cette formation, un lien vers lui. */
+  function boutonGroupe(p, zone, vive) {
+    pretCompte().then(function () {
+      if (!enLigne() || !vive()) return;
+      return api("GET", "groupe").then(function (j) {
+        if (!vive()) return;
+        var mien = (j.groupes || []).filter(function (g) { return g.parcours === p.id; })[0];
+        if (mien) zone.appendChild(lienAvance("#/groupe/" + mien.id, "Mon groupe" + N + ": " + mien.nom, "btn second"));
+        else {
+          var b = el("button", { "class": "btn second", type: "button" }, [icone("cercle"), el("span", { text: "Suivre à plusieurs" })]);
+          var al = el("p", { "class": "alerte", hidden: "", role: "status" });
+          b.addEventListener("click", function () {
+            b.disabled = true; al.hidden = true;
+            api("POST", "groupe", { nom: p.titre.slice(0, 40), parcours: p.id }).then(function (j2) { location.hash = "#/groupe/" + j2.id; },
+              function (e) { b.disabled = false; al.textContent = messageErreur(e, "Tu as déjà créé 10 groupes aujourd’hui. Reviens demain."); al.hidden = false; });
+          });
+          zone.appendChild(b); zone.appendChild(al);
+        }
+        if (window.poserIcones) window.poserIcones(zone);
+      });
+    }).then(null, function () {});
+  }
+  /* Page d'un groupe : la formation, les membres (rang, leçons, XP, activité), continuer, défier, inviter, quitter. */
+  function vueGroupe(id) {
+    var vive = vivante();
+    montrer(attente("Ouverture du groupe…"), "amis", "Groupe");
+    pretCompte().then(function () {
+      // Ma progression part d'abord (l'envoi habituel) : le groupe lit ce que le serveur sait de moi.
+      var envoi = enLigne() ? api("PUT", "progression", { pseudo: profil.pseudo, ton: "sobre", etat: etat }).catch(function () {}) : Promise.resolve();
+      return envoi.then(function () { return api("GET", "groupe?id=" + enc(id)); });
+    }).then(function (j) {
+      var g = j.groupe;
+      return chargerParcours(g.parcours).then(function (p) { return { g: g, p: p }; }, function () { return { g: g, p: null }; });
+    }).then(function (r) {
+      if (!vive()) return;
+      var g = r.g, p = r.p, titre = (p && p.titre) || g.parcoursTitre || "la formation";
+      var s = suivi(g.parcours), suivant = s.fait + 1, base = "#/p/" + enc(g.parcours);
+      var total = p && (p.verifie || formationComplete(p)) ? paliersPrevus(p) : 0;
+      var ref = Math.max(total, 5, g.classement.reduce(function (m, x) { return Math.max(m, x.lecons); }, 0));
+      var retour = el("p", { "class": "meta", role: "status" });
+      var actions = el("div", { "class": "pile" });
+      if (!g.dejaMembre) {
+        if (g.complet) actions.appendChild(el("p", { "class": "verrou" }, [icone("cadenas"), "Ce groupe est complet" + N + ": " + g.max + " membres au plus."]));
+        else {
+          var rejoindre = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Rejoindre le groupe" }), icone("fleche")]);
+          rejoindre.addEventListener("click", function () {
+            if (!enLigne()) { retour.textContent = "Les groupes demandent la connexion en ligne. Réessaie dans un moment."; return; }
+            rejoindre.disabled = true;
+            api("POST", "groupe", { id: g.id, rejoindre: true }).then(function () { vueGroupe(id); }, function (e) { rejoindre.disabled = false; retour.textContent = messageErreur(e); });
+          });
+          actions.appendChild(rejoindre);
+        }
+      } else {
+        actions.appendChild(lienAvance(p && fini(p) ? base : base + "/" + suivant, s.fait ? "Continuer la formation" : "Commencer la formation", "btn"));
+      }
+      if (g.dejaMembre && p && !p.verifie) {
+        var defier = el("button", { "class": "btn second", type: "button" }, [icone("epee"), el("span", { text: "Défier le groupe" })]);
+        defier.addEventListener("click", function () {
+          defier.disabled = true; retour.textContent = "Création du salon…";
+          pretCompte().then(function () { return api("GET", "quiz?parcours=" + enc(g.parcours) + "&n=10&graine=" + Math.floor(Math.random() * 1e9)); }).then(function (q) {
+            if ((q.questions || []).length >= 5) return q.questions;
+            return api("POST", "quiz-direct", { parcours: g.parcours }, 100000).then(function (q2) { return q2.questions || []; });
+          }).then(function (items) { return creerSalonApi(items, titre, null); }).then(function (s2) {
+            retour.textContent = "Salon créé. Envoie le lien au groupe" + N + ": tout le monde joue les mêmes questions.";
+            var envoi = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Envoyer le salon" })]);
+            envoi.addEventListener("click", function () { envoyerSalon(s2.id, titre, 10, function (t) { retour.textContent = t; }); });
+            defier.replaceWith(envoi); retour.after(lien("#/salon/" + s2.id, "Ouvrir le salon"));
+            if (window.poserIcones) window.poserIcones(actions);
+          }, function (e) { defier.disabled = false; retour.textContent = e.statut === 503 ? "Les salons demandent la connexion en ligne. Réessaie dans un moment." : messageErreur(e); });
+        });
+        actions.appendChild(defier);
+      }
+      var inviter = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Inviter" })]);
+      inviter.addEventListener("click", function () { partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te propose de suivre " + guill(titre) + " à plusieurs.", urlGroupe(g.id), function (t) { retour.textContent = t; }); });
+      actions.appendChild(inviter);
+      actions.appendChild(retour);
+      var liste = el("ol", { "class": "liste" });
+      g.classement.forEach(function (m) { liste.appendChild(rangeeMembre(m, ref)); });
+      var quitter = null;
+      if (g.dejaMembre) {
+        quitter = el("button", { "class": "lien discret", type: "button", text: "Quitter le groupe" });
+        quitter.addEventListener("click", function () {
+          if (!quitter.dataset.sur) { quitter.dataset.sur = "1"; quitter.textContent = "Touche encore pour quitter ce groupe"; return; }
+          quitter.disabled = true;
+          api("POST", "groupe", { id: g.id, quitter: true }).then(function () { location.hash = "#/amis"; }, function (e) { quitter.disabled = false; retour.textContent = messageErreur(e); });
+        });
+      }
+      montrer(el("div", { "class": "page " + teinteSujet(titre) }, [
+        el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/amis" }, [icone("retour"), "Amis"]), el("span"), puceXP()]),
+        p ? couverture(p) : null,
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Formation à plusieurs" }), el("h1", { text: g.nom }), el("p", { "class": "meta", text: titre + " · " + pluriel(g.membres, "membre", "membres") + " sur " + g.max })]),
+        actions,
+        el("section", { "class": "pile" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "Leçons faites" })]), liste]),
+        quitter
+      ]), "amis", g.nom);
+    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Ce groupe n’existe pas (ou plus)." : messageErreur(e), "Groupe indisponible"), "amis"); });
+  }
+  /* Amis : mes groupes. */
+  function remplirGroupes(zone) {
+    function vide(texte) { zone.innerHTML = ""; zone.appendChild(el("p", { "class": "meta", text: texte })); }
+    if (!enLigne()) { vide("Connecte‑toi pour retrouver tes groupes."); return; }
+    api("GET", "groupe").then(function (j) {
+      var l = j.groupes || [];
+      if (!l.length) { vide("Aucun groupe pour l’instant. Ouvre une formation et touche " + guill("Suivre à plusieurs") + "."); return; }
+      var ul = el("ul", { "class": "liste" });
+      l.forEach(function (g) { ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/groupe/" + g.id }, [tuile(categorie(g.nom)), el("span", {}, [el("b", { text: g.nom }), el("span", { "class": "meta", text: pluriel(g.membres, "membre", "membres") })]), icone("chevron")])])); });
+      zone.innerHTML = ""; zone.appendChild(ul);
+      if (window.poserIcones) window.poserIcones(zone);
+    }, function () { vide("Les groupes ne se chargent pas pour l’instant."); });
+  }
+
+  /* ---------- Jeu en direct ---------- */
+  var CODE_PARTIE = /^[A-HJ-NP-Z2-9]{6}$/;
+  function urlPartie(code) { return location.origin + location.pathname + "#/partie/" + code; }
+  /* Rejoindre par code (Amis) : lettres sans O ni I, chiffres sans 0 ni 1. */
+  function formulaireCode() {
+    var champ = el("input", { "class": "champ code-saisie", id: "code-partie", type: "text", maxlength: "6", autocomplete: "off", autocapitalize: "characters", spellcheck: "false", enterkeyhint: "go", placeholder: "Code à 6 caractères", "aria-label": "Code de la partie" });
+    var bouton = el("button", { "class": "btn petit", type: "button", text: "Rejoindre" });
+    var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
+    bouton.addEventListener("click", function () {
+      var c = champ.value.replace(/\s+/g, "").toUpperCase();
+      if (!CODE_PARTIE.test(c)) { alerte.textContent = "Un code compte 6 caractères" + N + ": des lettres (sans O ni I) et des chiffres (sans 0 ni 1)."; alerte.hidden = false; champ.focus(); return; }
+      location.hash = "#/partie/" + c;
+    });
+    champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
+    champ.addEventListener("input", function () { alerte.hidden = true; });
+    return el("div", { "class": "pile serree" }, [el("div", { "class": "recherche" }, [champ, bouton]), alerte]);
+  }
+  function ordinal(n) { return n === 1 ? "1er" : n + "e"; }
+  /* Podium : les trois premiers, en colonnes de hauteur différente (le premier en encre). */
+  function podium(joueurs) {
+    var tops = joueurs.slice(0, 3), ol = el("ol", { "class": "podium" + (tops.length === 3 ? " trois" : "") });
+    tops.forEach(function (j) {
+      ol.appendChild(el("li", { "class": "r" + Math.min(j.rang, 3) }, [el("b", { text: j.pseudo + (j.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: j.points + N + "pts" }), el("span", { "class": "marche", "aria-label": "Place " + j.rang, text: String(j.rang) })]));
+    });
+    return ol;
+  }
+  function ligneJoueur(j) {
+    return el("li", {}, [el("div", { "class": "rangee rang" }, [icone("profil"), el("b", { text: j.pseudo + (j.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: j.createur ? "Créateur" : "" })])]);
+  }
+  function classementDirect(joueurs) {
+    var ol = el("ol", { "class": "liste" });
+    joueurs.forEach(function (x) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee rang" }, [el("b", { text: String(x.rang) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: pluriel(x.points, "pt", "pts") })])])); });
+    return ol;
+  }
+  /* Partie en direct : tout le monde répond en même temps. Pas de WebSocket : l'écran interroge le serveur toutes les 2 s
+     (4 s si l'onglet est caché) et s'arrête dès qu'on quitte la page (jeton de navigation). Le compte à rebours est local,
+     recalé à chaque réponse du serveur, qui reste seul juge du temps. */
+  function vuePartie(code) {
+    code = String(code || "").replace(/\s+/g, "").toUpperCase();
+    if (!CODE_PARTIE.test(code)) { montrer(erreurPage("Ce code n’est pas valide" + N + ": il compte 6 caractères.", "Code invalide"), "amis"); return; }
+    var vive = vivante();
+    var scene = el("main", { "class": "pile" });
+    var bandeau = el("p", { "class": "alerte", role: "status", hidden: "" });
+    montrer(el("div", { "class": "page plein" }, [
+      el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/amis", "aria-label": "Quitter la partie" }, [icone("fermer")]), el("span", { "class": "meta", text: "Partie " + code }), puceXP()]),
+      scene, bandeau
+    ]), null, "Partie en direct");
+    var p = null, cle = "", enCours = false, minuterie = null, tic = null, fin = 0, demande = false;
+    var chrono = null, listeEl = null, nbSalle = 0, compteEl = null, compteSalle = null, demarrerBtn = null;
+    function arreter() { clearTimeout(minuterie); clearInterval(tic); tic = null; }
+    function suite() {
+      clearTimeout(minuterie);
+      if (!vive() || (p && p.etat === "fini")) { arreter(); return; }
+      minuterie = setTimeout(interroger, document.hidden ? 4000 : 2000);
+    }
+    function interroger() {
+      if (!vive()) { arreter(); return; }
+      if (enCours) return;
+      enCours = true; clearTimeout(minuterie);
+      api("GET", "partie?id=" + code, null, 6000).then(function (j) {
+        enCours = false; if (!vive()) return;
+        bandeau.hidden = true; recevoir(j.partie); suite();
+      }, function (e) {
+        enCours = false; if (!vive()) return;
+        if (e.statut === 404 || e.statut === 400) { arreter(); montrer(erreurPage("Cette partie n’existe pas (ou plus). Vérifie le code.", "Partie introuvable"), "amis"); return; }
+        bandeau.textContent = "Connexion perdue. Nouvel essai…"; bandeau.hidden = false; suite();
+      });
+    }
+    function reste() { return Math.max(0, fin - performance.now()); }
+    function tictac() {
+      if (!vive()) { arreter(); return; }
+      if (chrono) {
+        var r = reste();
+        if (chrono.barre) chrono.barre.style.setProperty("--r", String(Math.min(1, r / p.duree)));
+        chrono.texte.textContent = chrono.libelle(Math.ceil(r / 1000));
+      }
+      if (reste() <= 0 && !demande && p && (p.etat === "question" || p.etat === "resultat")) { demande = true; interroger(); }
+    }
+    function recevoir(n) {
+      p = n; fin = performance.now() + n.restant;
+      if (n.restant > 600) demande = false;
+      var k = n.etat + ":" + n.indice + ":" + (n.moi.joueur ? 1 : 0);
+      if (k !== cle) { cle = k; demande = false; rendre(); } else majPartielle();
+      if (!tic && p.etat !== "fini") tic = setInterval(tictac, 250);
+      if (p.etat === "fini") { clearInterval(tic); tic = null; }
+      tictac();
+    }
+    function majPartielle() {
+      if (p.etat === "attente" && listeEl) ajouterJoueurs();
+      if (p.etat === "question" && compteEl) compteEl.textContent = pluriel(p.joueurs.filter(function (j) { return j.repondu; }).length, "joueur a répondu", "joueurs ont répondu") + " sur " + p.joueurs.length + ".";
+    }
+    function rendre() {
+      scene.innerHTML = ""; chrono = null; listeEl = null; compteEl = null; compteSalle = null; demarrerBtn = null;
+      if (!p.moi.joueur) rendreSpectateur();
+      else if (p.etat === "attente") rendreSalle();
+      else if (p.etat === "question") rendreQuestion();
+      else if (p.etat === "resultat") rendreResultat();
+      else rendreFin();
+      if (window.poserIcones) window.poserIcones(scene);
+      var h = scene.querySelector("h1, .enonce"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+      window.scrollTo(0, 0);
+    }
+    /* Joueurs de la salle d'attente : seuls les nouveaux arrivants s'ajoutent (la liste ne clignote pas à chaque interrogation). */
+    function ajouterJoueurs() {
+      for (; nbSalle < p.joueurs.length; nbSalle++) {
+        listeEl.appendChild(ligneJoueur(p.joueurs[nbSalle]));
+      }
+      if (window.poserIcones) window.poserIcones(listeEl);
+      if (compteSalle) compteSalle.textContent = p.joueurs.length + " sur " + p.max;
+      if (demarrerBtn) demarrerBtn.querySelector("span").textContent = "Démarrer · " + pluriel(p.joueurs.length, "joueur", "joueurs");
+    }
+    function rendreSalle() {
+      nbSalle = 0; listeEl = el("ul", { "class": "liste" });
+      compteSalle = el("span", { "class": "meta" });
+      var retour = el("p", { "class": "meta", role: "status" });
+      var entete = el("div", { "class": "ligne-titre" }, [el("h2", { text: "Joueurs" }), compteSalle]);
+      var inviter = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Inviter" })]);
+      inviter.addEventListener("click", function () { partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te lance une partie en direct" + F + ": " + guill(p.titre) + ". Code " + code + ".", urlPartie(code), function (t) { retour.textContent = t; }); });
+      scene.appendChild(el("span", { "class": "sur", text: "Partie en direct" }));
+      scene.appendChild(el("h1", { text: p.titre }));
+      scene.appendChild(el("p", { "class": "meta", text: "Créée par " + (p.moi.createur ? "toi" : p.createur) + " · " + pluriel(p.total, "question", "questions") + " · " + p.duree / 1000 + N + "s par question" }));
+      scene.appendChild(el("div", { "class": "code-bloc" }, [el("span", { "class": "sur", text: "Code de la partie" }), el("p", { "class": "code-partie", "aria-label": "Code " + code.split("").join(" "), text: code }), el("p", { "class": "meta lien-partie", text: urlPartie(code) })]));
+      scene.appendChild(entete); scene.appendChild(listeEl);
+      if (p.moi.createur) {
+        demarrerBtn = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Démarrer" }), icone("fleche")]);
+        demarrerBtn.addEventListener("click", function () {
+          demarrerBtn.disabled = true; retour.textContent = "";
+          api("POST", "partie", { action: "demarrer", id: code }).then(function () { interroger(); }, function (e) { demarrerBtn.disabled = false; retour.textContent = messageErreur(e); });
+        });
+        scene.appendChild(demarrerBtn);
+      } else scene.appendChild(el("p", { "class": "verrou", role: "status" }, [icone("sablier"), "En attente du créateur. La partie démarre dès qu’il la lance."]));
+      scene.appendChild(inviter); scene.appendChild(retour);
+      ajouterJoueurs();
+    }
+    function optionsDe(q, choisi, bonne) {
+      var o = el("div", { "class": "options" + (q.type === "vraifaux" ? " deux" : ""), role: "group", "aria-label": q.type === "vraifaux" ? "Vrai ou faux" : "Réponses" });
+      var libelles = q.type === "vraifaux" ? ["Vrai", "Faux"] : q.reponses;
+      libelles.forEach(function (rep, k) {
+        var b = el("button", { "class": "option" + (q.type === "vraifaux" ? "" : " avec-lettre"), type: "button" }, q.type === "vraifaux" ? [el("span", { text: rep })] : [el("span", { "class": "lettre", "aria-hidden": "true", text: "ABCDEF".charAt(k) }), el("span", { text: rep }), el("span", { "class": "fin" })]);
+        if (bonne !== undefined) {
+          b.disabled = true;
+          if (k === bonne) { b.classList.add("juste"); var f = b.querySelector(".fin"); if (f) f.appendChild(coche(false, "Bonne réponse")); }
+          else if (k === choisi) { b.classList.add("faux"); var f2 = b.querySelector(".fin"); if (f2) f2.appendChild(icone("faux", "Ta réponse")); }
+        } else if (k === choisi) { b.classList.add("choisi"); b.setAttribute("aria-pressed", "true"); b.disabled = true; }
+        o.appendChild(b);
+      });
+      return o;
+    }
+    function rendreQuestion() {
+      var q = p.question, indice = p.indice;
+      if (!q) { scene.appendChild(el("p", { "class": "attente", role: "status", text: "La question arrive…" })); return; }
+      var temps = el("span", { "class": "temps", role: "timer", "aria-live": "off" });
+      var barre = el("i");
+      chrono = { barre: barre, texte: temps, libelle: function (s) { return s + N + "s"; } };
+      scene.appendChild(el("div", { "class": "ligne-titre" }, [el("span", { "class": "sur", text: "Question " + (indice + 1) + " sur " + p.total }), temps]));
+      scene.appendChild(el("div", { "class": "progres chrono", "aria-hidden": "true" }, [barre]));
+      scene.appendChild(el("p", { "class": "enonce", text: q.type === "vraifaux" ? q.affirmation : q.enonce }));
+      var etatRep = el("p", { "class": "meta", role: "status", text: p.moi.repondu ? "Réponse envoyée. Le résultat arrive à la fin du compte à rebours." : "Touche ta réponse" + N + ": plus c’est rapide, plus ça rapporte." });
+      var o = optionsDe(q, p.moi.repondu ? p.moi.choix : undefined);
+      var boutons = Array.prototype.slice.call(o.children);
+      boutons.forEach(function (b, k) {
+        b.addEventListener("click", function () {
+          boutons.forEach(function (x) { x.disabled = true; });
+          b.classList.add("choisi"); b.setAttribute("aria-pressed", "true");
+          etatRep.textContent = "Envoi de ta réponse…";
+          api("POST", "partie", { action: "repondre", id: code, indice: indice, choix: k }, 6000).then(function () {
+            etatRep.textContent = "Réponse envoyée. Le résultat arrive à la fin du compte à rebours.";
+          }, function (e) {
+            etatRep.textContent = e.statut === 409 || e.statut === 403 ? e.message : messageErreur(e);
+            if (e.statut !== 409 && e.statut !== 403) { boutons.forEach(function (x) { x.disabled = false; x.classList.remove("choisi"); x.removeAttribute("aria-pressed"); }); }
+          });
+        });
+      });
+      scene.appendChild(o); scene.appendChild(etatRep);
+      compteEl = el("p", { "class": "meta" }); scene.appendChild(compteEl);
+      majPartielle();
+    }
+    function rendreResultat() {
+      var q = p.question, moi = p.moi, dernier = p.indice + 1 >= p.total;
+      var temps = el("span", { "class": "temps", role: "timer", "aria-live": "off" });
+      chrono = { barre: null, texte: temps, libelle: function (s) { return (dernier ? "Classement final dans " : "Question suivante dans ") + s + N + "s"; } };
+      scene.appendChild(el("div", { "class": "ligne-titre" }, [el("span", { "class": "sur", text: "Résultat · question " + (p.indice + 1) + " sur " + p.total }), el("span", { "class": "meta gain", text: "+" + (moi.gain || 0) + N + "pts" })]));
+      if (q) {
+        scene.appendChild(el("p", { "class": "enonce", text: q.type === "vraifaux" ? q.affirmation : q.enonce }));
+        scene.appendChild(optionsDe(q, moi.choix, q.bonne));
+        var titre = moi.juste ? "Exact" : moi.repondu ? "Pas tout à fait" : "Pas de réponse";
+        scene.appendChild(el("div", { "class": "retour-q " + (moi.juste ? "ok" : "ko"), role: "status" }, [el("strong", {}, [icone(moi.juste ? "juste" : "faux"), titre]), q.explication ? el("p", { text: q.explication }) : null]));
+      }
+      scene.appendChild(el("h2", { text: "Classement provisoire" }));
+      scene.appendChild(classementDirect(p.joueurs));
+      scene.appendChild(el("p", { "class": "meta", role: "status" }, [temps]));
+    }
+    function rendreFin() {
+      var moi = p.joueurs.filter(function (j) { return j.moi; })[0];
+      scene.appendChild(el("span", { "class": "sur", text: p.titre }));
+      scene.appendChild(el("h1", { text: "Partie terminée" }));
+      if (moi) scene.appendChild(el("p", { "class": "meta", style: "font-size:16px", text: "Ta place" + N + ": " + ordinal(moi.rang) + " sur " + p.joueurs.length + " · " + pluriel(moi.points, "point", "points") + " · " + moi.justes + "/" + p.total + " bonnes réponses" }));
+      scene.appendChild(podium(p.joueurs));
+      scene.appendChild(el("h2", { text: "Classement final" }));
+      scene.appendChild(classementDirect(p.joueurs));
+      var retour = el("p", { "class": "meta", role: "status" });
+      if (moi) {
+        var part = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Partager le résultat" })]);
+        part.addEventListener("click", function () { partager("Koîos", "J’ai fini " + ordinal(moi.rang) + " sur " + p.joueurs.length + " à la partie " + guill(p.titre) + " avec " + pluriel(moi.points, "point", "points") + ".", urlPartie(code), function (t) { retour.textContent = t; }); });
+        scene.appendChild(part);
+      }
+      scene.appendChild(retour);
+      scene.appendChild(lien("#/amis", "Retour aux amis"));
+    }
+    function rendreSpectateur() {
+      scene.appendChild(el("span", { "class": "sur", text: "Partie en direct" }));
+      scene.appendChild(el("h1", { text: p.titre }));
+      scene.appendChild(el("p", { "class": "meta", text: "Créée par " + p.createur + " · " + pluriel(p.joueurs.length, "joueur", "joueurs") + " sur " + p.max }));
+      if (p.etat === "fini") { scene.appendChild(podium(p.joueurs)); scene.appendChild(classementDirect(p.joueurs)); scene.appendChild(lien("#/amis", "Retour aux amis")); return; }
+      if (p.etat !== "attente") {
+        scene.appendChild(el("p", { "class": "verrou", role: "status" }, [icone("cadenas"), "Cette partie a déjà commencé. On ne la rejoint qu’avant le début."]));
+        scene.appendChild(lien("#/amis", "Retour aux amis"));
+        return;
+      }
+      var retour = el("p", { "class": "alerte", role: "status", hidden: "" });
+      if (p.joueurs.length >= p.max) scene.appendChild(el("p", { "class": "verrou" }, [icone("cadenas"), "Cette partie est complète" + N + ": " + p.max + " joueurs au plus."]));
+      else {
+        var rejoindre = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Rejoindre la partie" }), icone("fleche")]);
+        rejoindre.addEventListener("click", function () {
+          if (!enLigne()) { retour.textContent = "Le jeu en direct demande la connexion en ligne. Réessaie dans un moment."; retour.hidden = false; return; }
+          rejoindre.disabled = true; retour.hidden = true;
+          api("POST", "partie", { action: "rejoindre", id: code }).then(function () { interroger(); }, function (e) { rejoindre.disabled = false; retour.textContent = messageErreur(e); retour.hidden = false; });
+        });
+        scene.appendChild(rejoindre);
+      }
+      scene.appendChild(retour);
+      var ul = el("ul", { "class": "liste" });
+      p.joueurs.forEach(function (j) { ul.appendChild(ligneJoueur(j)); });
+      scene.appendChild(ul);
+    }
+    scene.appendChild(el("p", { "class": "attente", role: "status", text: "Ouverture de la partie…" }));
+    pretServeur.then(function () {
+      if (!vive()) return;
+      if (!serveur.base) { montrer(erreurPage("Le jeu en direct demande la connexion en ligne. Réessaie dans un moment.", "Partie indisponible"), "amis"); return; }
+      return pretCompte().then(function () { if (vive()) interroger(); });
     });
   }
 
@@ -1845,6 +2237,28 @@
         ]),
         el("p", { text: "Les salons, les duels et le tournoi demandent la connexion en ligne." })
       ]),
+      rubriqueAide("cercle", "Une formation à plusieurs", [
+        el("p", { text: "Sur la page d’une formation, touche " + guill("Suivre à plusieurs") + ". Tu crées un groupe et tu envoies son lien à tes amis. Un groupe compte 12 membres au plus." }),
+        listeAide([
+          "Chacun suit la formation à son rythme. La page du groupe montre, pour chaque membre, les leçons faites, l’XP gagnée sur cette formation et sa dernière activité.",
+          "Le classement du groupe compte d’abord les leçons faites, puis l’XP.",
+          [guill("Continuer la formation") + N + ": tu reprends là où tu t’étais arrêté."],
+          [guill("Défier le groupe") + N + ": un salon de 10 questions sur la formation, à envoyer au groupe."],
+          [guill("Inviter") + N + ": le lien du groupe, par le menu de partage de ton téléphone ou copié."]
+        ]),
+        el("p", { text: "Seuls les pseudos sont visibles. Ta progression se met à jour quand tu ouvres la page du groupe." })
+      ]),
+      rubriqueAide("eclair", "Le jeu en direct", [
+        el("p", { text: "Une partie où tout le monde répond en même temps, sur les mêmes questions." }),
+        listeAide([
+          "Pour en lancer une, ouvre un salon ou le tournoi et touche " + guill("Jouer en direct") + ". Tu reçois un code de 6 caractères et un lien.",
+          "Tes amis entrent le code dans l’onglet Amis (" + guill("Rejoindre une partie") + ") ou ouvrent le lien. On rejoint avant le début seulement.",
+          "Chaque question dure 20 secondes, puis 5 secondes de résultat avec la bonne réponse, l’explication et le classement provisoire.",
+          ["Une bonne réponse rapporte " + 100 + " points, plus jusqu’à 50 points de bonus selon la rapidité. Une mauvaise réponse, ou pas de réponse, rapporte 0."],
+          "À la fin, un podium et le classement final, à partager."
+        ]),
+        el("p", { text: "Jusqu’à 12 joueurs, mise à jour toutes les 2 secondes. L’écran interroge le serveur" + N + ": le résultat peut donc arriver avec un petit décalage. Une partie demande la connexion en ligne et s’efface après 24 heures." })
+      ]),
       rubriqueAide("profil", "Ton compte", [
         el("p", { text: "Ta progression est gardée sur ton téléphone et synchronisée. La clé de connexion, dans le Profil, te permet de la retrouver sur un autre appareil. Garde‑la pour toi." })
       ]),
@@ -1853,6 +2267,7 @@
         el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale." }),
         el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + " et " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
         el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites. La question du jour et le tournoi sont écrits une seule fois pour tous et ne comptent pas dans tes limites." }),
+        el("p", { text: "Jeu en direct" + N + ": jusqu’à 12 joueurs, mise à jour toutes les 2 secondes. Un groupe de formation compte aussi 12 membres au plus." }),
         el("p", { text: "L’IA peut se tromper." })
       ])
     ]);
@@ -1882,6 +2297,8 @@
       case "salon": return p[2] === "reponses" ? vueReponses(p[1]) : vueDuel(p[1], p[2] === "jouer");
       case "quiz": return vueQuizGeneral(p[1], parseInt(p[2], 10), /^\d+$/.test(p[3] || "") ? parseInt(p[3], 10) : undefined);
       case "nouveau-salon": return vueNouveauSalon(p[1], parseInt(p[2], 10));
+      case "groupe": return p[1] ? vueGroupe(p[1]) : vueAmis();
+      case "partie": return p[1] ? vuePartie(p[1]) : vueAmis();
       case "jouer": return vueJouer();
       case "amis": return vueAmis();
       case "profil": return vueProfil();
