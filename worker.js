@@ -22,12 +22,14 @@ import * as glossaire from './functions/api/glossaire.js';
 import * as fiche from './functions/api/fiche.js';
 import * as quizGeneral from './functions/api/quiz-general.js';
 import * as jour from './functions/api/jour.js';
+import * as diagnostic from './functions/api/diagnostic.js';
 import * as tournoi from './functions/api/tournoi.js';
 import * as groupe from './functions/api/groupe.js';
 import * as partie from './functions/api/partie.js';
 import * as variante from './functions/api/variante.js';
 
 const ROUTES = {
+  diagnostic,
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
   parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire, fiche,
