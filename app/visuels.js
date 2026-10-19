@@ -92,5 +92,14 @@
     return el("figure", { "class": "citation" }, [bloc, trad, legende]);
   }
 
-  g.Visuels = { barres: barres, reseau: reseau, citation: citation };
+  /* frise : [{ date, evenement }] -> frise verticale */
+  function frise(items) {
+    var l = (items || []).filter(function (x) { return x && x.date && x.evenement; });
+    if (l.length < 2) return null;
+    var ol = el("ol", { "class": "frise" });
+    l.forEach(function (x) { ol.appendChild(el("li", {}, [el("span", { "class": "date", text: x.date }), el("span", { "class": "evt", text: x.evenement })])); });
+    return ol;
+  }
+
+  g.Visuels = { barres: barres, reseau: reseau, citation: citation, frise: frise };
 })(window);

@@ -1,112 +1,70 @@
-/* Koîos v1.1 : bibliothèque d'étude, exploration sans fin, jeux entre amis. Une page, sans étape de construction.
-   Vues : accueil, bibliothèque, livre (formation vérifiée), chapitre (fiche, 3 exercices, bilan), explorer (n'importe quel sujet),
-   sujet (programme et sous-sujets), chapitre IA, jouer (question du jour, quiz éclair, duels, classement), révisions, profil. */
+/* Koîos v2 : apprendre n'importe quel sujet, palier par palier. Blanc et net, une seule page, sans étape de construction.
+   Vues : accueil (première visite), maison, parcours (paliers, quiz, défis), palier (leçon), quiz, mini-jeux, duel, jouer, profil. */
 (function () {
   "use strict";
-  var F = " ", N = " "; // fine insécable, insécable
-  var DOMAINES = [
-    { code: "hg", nom: "Histoire et géographie", court: "Histoire · Géo", verre: "#b0414f", cuir: "#5e2430", w: 56, h: 214 },
-    { code: "sn", nom: "Sciences et nature", court: "Sciences", verre: "#4f8f6c", cuir: "#2f5442", w: 48, h: 206 },
-    { code: "ac", nom: "Arts et culture", court: "Arts · Culture", verre: "#4a7fb3", cuir: "#24405e", w: 52, h: 210 },
-    { code: "gj", nom: "Gemmologie et joaillerie", court: "Gemmologie", verre: "#cfa645", cuir: "#6a5020", w: 46, h: 202 }
-  ];
-  var DOM = {};
-  DOMAINES.forEach(function (d) { DOM[d.code] = d; });
-  var NIVEAUX = { 1: "Découverte", 2: "Approfondissement", 3: "Expert" };
-  var VERRE_NIVEAU = { 1: "#cfa645", 2: "#cfa645", 3: "#cfa645" }; // brouillons : or, jamais les couleurs des domaines vérifiés
-  var SUGGESTIONS = ["La Grèce antique", "L’Islande", "La Vendée", "La Bretagne", "Le Mexique", "Le Texas", "Les fonds marins", "La montagne", "La philosophie", "La littérature française", "Le cinéma", "La musique classique", "L’Autriche", "Les grandes découvertes"];
-  var BAREME = { 50: [6, -1], 70: [8, -4], 90: [9, -8], 100: [10, -20] };
+  var F = " ", N = " ";
+  var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
+  var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
 
-  /* ---------- Stockage local (peut être indisponible : navigation privée) ---------- */
+  /* ---------- Mémoire locale ---------- */
   var S = {
     lire: function (k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
     ecrire: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* mémoire seule */ } }
   };
   var profil = S.lire("koios.profil", null);
-  var etat = S.lire("koios.etat", null) || { version: 1, chapitres: {}, enCours: null, maj: 0 };
-  if (!etat.chapitres) etat.chapitres = {};
-  if (!etat.jours) etat.jours = {};
+  var etat = S.lire("koios.etat", null);
+  if (!etat || etat.version !== 2) etat = { version: 2, xp: 0, parcours: {}, erreurs: [], jours: (etat && etat.jours) || {}, maj: 0 };
+  ["parcours", "jours"].forEach(function (k) { if (!etat[k]) etat[k] = {}; });
+  if (!etat.erreurs) etat.erreurs = [];
   var serveur = { base: false, ia: false };
   var apresAccueil = null;
 
-  /* ---------- Outils DOM ---------- */
-  var app = document.getElementById("app");
-  var nav = document.getElementById("nav");
-  var toastEl = document.getElementById("toast");
+  /* ---------- Outils ---------- */
+  var app = document.getElementById("app"), nav = document.getElementById("nav"), toastEl = document.getElementById("toast");
   function el(tag, attrs, enfants) {
     var n = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) {
-      if (attrs[k] === null || attrs[k] === undefined || attrs[k] === false) return;
-      if (k === "text") n.textContent = attrs[k];
-      else if (k === "html") n.innerHTML = attrs[k];
-      else n.setAttribute(k, attrs[k]);
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === "text") n.textContent = v; else if (k === "html") n.innerHTML = v; else n.setAttribute(k, v);
     });
     (enfants || []).forEach(function (c) { if (c) n.appendChild(typeof c === "string" ? document.createTextNode(c) : c); });
     return n;
   }
-  function icone(nom, cls, alt) {
-    var s = el("span", { "class": "ic", html: window.ico ? window.ico(nom, cls || "i") : "" });
+  function icone(nom, alt) {
+    var s = el("span", { "class": "ic", html: window.ico ? window.ico(nom, "i") : "" });
     if (alt) { s.setAttribute("role", "img"); s.setAttribute("aria-label", alt); } else s.setAttribute("aria-hidden", "true");
     return s;
   }
   function guill(t) { return "«" + N + t + F + "»"; }
-  function signe(n) { return n < 0 ? "−" + Math.abs(n) : "+" + n; }
-  function pts(n) { return (n < 0 ? "−" + Math.abs(n) : (n > 0 ? "+" + n : "0")) + (Math.abs(n) > 1 ? " points" : " point"); }
   function pluriel(n, un, plusieurs) { return n + " " + (n > 1 ? plusieurs : un); }
-  function romain(n) {
-    var t = [[40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]], r = "";
-    t.forEach(function (p) { while (n >= p[0]) { r += p[1]; n -= p[0]; } });
-    return r;
-  }
   function jour(d) { return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
   function aujourdhui() { return jour(new Date()); }
-  function hasard(graine) { // mulberry32 : même graine, même suite
-    var a = graine >>> 0;
-    return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  }
-  function melanger(liste, alea) { var l = liste.slice(); for (var i = l.length - 1; i > 0; i--) { var j = Math.floor(alea() * (i + 1)); var x = l[i]; l[i] = l[j]; l[j] = x; } return l; }
+  function hasard(graine) { var a = graine >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function melanger(l, alea) { l = l.slice(); alea = alea || Math.random; for (var i = l.length - 1; i > 0; i--) { var j = Math.floor(alea() * (i + 1)); var x = l[i]; l[i] = l[j]; l[j] = x; } return l; }
+  function normaliser(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’']/g, " ").replace(/^(l |la |le |les )/, "").replace(/\s+/g, " ").trim(); }
   var minuterieToast;
-  function toast(texte) {
-    toastEl.textContent = texte;
-    toastEl.hidden = false;
-    clearTimeout(minuterieToast);
-    minuterieToast = setTimeout(function () { toastEl.hidden = true; }, 3200);
-  }
-  function taquin() { return !profil || profil.ton !== "sobre"; }
-  function marge(humeur, texte) {
-    var b = el("div", { "class": "marge" });
-    b.innerHTML = window.rivalSVG ? window.rivalSVG(humeur, 48) : "";
-    b.appendChild(el("p", {}, [el("small", { text: "Le Rival, en marge" }), texte]));
-    return b;
-  }
-  function figure(f) {
-    if (!f || !f.src) return null;
-    var img = el("img", { src: f.src, alt: f.alt || "", loading: "lazy" });
-    var legende = f.credit ? el("figcaption", {}, [f.credit, f.page ? " · " : null, f.page ? el("a", { href: f.page, target: "_blank", rel: "noopener", text: "page du fichier" }) : null]) : null;
-    var fig = el("figure", {}, [img, legende]);
-    img.addEventListener("error", function () { fig.remove(); });
-    return fig;
-  }
-  function sources(liste, brouillon) {
-    if (!liste || !liste.length) return el("p", { "class": "sans-source" }, [icone("faux"), "Brouillon non vérifié" + N + ": aucune source contrôlée."]);
-    var ul = el("ul");
-    liste.forEach(function (s) {
-      ul.appendChild(el("li", {}, [s[1] ? el("a", { href: s[1], target: "_blank", rel: "noopener", text: s[0] }) : el("span", { style: "display:block;padding:11px 0", text: s[0] })]));
-    });
-    var titre = brouillon ? "Point de départ, non vérifié" + N + ": " + pluriel(liste.length, "page", "pages") : "Vérifié par " + liste.length + " sources";
-    return el("details", { "class": "sources" + (brouillon ? " depart" : "") }, [el("summary", {}, [icone(brouillon ? "parchemin" : "verifie"), titre]), ul]);
-  }
-  function filet() { return el("div", { "class": "filet", html: window.Gothique ? Gothique.fleuron() : "" }); }
+  function toast(t) { toastEl.textContent = t; toastEl.hidden = false; clearTimeout(minuterieToast); minuterieToast = setTimeout(function () { toastEl.hidden = true; }, 3000); }
   function lien(href, texte, cls) { return el("a", { "class": cls || "lien", href: href, text: texte }); }
+  function image(img, cls) {
+    if (!img || !img.src) return null;
+    var i = el("img", { src: img.src, alt: img.alt || "", loading: "lazy" });
+    var legende = img.credit ? el("figcaption", {}, [img.lien ? el("a", { href: img.lien, target: "_blank", rel: "noopener", text: img.credit }) : img.credit]) : null;
+    var f = el("figure", { "class": cls || null }, [i, legende]);
+    i.addEventListener("error", function () { f.remove(); });
+    return f;
+  }
+  function vignette(img, titre) {
+    if (img && img.src) { var i = el("img", { "class": "vignette", src: img.src, alt: "", loading: "lazy" }); i.addEventListener("error", function () { i.replaceWith(el("span", { "class": "vignette", text: (titre || "?").charAt(0) })); }); return i; }
+    return el("span", { "class": "vignette", "aria-hidden": "true", text: (titre || "?").replace(/^(L’|La |Le |Les )/, "").charAt(0).toUpperCase() });
+  }
   function partager(titre, texte, url, repli) {
     if (navigator.share) { navigator.share({ title: titre, text: texte, url: url }).catch(function () {}); return; }
     var echec = function () { repli("Copie impossible ici. Lien" + N + ": " + url); };
-    try { navigator.clipboard.writeText(url).then(function () { repli("Lien copié" + N + ": colle‑le dans WhatsApp ou un message."); }, echec); } catch (e) { echec(); }
+    try { navigator.clipboard.writeText(url).then(function () { repli("Lien copié" + N + ": colle‑le dans un message."); }, echec); } catch (e) { echec(); }
   }
-  function enLigne() { return serveur.base && profil && profil.id; }
-  function pretCompte() { return pretServeur.then(function () { return creerJoueur(); }); }
 
-  /* ---------- Réseau ---------- */
+  /* ---------- Réseau et synchronisation ---------- */
   function api(methode, chemin, corps, delai, cle) {
     var ctrl = window.AbortController ? new AbortController() : null;
     var t = ctrl ? setTimeout(function () { ctrl.abort(); }, delai || 8000) : null;
@@ -114,13 +72,8 @@
     var c = cle || (profil && profil.id ? profil.id + "." + profil.cle : null);
     if (c) h.Authorization = "Bearer " + c;
     return fetch("/api/" + chemin, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined, signal: ctrl ? ctrl.signal : undefined })
-      .then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (j) {
-          clearTimeout(t);
-          if (!r.ok) { var e = new Error(j.erreur || ("Erreur " + r.status)); e.statut = r.status; throw e; }
-          return j;
-        });
-      }, function () { clearTimeout(t); var x = new Error("hors ligne"); x.statut = 0; throw x; });
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { clearTimeout(t); if (!r.ok) { var e = new Error(j.erreur || ("Erreur " + r.status)); e.statut = r.status; throw e; } return j; }); },
+        function () { clearTimeout(t); var x = new Error("hors ligne"); x.statut = 0; throw x; });
   }
   function messageErreur(e, quota) {
     if (e.statut === 429) return quota || "Limite du jour atteinte. Réessaie demain.";
@@ -128,157 +81,113 @@
     if (e.statut === 0) return "Pas de réponse du serveur. Vérifie ta connexion.";
     return e.message || "Une erreur est survenue.";
   }
+  function enLigne() { return serveur.base && profil && profil.id; }
   var minuterieSync;
   function sauver() { etat.maj = Date.now(); S.ecrire("koios.etat", etat); pousser(); }
   function pousser() {
     if (!enLigne()) return;
     clearTimeout(minuterieSync);
     minuterieSync = setTimeout(function () {
-      api("PUT", "progression", { pseudo: profil.pseudo, ton: profil.ton, etat: compacter(etat) }).catch(function (e) {
-        if (e.statut === 413 && !pousser.prevenu) { pousser.prevenu = true; toast("Synchronisation en ligne impossible" + N + ": progression trop volumineuse. Elle reste sur cet appareil."); }
-      });
+      api("PUT", "progression", { pseudo: profil.pseudo, ton: "sobre", etat: etat }).catch(function (e) { if (e.statut === 413 && !pousser.prevenu) { pousser.prevenu = true; toast("Synchronisation impossible" + N + ": progression trop volumineuse. Elle reste sur cet appareil."); } });
     }, 700);
   }
-  function compacter(e) { // les brouillons IA sans erreur à revoir n'ont pas besoin de leur titre en ligne
-    var c = { version: e.version, enCours: e.enCours, maj: e.maj, jours: e.jours, chapitres: {} };
-    Object.keys(e.chapitres).forEach(function (k) {
-      var x = e.chapitres[k];
-      if (/^ia:/.test(k) && !(x.rates || []).length) c.chapitres[k] = { valide: x.valide, meilleur: x.meilleur, n: x.n, points: x.points, rates: [], date: x.date };
-      else c.chapitres[k] = x;
-    });
-    return c;
-  }
   function fusion(a, b) {
-    var r = { version: 1, chapitres: {}, jours: {}, enCours: (b.maj || 0) > (a.maj || 0) ? b.enCours : a.enCours, maj: Math.max(a.maj || 0, b.maj || 0) };
-    var ca = a.chapitres || {}, cb = b.chapitres || {};
-    Object.keys(ca).concat(Object.keys(cb)).forEach(function (id) {
-      var x = ca[id], y = cb[id];
-      if (!x || !y) { r.chapitres[id] = x || y; return; }
-      var recent = (y.date || "") > (x.date || "") ? y : x;
-      var c = {}; Object.keys(recent).forEach(function (k) { c[k] = recent[k]; });
-      c.valide = !!(x.valide || y.valide); c.meilleur = Math.max(x.meilleur || 0, y.meilleur || 0); c.points = Math.max(x.points || 0, y.points || 0);
-      r.chapitres[id] = c;
+    if (!b || b.version !== 2) return a;
+    var r = { version: 2, xp: Math.max(a.xp || 0, b.xp || 0), parcours: {}, erreurs: [], jours: {}, maj: Math.max(a.maj || 0, b.maj || 0) };
+    Object.keys(a.parcours).concat(Object.keys(b.parcours || {})).forEach(function (id) {
+      var x = a.parcours[id], y = (b.parcours || {})[id];
+      if (!x || !y) { r.parcours[id] = x || y; return; }
+      var q = {}; [x.quiz || {}, y.quiz || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { q[k] = Math.max(q[k] || 0, o[k]); }); });
+      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, date: (x.date || "") > (y.date || "") ? x.date : y.date };
     });
-    [a.jours || {}, b.jours || {}].forEach(function (j) { Object.keys(j).forEach(function (d) { r.jours[d] = r.jours[d] || j[d]; }); });
+    var vus = {};
+    (a.erreurs || []).concat(b.erreurs || []).forEach(function (e) { var k = e.palier + "#" + e.index; if (!vus[k]) { vus[k] = 1; r.erreurs.push(e); } });
+    r.erreurs = r.erreurs.slice(-100);
+    [a.jours, b.jours || {}].forEach(function (j) { Object.keys(j).forEach(function (d) { r.jours[d] = r.jours[d] || j[d]; }); });
     return r;
   }
-  var creation = null; // une seule création de compte à la fois
+  var creation = null;
   function creerJoueur() {
     if (!serveur.base || !profil || profil.id) return Promise.resolve();
-    if (!creation) creation = api("POST", "joueur", { pseudo: profil.pseudo }).then(function (j) {
-      profil.id = j.id; profil.cle = j.cle;
-      S.ecrire("koios.profil", profil);
-      pousser();
-    }, function () { creation = null; });
+    if (!creation) creation = api("POST", "joueur", { pseudo: profil.pseudo }).then(function (j) { profil.id = j.id; profil.cle = j.cle; S.ecrire("koios.profil", profil); pousser(); }, function () { creation = null; });
     return creation;
   }
   function synchroniser() {
     if (!profil) return Promise.resolve();
     if (!profil.id) return creerJoueur();
-    return api("GET", "progression").then(function (j) {
-      etat = fusion(etat, j.etat || {});
-      S.ecrire("koios.etat", etat);
-      pousser();
-    }, function () {});
+    return api("GET", "progression").then(function (j) { etat = fusion(etat, j.etat); S.ecrire("koios.etat", etat); pousser(); }, function () {});
   }
   var pretServeur = api("GET", "etat", null, 5000).then(function (j) { serveur.base = !!j.base; serveur.ia = !!j.ia; }, function () {});
+  function pretCompte() { return pretServeur.then(function () { return creerJoueur(); }); }
 
-  /* ---------- Contenu vérifié ---------- */
-  var catalogue = null, promesseCatalogue = null, cache = {}, promesseQuestions = null;
-  function chargerCatalogue() {
-    if (!promesseCatalogue) promesseCatalogue = fetch("contenu/catalogue.json").then(function (r) { if (!r.ok) throw new Error("catalogue"); return r.json(); }).then(function (c) { catalogue = c; return c; });
-    return promesseCatalogue;
+  /* ---------- XP et niveaux ---------- */
+  function seuil(n) { return 100 * n + 25 * n * (n - 1); } // XP pour atteindre le niveau n + 1
+  function niveau(xp) { var n = 0; while (xp >= seuil(n + 1)) n += 1; return { niveau: n + 1, base: seuil(n), suivant: seuil(n + 1) }; }
+  function suivi(id) { return etat.parcours[id] || { fait: 0, xp: 0, quiz: {} }; }
+  function gagner(n, id) {
+    if (n <= 0) return;
+    etat.xp = (etat.xp || 0) + n;
+    if (id) { var s = suivi(id); s.xp = (s.xp || 0) + n; s.date = new Date().toISOString(); etat.parcours[id] = s; }
+    sauver();
   }
-  function chargerQuestions() {
-    if (!promesseQuestions) promesseQuestions = fetch("contenu/questions.json").then(function (r) { if (!r.ok) throw new Error("questions"); return r.json(); });
-    return promesseQuestions;
+  function noterErreur(it) {
+    if (!it || !it.palier) return;
+    var k = it.palier + "#" + it.index;
+    if (!etat.erreurs.some(function (e) { return e.palier + "#" + e.index === k; })) etat.erreurs.push({ palier: it.palier, index: it.index, titre: it.titre });
+    etat.erreurs = etat.erreurs.slice(-100);
   }
-  function chapitres(code) { return (catalogue && catalogue.domaines[code]) || []; }
-  function infoChap(id) {
-    var code = String(id).split("-")[0];
-    var liste = chapitres(code);
-    for (var k = 0; k < liste.length; k++) if (liste[k].id === id) return { dom: DOM[code], chap: liste[k], rang: k, liste: liste };
-    return null;
-  }
-  function chargerChapitre(id) {
-    if (!/^[a-z]{2}-\d{2}$/.test(id || "")) return Promise.reject(new Error("chapitre"));
-    if (!cache[id]) cache[id] = fetch("contenu/" + id + ".json").then(function (r) { if (!r.ok) throw new Error("chapitre"); return r.json(); });
-    return cache[id];
-  }
-  function suivant(id) { var i = infoChap(id); return i && i.rang + 1 < i.liste.length ? i.liste[i.rang + 1] : null; }
-  function totalChapitres() { return DOMAINES.reduce(function (s, d) { return s + chapitres(d.code).length; }, 0); }
-  function valides(code) { return chapitres(code).filter(function (c) { return etat.chapitres[c.id] && etat.chapitres[c.id].valide; }).length; }
-  function totalValides() { return DOMAINES.reduce(function (s, d) { return s + valides(d.code); }, 0); }
-  function totalPoints() { return Object.keys(etat.chapitres).reduce(function (s, k) { return s + (etat.chapitres[k].points || 0); }, 0); }
-  function explorations() { return Object.keys(etat.chapitres).filter(function (k) { return /^ia:/.test(k) && etat.chapitres[k].valide; }).length; }
-  function sujetsVerifies() {
-    var vus = {}, l = [];
-    DOMAINES.forEach(function (d) { chapitres(d.code).forEach(function (c) { if (c.sujet && !vus[c.sujet]) { vus[c.sujet] = 1; l.push({ titre: c.sujet, dom: d }); } }); });
-    return l;
-  }
-  function prochain() {
-    if (etat.enCours && infoChap(etat.enCours) && !(etat.chapitres[etat.enCours] || {}).valide) return infoChap(etat.enCours);
-    var dernier = null;
-    Object.keys(etat.chapitres).forEach(function (id) { if (/^ia:/.test(id) || !infoChap(id)) return; var c = etat.chapitres[id]; if (!dernier || (c.date || "") > (etat.chapitres[dernier].date || "")) dernier = id; });
-    var ordre = DOMAINES.map(function (d) { return d.code; });
-    if (dernier) { var d0 = dernier.split("-")[0]; ordre = [d0].concat(ordre.filter(function (c) { return c !== d0; })); }
-    for (var k = 0; k < ordre.length; k++) {
-      var liste = chapitres(ordre[k]);
-      for (var j = 0; j < liste.length; j++) if (!(etat.chapitres[liste[j].id] || {}).valide) return infoChap(liste[j].id);
-    }
-    return null;
-  }
-  function petales(neuf) {
-    var p = [];
-    DOMAINES.forEach(function (d) { chapitres(d.code).forEach(function (c) { var v = (etat.chapitres[c.id] || {}).valide; p.push({ verre: v ? d.verre : null, neuf: c.id === neuf }); }); });
-    return p;
-  }
-  function lobes() { return DOMAINES.map(function (d) { return valides(d.code) > 0 ? d.verre : null; }); }
-  function vitraux(n) { return n + (n > 1 ? " vitraux" : " vitrail"); }
-  function etiquetteRosace() { var v = totalValides(); return "Rosace des savoirs" + N + ": " + vitraux(v) + " allumé" + (v > 1 ? "s" : "") + " sur " + totalChapitres(); }
+  function oublierErreur(it) { var k = it.palier + "#" + it.index; etat.erreurs = etat.erreurs.filter(function (e) { return e.palier + "#" + e.index !== k; }); }
 
-  /* ---------- Exploration (sujets créés par l'IA, partagés entre tous) ---------- */
-  var cacheSujets = {};
-  function chargerSujet(id) {
-    if (!cacheSujets[id]) cacheSujets[id] = api("GET", "sujet?id=" + encodeURIComponent(id)).then(function (j) { return j.sujet; }, function (e) { delete cacheSujets[id]; throw e; });
-    return cacheSujets[id];
+  /* ---------- Contenu ---------- */
+  var cache = {};
+  function charger(cle, fn) { if (!cache[cle]) cache[cle] = fn().catch(function (e) { delete cache[cle]; throw e; }); return cache[cle]; }
+  function fichier(chemin) { return fetch(chemin).then(function (r) { if (!r.ok) { var e = new Error("introuvable"); e.statut = r.status; throw e; } return r.json(); }); }
+  function verifie(id) { return /^v-[a-z]{2}$/.test(id || ""); }
+  function chargerListeVerifies() { return charger("liste", function () { return fichier("contenu/parcours.json").then(function (j) { return j.parcours || []; }); }); }
+  function chargerParcours(id) {
+    return charger("p:" + id, function () {
+      if (verifie(id)) return fichier("contenu/parcours/" + id + ".json");
+      return pretServeur.then(function () { return api("GET", "parcours?id=" + encodeURIComponent(id)); }).then(function (j) { return j.parcours; });
+    });
   }
-  function idIA(sujet, n) { return "ia:" + sujet + ":" + n; }
-  function normaliser(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, " ").replace(/^(l |la |le |les )/, "").replace(/\s+/g, " ").trim(); }
-  function lireIdIA(id) { var m = /^ia:(.+):(\d+)$/.exec(id || ""); return m ? { sujet: m[1], n: parseInt(m[2], 10) } : null; }
-  function hrefIA(sujet, n) { return "#/ia/" + encodeURIComponent(sujet) + "/" + n; }
-  function creerSujet(titre, parent, bouton, alerte) {
+  function chargerPalier(id, n) {
+    return charger("l:" + id + ":" + n, function () {
+      if (verifie(id)) return fichier("contenu/paliers/" + id + "-" + n + ".json");
+      return pretCompte().then(function () { return api("GET", "palier?parcours=" + encodeURIComponent(id) + "&n=" + n, null, 100000); }).then(function (j) { return j.palier; });
+    });
+  }
+  function chargerQuestionsVerifiees() { return charger("questions", function () { return fichier("contenu/questions.json"); }); }
+  function paliersPrevus(p) { return (p.etapes || []).reduce(function (s, e) { return s + (e.paliers || []).length; }, 0); }
+  function titrePalier(p, n) { var t = null; (p.etapes || []).forEach(function (e) { (e.paliers || []).forEach(function (x) { if (x.numero === n) t = x.titre; }); }); return t; }
+  function fini(p) { return p.verifie && suivi(p.id).fait >= paliersPrevus(p); }
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = p.image || null; etat.parcours[p.id] = s; }
+  function creerParcours(titre, bouton, alerte) {
     titre = String(titre || "").trim();
     alerte.hidden = true;
-    if (titre.length < 2) { alerte.textContent = "Écris d’abord un sujet, par exemple " + guill("la Vendée") + "."; alerte.hidden = false; return; }
-    if (!parent) {
-      var cle = normaliser(titre);
-      var v = sujetsVerifies().filter(function (s) { return normaliser(s.titre) === cle; })[0];
-      var d = DOMAINES.filter(function (x) { return normaliser(x.nom) === cle && chapitres(x.code).length; })[0];
-      if (v || d) { location.hash = "#/livre/" + (v ? v.dom.code : d.code); return; }
-    }
-    var texte = bouton ? bouton.textContent : "";
-    if (bouton) { bouton.disabled = true; bouton.textContent = "Le Rival dresse le programme…"; }
-    var corps = { titre: titre };
-    if (parent) corps.parent = parent;
-    pretCompte().then(function () {
-      if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
-      return api("POST", "sujet", corps, 90000);
-    }).then(function (j) {
-      cacheSujets[j.sujet.id] = Promise.resolve(j.sujet);
-      location.hash = "#/sujet/" + encodeURIComponent(j.sujet.id);
-    }, function (e) {
-      if (bouton) { bouton.disabled = false; bouton.textContent = texte; }
-      alerte.textContent = messageErreur(e, "Limite du jour" + N + ": 10 nouveaux sujets par lecteur. Les sujets déjà créés restent ouverts à tous.");
-      alerte.hidden = false;
+    if (titre.length < 2) { alerte.textContent = "Écris d’abord un sujet."; alerte.hidden = false; return; }
+    chargerListeVerifies().then(function (l) {
+      var v = l.filter(function (x) { return normaliser(x.titre) === normaliser(titre); })[0];
+      if (v) { location.hash = "#/p/" + v.id; return; }
+      var texte = bouton.textContent;
+      bouton.disabled = true; bouton.textContent = "Préparation du parcours…";
+      pretCompte().then(function () {
+        if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+        return api("POST", "parcours", { titre: titre }, 100000);
+      }).then(function (j) {
+        cache["p:" + j.parcours.id] = Promise.resolve(j.parcours);
+        location.hash = "#/p/" + encodeURIComponent(j.parcours.id);
+      }, function (e) {
+        bouton.disabled = false; bouton.textContent = texte;
+        alerte.textContent = messageErreur(e, "Limite du jour" + N + ": 10 nouveaux sujets par personne. Les sujets déjà ouverts restent disponibles.");
+        alerte.hidden = false;
+      });
     });
   }
 
   /* ---------- Mise en page ---------- */
   function montrer(page, onglet, titre) {
-    app.innerHTML = "";
-    app.appendChild(page);
-    document.title = titre ? "Koîos · " + titre : "Koîos";
+    app.innerHTML = ""; app.appendChild(page);
+    document.title = titre ? titre + " · Koîos" : "Koîos";
     nav.hidden = !onglet;
     nav.querySelectorAll("a").forEach(function (a) { if (a.dataset.onglet === onglet) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     window.scrollTo(0, 0);
@@ -287,932 +196,619 @@
     if (h && montrer.deja) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
     montrer.deja = true;
   }
-  function entete() {
-    var initiale = (profil && profil.pseudo ? profil.pseudo.trim().charAt(0) : "?").toUpperCase();
-    var verres = DOMAINES.map(function (d) { return d.verre; });
-    return el("div", { style: "display:grid;gap:0" }, [
-      el("header", { "class": "haut" }, [
-        el("a", { "class": "marque", href: "#/", "aria-label": "Koîos, bibliothèque" }, [el("span", { "class": "ic", "aria-hidden": "true", html: window.Gothique ? Gothique.marque(verres) : "" }), "Koîos"]),
-        el("a", { "class": "initiale", href: "#/profil", "aria-label": "Ton profil" + (profil ? ", " + profil.pseudo : ""), text: initiale })
-      ]),
-      el("div", { "class": "arcature", "aria-hidden": "true" })
-    ]);
-  }
-  function retour(href, texte) { return el("div", { "class": "barre-chap", style: "grid-template-columns:auto 1fr" }, [el("a", { "class": "retour", href: href }, [icone("retour"), texte])]); }
-  function attente(texte, sansNav) { return el("div", { "class": "page" + (sansNav ? " sans-nav" : "") }, [entete(), el("p", { "class": "attente", role: "status" }, [el("span", { html: window.rivalSVG ? window.rivalSVG("explique", 40) : "" }), texte])]); }
-  function erreurPage(texte, titre) {
-    return el("div", { "class": "page" }, [entete(), el("section", { "class": "carte" }, [el("h1", { text: titre || "Page introuvable" }), el("p", { text: texte }), lien("#/", "Retour à la bibliothèque", "btn")])]);
-  }
-  function puces(titres, action) {
-    var z = el("div", { "class": "puces" });
-    titres.forEach(function (t) { var b = el("button", { type: "button", "class": "puce", text: t }); b.addEventListener("click", function () { action(t, b); }); z.appendChild(b); });
-    return z;
-  }
-  function choixTon(initial, rappel) {
-    var choix = el("div", { "class": "choix", role: "group", "aria-label": "Le ton du Rival" });
-    [["taquin", "Taquin", "Pince‑sans‑rire, il te provoque un peu."], ["sobre", "Sobre", "Il corrige, sans commentaire."]].forEach(function (c) {
-      var b = el("button", { type: "button", "aria-pressed": c[0] === initial ? "true" : "false" }, [el("b", { text: c[1] }), el("span", { text: c[2] })]);
-      b.addEventListener("click", function () { rappel(c[0]); choix.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); });
-      choix.appendChild(b);
-    });
-    return choix;
+  function puceXP() { var n = niveau(etat.xp || 0); return el("a", { "class": "xp", href: "#/profil", "aria-label": "Niveau " + n.niveau + ", " + (etat.xp || 0) + " XP" }, [icone("diplome"), "Niv. " + n.niveau + " · " + (etat.xp || 0) + N + "XP"]); }
+  function entete() { return el("header", { "class": "haut" }, [el("a", { "class": "marque", href: "#/", text: "Koîos" }), puceXP()]); }
+  function attente(texte, plein) { return el("div", { "class": "page" + (plein ? " plein" : "") }, [entete(), el("p", { "class": "attente", role: "status", text: texte })]); }
+  function erreurPage(texte, titre) { return el("div", { "class": "page" }, [entete(), el("div", { "class": "carte" }, [el("h1", { text: titre || "Page introuvable" }), el("p", { text: texte }), lien("#/", "Retour à l’accueil", "btn")])]); }
+  function badge(v) {
+    if (!v) return null;
+    if (v.statut === "verifie") return el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]);
+    if (v.statut === "recoupe") return el("span", { "class": "badge recoupe" }, [icone("liste"), "Recoupé par 2 IA"]);
+    return el("span", { "class": "badge partiel" }, [icone("liste"), "Recoupé en partie"]);
   }
 
-  /* ---------- Accueil (première visite) ---------- */
+  /* ---------- Première visite ---------- */
   function vueAccueil() {
-    var ton = "taquin";
     var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", autocomplete: "nickname", placeholder: "Ton prénom ou un pseudo" });
     var alerte = el("p", { "class": "alerte", hidden: "" });
-    var choix = choixTon(ton, function (t) { ton = t; });
-    var go = el("button", { "class": "btn", type: "button", text: "Ouvrir la bibliothèque" });
+    var go = el("button", { "class": "btn", type: "button", text: "Commencer" });
     go.addEventListener("click", function () {
       var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24);
-      if (!p) { alerte.textContent = "Écris d’abord un nom de lecteur."; alerte.hidden = false; champ.focus(); return; }
-      profil = { pseudo: p, ton: ton };
-      S.ecrire("koios.profil", profil);
+      if (!p) { alerte.textContent = "Écris d’abord ton prénom ou un pseudo."; alerte.hidden = false; champ.focus(); return; }
+      profil = { pseudo: p }; S.ecrire("koios.profil", profil);
       pretServeur.then(creerJoueur);
       var cible = apresAccueil && apresAccueil !== "#/accueil" ? apresAccueil : "#/";
       apresAccueil = null;
       if (location.hash === cible) route(); else location.hash = cible;
     });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
-    var vitrail = el("div", { "class": "vitrail" });
-    var syncSpan = el("span", { text: "Ta progression est enregistrée sur cet appareil." });
-    pretServeur.then(function () { if (serveur.base) syncSpan.textContent = "Ta progression est enregistrée en ligne. Ta clé de lecteur, dans le profil, permet de la retrouver sur un autre appareil."; });
-    chargerCatalogue().then(function () { vitrail.innerHTML = Gothique.baie(petales(null), lobes(), etiquetteRosace()); }, function () { vitrail.remove(); });
-    montrer(el("div", { "class": "page sans-nav" }, [
-      el("header", { "class": "haut" }, [el("span", { "class": "marque", html: (window.Gothique ? Gothique.marque(DOMAINES.map(function (d) { return d.verre; })) : "") + "Koîos" })]),
-      el("div", { "class": "arcature", "aria-hidden": "true" }),
-      el("h1", { text: "Un puits de science, chapitre après chapitre." }),
-      el("p", { "class": "chapeau", text: "Choisis n’importe quel sujet et creuse‑le aussi loin que tu veux : fiches, repères, chiffres, réseau des notions, puis exercices et duels entre amis. La bibliothèque vérifiée s’appuie sur au moins deux sources sérieuses par notion ; le reste est rédigé par le Rival, un renard bibliothécaire, et signalé comme brouillon." }),
-      el("section", { "class": "carte" }, [
-        el("label", { "for": "pseudo", "class": "titre-champ", text: "Ton nom de lecteur" }), champ,
-        el("span", { "class": "lib", text: "Le ton du Rival" }), choix,
-        go, alerte,
-        el("p", { "class": "astuce" }, [icone("verifie"), syncSpan])
-      ]),
-      vitrail,
-      el("p", { "class": "meta", style: "text-align:center", text: "Chaque chapitre vérifié et validé allume un vitrail de la rosace." })
-    ]), null, "Accueil");
+    montrer(el("div", { "class": "page plein" }, [
+      el("header", { "class": "haut" }, [el("span", { "class": "marque", text: "Koîos" })]),
+      el("div", { "class": "pile" }, [el("h1", { text: "Apprends n’importe quel sujet, palier par palier." }),
+        el("p", { "class": "meta", style: "font-size:17px", text: "Des leçons courtes et sourcées, des définitions, des frises et des chiffres. Tous les 5 paliers, un quiz ; ensuite des mini‑jeux et des duels entre amis." })]),
+      el("div", { "class": "pile" }, [el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte])
+    ]), null, "Commencer");
   }
 
-  /* ---------- Bibliothèque ---------- */
-  function armoire() {
-    var a = el("div", { "class": "armoire" });
-    a.innerHTML = Gothique.ogive(petales(null), lobes(), etiquetteRosace());
-    var livres = el("div", { "class": "livres" });
-    DOMAINES.forEach(function (d) {
-      var liste = chapitres(d.code), v = valides(d.code);
-      var bandes = el("span", { "class": "bandes" });
-      liste.slice(0, 6).forEach(function (c) { bandes.appendChild(el("i", { "class": (etat.chapitres[c.id] || {}).valide ? "ok" : null })); });
-      var vide = liste.length === 0;
-      livres.appendChild(el(vide ? "span" : "a", { "class": "livre" + (vide ? " vide" : ""), href: vide ? null : "#/livre/" + d.code, style: "background-color:" + d.cuir + ";width:" + d.w + "px;min-height:" + d.h + "px", "aria-label": vide ? d.nom + ", en préparation" : d.nom + ", " + v + " chapitre" + (v > 1 ? "s" : "") + " validé" + (v > 1 ? "s" : "") + " sur " + liste.length, role: vide ? "img" : null }, [
-        el("span", { "class": "nerfs" }, [el("i"), el("i")]), el("span", { "class": "piece" }, [el("span", { "class": "nom", text: d.court })]), bandes
-      ]));
-    });
-    livres.appendChild(el("span", { "class": "serre", "aria-hidden": "true" }));
-    a.appendChild(el("div", { "class": "niche" }, [livres, el("div", { "class": "planche" })]));
-    return a;
-  }
-  function legende() {
-    var l = el("div", { "class": "legende" });
-    DOMAINES.forEach(function (d) {
-      var nb = chapitres(d.code).length;
-      l.appendChild(el(nb ? "a" : "span", { href: nb ? "#/livre/" + d.code : null }, [el("span", { "class": "pastille", style: "background:" + d.verre, "aria-hidden": "true" }), el("b", { text: d.court }), el("span", { text: nb ? valides(d.code) + " / " + nb : "En préparation" })]));
-    });
-    return l;
-  }
-  function noteAccueil() {
-    var v = totalValides(), t = totalChapitres(), enCours = etat.enCours && !(etat.chapitres[etat.enCours] || {}).valide;
-    if (taquin()) {
-      if (v === t && t > 0) return marge("vexe", "Toute la rosace est allumée. Va donc explorer un sujet que je ne connais pas.");
-      if (enCours) return marge("malin", "Un chapitre commencé, jamais fini. Je note.");
-      if (v === 0) return marge("malin", vitraux(t) + " éteint" + (t > 1 ? "s" : "") + ". Allume le premier, je regarde.");
-      return marge("malin", vitraux(v) + " sur " + t + ". Je commence à me méfier.");
-    }
-    if (v === t && t > 0) return marge("explique", "Tout est validé. Explore d’autres sujets en attendant les prochains chapitres.");
-    if (enCours) return marge("explique", "Un chapitre t’attend là où tu l’as laissé.");
-    return marge("explique", v + " chapitre" + (v > 1 ? "s" : "") + " validé" + (v > 1 ? "s" : "") + " sur " + t + ".");
-  }
-  function carteReprendre() {
-    var p = prochain();
-    if (!p) return el("section", { "class": "carte" }, [el("span", { "class": "lib", text: "Programme vérifié" }), el("h2", { text: "Tout est validé" }), el("p", { "class": "meta", text: "Révise tes erreurs ou explore un autre sujet en attendant les prochains chapitres." }), lien("#/explorer", "Explorer un sujet", "btn")]);
-    var c = etat.chapitres[p.chap.id];
-    var commence = etat.enCours === p.chap.id || (c && !c.valide);
-    var barres = el("div", { "class": "barres", style: "grid-template-columns:repeat(" + p.liste.length + ",1fr)", role: "img", "aria-label": pluriel(p.liste.length, "chapitre", "chapitres") + " au programme, " + pluriel(valides(p.dom.code), "validé", "validés") });
-    p.liste.forEach(function (x) { barres.appendChild(el("i", { "class": (etat.chapitres[x.id] || {}).valide ? "fait" : (x.id === p.chap.id ? "cours" : null) })); });
-    return el("section", { "class": "carte reprendre", "aria-labelledby": "reprendre-titre" }, [
-      el("span", { "class": "lib", text: commence ? "Formation en cours" : "Prochain chapitre" }),
-      el("h2", { id: "reprendre-titre", text: p.dom.nom }),
-      el("p", { "class": "sous", text: (p.chap.sujet ? p.chap.sujet + " · " : "") + "Chapitre " + romain(p.chap.numero) + " · " + p.chap.titre }),
-      el("div", { "class": "infos meta" }, [el("span", {}, [icone("livre"), "Fiche " + guill("L’essentiel")]), el("span", {}, [icone("liste"), "3 exercices"]), el("span", {}, [icone("verifie"), "Sources vérifiées"])]),
-      el("div", { style: "display:grid;gap:6px" }, [barres, el("span", { "class": "meta", text: pluriel(p.liste.length, "chapitre", "chapitres") + " au programme · " + pluriel(valides(p.dom.code), "validé", "validés") })]),
-      lien("#/chapitre/" + p.chap.id, (commence ? "Reprendre" : "Commencer") + " le chapitre " + romain(p.chap.numero), "btn")
-    ]);
-  }
-  function aReviser() {
-    var items = [];
-    Object.keys(etat.chapitres).sort().forEach(function (id) {
-      var c = etat.chapitres[id];
-      if (!(c.rates || []).length) return;
-      var i = infoChap(id), ia = lireIdIA(id);
-      if (i) c.rates.forEach(function (r) { items.push({ theme: r[1], lieu: i.dom.nom + " · chapitre " + romain(i.chap.numero), href: "#/chapitre/" + id + "/revoir" }); });
-      else if (ia) c.rates.forEach(function (r) { items.push({ theme: r[1], lieu: (c.sujet || "Exploration") + " · chapitre " + romain(ia.n) + " · brouillon", href: hrefIA(ia.sujet, ia.n) + "/revoir" }); });
-    });
-    return items;
-  }
-  function ligneRevision(it) { return el("li", {}, [icone("revision"), el("span", {}, [el("b", { text: it.theme }), el("br"), el("span", { "class": "meta", text: it.lieu })]), lien(it.href, "Revoir")]); }
-  function carteExplorer() {
-    var champ = el("input", { "class": "champ", id: "sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "La Vendée, les fonds marins, Kubrick…" });
-    var bouton = el("button", { "class": "btn", type: "button", text: "Ouvrir le programme" });
+  /* ---------- Maison ---------- */
+  function carteRecherche() {
+    var champ = el("input", { "class": "champ", id: "sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "Un sujet, une époque, une personne…" });
+    var bouton = el("button", { "class": "btn petit", type: "button", text: "Apprendre" });
     var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
-    bouton.addEventListener("click", function () { creerSujet(champ.value, null, bouton, alerte); });
+    bouton.addEventListener("click", function () { creerParcours(champ.value, bouton, alerte); });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
-    return el("section", { "class": "carte", "aria-labelledby": "explorer-titre" }, [
-      el("label", { "for": "sujet", id: "explorer-titre", "class": "titre-champ", text: "Approfondir n’importe quel sujet" }),
-      el("p", { "class": "meta", text: "Le Rival dresse un programme de chapitres, puis des sous‑sujets toujours plus pointus. Sans fin." }),
-      champ, bouton, alerte,
-      puces(SUGGESTIONS.slice(0, 6), function (t) { champ.value = t; creerSujet(t, null, bouton, alerte); }),
-      lien("#/explorer", "Tous les sujets")
-    ]);
+    var puces = el("div", { "class": "puces" });
+    SUGGESTIONS.forEach(function (t) { var b = el("button", { "class": "puce", type: "button", text: t }); b.addEventListener("click", function () { champ.value = t; creerParcours(t, bouton, alerte); }); puces.appendChild(b); });
+    return el("section", { "class": "pile", "aria-labelledby": "titre-recherche" }, [el("h1", { id: "titre-recherche", text: "Que veux‑tu apprendre" + F + "?" }), el("div", { "class": "recherche" }, [champ, bouton]), alerte, puces]);
   }
-  function serieJours() {
-    var n = 0, d = new Date();
-    if (!etat.jours[jour(d)]) d.setDate(d.getDate() - 1);
-    while (etat.jours[jour(d)]) { n += 1; d.setDate(d.getDate() - 1); }
-    return n;
+  function rangeeParcours(id, titre, img, detail, droite) {
+    return el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(id) }, [vignette(img, titre), el("span", {}, [el("b", { text: titre }), el("span", { "class": "meta", text: detail })]), droite || icone("fleche")])]);
   }
-  function carteJour() {
-    var fait = etat.jours[aujourdhui()], serie = serieJours();
-    return el("section", { "class": "carte", "aria-labelledby": "jour-titre" }, [
-      el("div", { "class": "titre-sec" }, [el("h2", { id: "jour-titre", text: "Question du jour" }), el("span", { "class": "meta", text: serie ? "Série" + N + ": " + pluriel(serie, "jour", "jours") : "La même pour tous" })]),
-      fait ? el("p", { "class": "astuce" }, [icone(fait === "juste" ? "juste" : "faux"), el("span", { text: fait === "juste" ? "Répondue juste aujourd’hui. Reviens demain." : "Manquée aujourd’hui. La suivante arrive demain." })])
-        : lien("#/jeu/jour", "Répondre", "btn trait")
-    ]);
-  }
-  function vueBibliotheque() {
-    var items = aReviser();
-    var blocs = [entete(), el("h1", { "class": "sr", text: "Bibliothèque" }), noteAccueil(), carteReprendre(), carteJour(),
-      el("section", { "aria-labelledby": "etagere-titre", style: "display:grid;gap:12px" }, [
-        el("div", { "class": "titre-sec" }, [el("h2", { id: "etagere-titre", text: "Bibliothèque vérifiée" }), el("span", { "class": "meta", text: pluriel(totalChapitres(), "chapitre", "chapitres") })]),
-        armoire(), legende(),
-        el("p", { "class": "meta", style: "text-align:center", text: "Touche un livre pour ouvrir sa formation. Chaque chapitre validé allume un vitrail." })
-      ]),
-      carteExplorer()];
-    if (items.length) {
-      var ul = el("ul", { "class": "lignes" });
-      items.slice(0, 3).forEach(function (it) { ul.appendChild(ligneRevision(it)); });
-      blocs.push(el("section", { "class": "carte", "aria-labelledby": "reviser-titre" }, [el("div", { "class": "titre-sec" }, [el("h2", { id: "reviser-titre", text: "À réviser" }), items.length > 3 ? lien("#/revisions", "Tout voir (" + items.length + ")") : el("span", { "class": "meta", text: "Tiré de tes bilans" })]), ul]));
-    }
-    blocs.push(el("p", { "class": "credit", text: "Icônes Phosphor (licence MIT) · Rival et rosace dessinés pour Koîos" }));
-    montrer(el("div", { "class": "page" }, blocs), "bibliotheque", "Bibliothèque");
-  }
-
-  /* ---------- Livre (formation vérifiée d'un domaine) ---------- */
-  function etatLigne(e, enCours) {
-    return e && e.valide ? el("span", { "class": "etat ok" }, [icone("juste"), "Validé"]) : e ? el("span", { "class": "etat ko" }, [icone("revision"), "À reprendre"]) : enCours ? el("span", { "class": "etat" }, ["En cours"]) : el("span", { "class": "etat" }, ["Nouveau"]);
-  }
-  function vueLivre(code) {
-    var d = DOM[code];
-    if (!d) return montrer(erreurPage("Cette formation n’existe pas."), "bibliotheque");
-    var liste = chapitres(code), v = valides(code);
-    var table = el("ol", { "class": "table" }), groupe = null;
-    liste.forEach(function (c) {
-      var g = c.sujet || "Fondamentaux";
-      if (g !== groupe) { groupe = g; table.appendChild(el("li", { "class": "groupe", "aria-hidden": "true", text: g })); }
-      var e = etat.chapitres[c.id];
-      table.appendChild(el("li", {}, [el("a", { href: "#/chapitre/" + c.id, "aria-label": g + ", chapitre " + c.numero + N + ": " + c.titre }, [el("span", { "class": "num", text: romain(c.numero) }), el("span", {}, [el("b", { text: c.titre }), e ? el("span", { "class": "meta", text: "Meilleur score " + (e.meilleur || 0) + "/" + (e.n || 3) }) : null]), etatLigne(e, etat.enCours === c.id)])]));
-    });
-    var barres = el("div", { "class": "barres", style: "grid-template-columns:repeat(" + Math.max(liste.length, 1) + ",1fr)", "aria-hidden": "true" });
-    liste.forEach(function (c) { barres.appendChild(el("i", { "class": (etat.chapitres[c.id] || {}).valide ? "fait" : null })); });
-    var p = null;
-    for (var k = 0; k < liste.length; k++) if (!(etat.chapitres[liste[k].id] || {}).valide) { p = liste[k]; break; }
-    var tete = el("div", { "class": "tete-livre" });
-    tete.innerHTML = Gothique.lancette(d.verre);
-    tete.appendChild(el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: "Formation vérifiée · " + pluriel(liste.length, "chapitre", "chapitres") }), el("h1", { text: d.nom })]));
-    var mot = taquin() ? (v === 0 ? "Tout commence au chapitre I. Moi, je les connais déjà." : v === liste.length ? "Formation achevée. Pour aller plus loin, explore un sous‑sujet." : v + " sur " + liste.length + ". Le plus dur reste à faire.") : (v + " chapitre" + (v > 1 ? "s" : "") + " validé" + (v > 1 ? "s" : "") + " sur " + liste.length + ".");
-    montrer(el("div", { "class": "page" }, [
-      retour("#/", "Bibliothèque"),
-      tete,
-      el("div", { style: "display:grid;gap:6px" }, [barres, el("span", { "class": "meta", text: v + " validé" + (v > 1 ? "s" : "") + " sur " + liste.length })]),
-      marge(taquin() ? "malin" : "explique", mot),
-      el("section", { "class": "carte", "aria-labelledby": "table-titre" }, [el("h2", { id: "table-titre", text: "Table des chapitres" }), liste.length ? table : el("p", { "class": "meta", text: "Les premiers chapitres sont en cours de vérification." })]),
-      p ? lien("#/chapitre/" + p.id, (etat.chapitres[p.id] || etat.enCours === p.id ? "Reprendre" : "Commencer") + " le chapitre " + romain(p.numero), "btn") : null,
-      lien("#/explorer", "Approfondir un sujet de ce domaine", "btn trait"),
-      el("p", { "class": "astuce" }, [icone("verifie"), el("span", { text: "Chaque notion est vérifiée par au moins deux sources indépendantes, dont une institutionnelle ou savante." })])
-    ]), "bibliotheque", d.nom);
-  }
-
-  /* ---------- Moteur commun : fiche, exercices, bilan (chapitre vérifié, brouillon IA, jeu) ---------- */
-  function partie(ch, opt) {
-    opt = opt || {};
-    var jeu = !!opt.jeu;
-    var brouillon = !!ch.brouillon;
-    var estIA = /^ia:/.test(ch.id || "");
-    var dom = DOM[ch.domaine] || { nom: ch.sujetTitre || "Exploration", verre: VERRE_NIVEAU[2] };
-    var serie = ch.exercices.map(function (q, i) { if (!jeu) q._i = i; return q; });
-    var aRevoir = [];
-    if (opt.revoir) {
-      var idx = ((etat.chapitres[ch.id] || {}).rates || []).map(function (r) { return r[0]; });
-      serie = serie.filter(function (q) { return idx.indexOf(q._i) >= 0; });
-      aRevoir = serie.map(function (q) { return q.repere; });
-      if (!serie.length) { serie = ch.exercices.slice(); aRevoir = []; opt.revoir = false; }
-    }
-    var etape = jeu ? 1 : 0, justes = 0, total = 0, rates = [];
-    var scene = el("main", { id: "scene" });
-    var etapes = el("div", { "class": "etapes", role: "progressbar", "aria-label": jeu ? "Avancement de la partie" : "Avancement du chapitre", "aria-valuemin": "1" });
-    var compteur = el("span", { "class": "meta compteur" });
-    var r = opt.retour || (brouillon ? { href: "#/", texte: "Bibliothèque" } : { href: "#/livre/" + ch.domaine, texte: "Formation" });
-    var page = el("div", { "class": "page sans-nav" }, [
-      el("div", { "class": "barre-chap" }, [el("a", { "class": "retour", href: r.href }, [icone("retour"), r.texte]), el("span", { "class": "titre-chap", text: opt.titreBarre || (ch.numero ? "Chapitre " + romain(ch.numero) : "Brouillon") }), compteur]),
-      etapes, scene
-    ]);
-    if (!brouillon && !jeu && !opt.revoir && !opt.defi) { etat.enCours = (etat.chapitres[ch.id] || {}).valide ? etat.enCours : ch.id; sauver(); }
-
-    function majEtapes() {
-      var n = serie.length + (jeu ? 1 : 2), cur = jeu ? etape - 1 : etape;
-      etapes.innerHTML = "";
-      for (var k = 0; k < n; k++) etapes.appendChild(el("i", { "class": k < cur ? "fait" : (k === cur ? "cours" : null) }));
-      etapes.style.gridTemplateColumns = "repeat(" + n + ", 1fr)";
-      etapes.setAttribute("aria-valuemax", String(n));
-      etapes.setAttribute("aria-valuenow", String(cur + 1));
-      compteur.textContent = etape === 0 ? "Fiche" : (etape > serie.length ? "Bilan" : etape + " / " + serie.length);
-    }
-    function repartie(q, juste) {
-      if (taquin() && q.rivalJuste && q.rivalFaux) return juste ? q.rivalJuste : q.rivalFaux;
-      return juste ? "Bonne réponse, c’est noté." : "Relis la correction" + N + ": elle fait foi.";
-    }
-    function signaler(q) {
-      var zone = el("div", { "class": "signaler" });
-      var ouvrir = el("button", { "class": "lien discret", type: "button" }, [icone("plume"), "Signaler une erreur"]);
-      ouvrir.addEventListener("click", function () {
-        var texte = el("textarea", { "class": "champ", maxlength: "1000", placeholder: "Qu’est‑ce qui te semble faux" + F + "? Une source, si tu en as une.", "aria-label": "Ton signalement" });
-        var envoyer = el("button", { "class": "btn trait", type: "button", text: "Envoyer le signalement" });
-        envoyer.addEventListener("click", function () {
-          var m = texte.value.trim();
-          if (!m) { texte.focus(); return; }
-          if (!enLigne()) { toast("Envoi impossible pour l’instant" + N + ": la base en ligne n’est pas branchée."); return; }
-          envoyer.disabled = true;
-          api("POST", "signalement", { chapitre: q._chap || ch.id || ("libre:" + ch.titre), exercice: q._i, message: m }).then(function () {
-            zone.innerHTML = "";
-            zone.appendChild(el("p", { "class": "astuce" }, [icone("juste"), el("span", { text: "Signalement envoyé. Il sera relu et corrigé si besoin." })]));
-            if (window.poserIcones) window.poserIcones(zone);
-          }, function () { envoyer.disabled = false; toast("Envoi impossible pour l’instant. Réessaie plus tard."); });
-        });
-        zone.innerHTML = "";
-        zone.appendChild(texte); zone.appendChild(envoyer);
-        texte.focus();
-      });
-      zone.appendChild(ouvrir);
-      return zone;
-    }
-    function verdict(q, juste, gagne) {
-      if (juste) justes += 1; else rates.push(q);
-      total += gagne;
-      var b = el("section", { "class": "verdict " + (juste ? "ok" : "ko"), role: "status" }, [
-        el("div", { "class": "titre" }, [icone(juste ? "juste" : "faux"), el("strong", { text: juste ? "Exact" : "Inexact" }), el("span", { "class": "pts", text: pts(gagne) })]),
-        el("p", { "class": "explication", text: q.correction }),
-        figure(q.figure),
-        sources(q.sources, q._brouillon !== undefined ? q._brouillon : brouillon),
-        marge(juste ? "vexe" : "ravi", repartie(q, juste)),
-        signaler(q)
-      ]);
-      var suite = el("button", { "class": "btn", type: "button", id: "continuer", text: etape === serie.length ? "Voir le bilan" : (jeu ? "Question suivante" : "Exercice suivant") });
-      suite.addEventListener("click", function () { etape += 1; afficher(); });
-      b.appendChild(suite);
-      return b;
-    }
-    function poser(zone, bloc) {
-      zone.appendChild(bloc);
-      if (window.poserIcones) window.poserIcones(bloc);
-      var calme = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      bloc.scrollIntoView({ behavior: calme ? "auto" : "smooth", block: "nearest" });
-      setTimeout(function () { var s = bloc.querySelector("#continuer"); if (s) s.focus({ preventScroll: true }); }, 0);
-    }
-    function section(titre, contenu) { return contenu ? [filet(), el("h2", { text: titre }), contenu] : []; }
-    function fiche() {
-      var revision = aRevoir.length > 0;
-      var liste = el("ol", { "class": "reperes" });
-      (ch.reperes || []).forEach(function (r, k) {
-        var li = el("li", {}, [el("span", { "class": "cle", text: r[0] }), el("span", { "class": "def", text: r[1] })]);
-        if (aRevoir.indexOf(k) >= 0) li.classList.add("revoir");
-        liste.appendChild(li);
-      });
-      var essentiel = el("div", { "class": "essentiel" });
-      (ch.essentiel || []).forEach(function (t, k) {
-        if (k === 0 && /^[A-Za-zÀ-ÖØ-öø-ÿ]/.test(t)) essentiel.appendChild(el("p", {}, [el("span", { "class": "lettrine", "aria-hidden": "true", text: t.charAt(0) }), el("span", { "class": "sr", text: t.charAt(0) }), t.slice(1)]));
-        else essentiel.appendChild(el("p", { text: t }));
-      });
-      var V = window.Visuels || {};
-      var chiffres = V.barres ? V.barres(ch.chiffres, dom.verre) : null;
-      var reseau = V.reseau ? V.reseau(ch.notions) : null;
-      var cit = !brouillon && V.citation ? V.citation(ch.citation) : null;
-      var saviez = ch.saviezVous ? el("aside", { "class": "saviez" }, [icone("ampoule"), el("div", {}, [el("span", { "class": "lib", text: "Le saviez‑vous" + F + "?" }), el("p", { text: ch.saviezVous })])]) : null;
-      var n = serie.length;
-      var go = el("button", { "class": "btn", type: "button", id: "commencer", text: revision ? "Rejouer " + (n > 1 ? "les " + n + " exercices manqués" : "l’exercice manqué") : "Passer aux " + pluriel(n, "exercice", "exercices") });
-      go.addEventListener("click", function () { etape = 1; afficher(); });
-      var lib = brouillon ? "Brouillon · " + (ch.sujetTitre ? ch.sujetTitre + " · " : "") + (ch.numero ? "chapitre " + romain(ch.numero) : "non vérifié") : revision ? "Révision · chapitre " + romain(ch.numero) : dom.nom + (ch.sujet ? " · " + ch.sujet : "") + " · chapitre " + romain(ch.numero);
-      var mot = brouillon ? (taquin() ? (ch.ancrage === "wikipedia" ? "Rédigé à partir de Wikipédia, sans vérification." : "Rédigé sans source de départ.") + " Méfie‑toi de moi plus que d’habitude." : "Brouillon non vérifié" + N + ": garde un œil critique.")
-        : revision ? (taquin() ? "J’ai surligné ce qui t’a échappé. Relis, puis on reprend." : "Les repères à revoir sont surlignés.")
-        : (taquin() ? pluriel((ch.reperes || []).length, "repère", "repères") + ", et je te les demanderai. Prends ton temps." : "Lis la fiche, puis passe aux exercices.");
-      var blocs = [];
-      if (brouillon) blocs.push(el("div", { "class": "bandeau-brouillon", role: "note" }, [icone("faux"), el("span", {}, [el("b", { text: "Brouillon non vérifié" }), (ch.ancrage === "wikipedia" ? "Rédigé par l’IA à partir de Wikipédia, sans vérification humaine. " : "Rédigé par l’IA sans source de départ. ") + "Il peut contenir des erreurs" + N + ": signale‑les. Il n’allume pas la rosace."])]));
-      if (opt.defi) blocs.push(el("div", { "class": "bandeau-defi", role: "note" }, [icone("epee"), el("span", { text: opt.defi.pseudo + " te défie sur ce chapitre" + N + ": " + opt.defi.justes + "/" + opt.defi.n + ", " + pts(opt.defi.points) + ". À toi." })]));
-      var contenu = [el("div", { "class": "arcature", "aria-hidden": "true" }), el("span", { "class": "lib", text: lib }), el("h1", { text: ch.titre }), figure(ch.figure)]
-        .concat(section("L’essentiel", essentiel), cit ? [cit] : [], section("En chiffres", chiffres), section("Réseau des notions", reseau), section("Repères", liste), saviez ? [saviez] : [], [sources(ch.sources, brouillon)]);
-      blocs.push(el("article", { "class": "feuille" }, contenu), marge("explique", mot), go, el("p", { "class": "meta", style: "margin-top:-8px;text-align:center", text: pluriel(n, "exercice", "exercices") + " · sans chronomètre" }));
-      return el("div", { "class": "pile large" }, blocs);
-    }
-    function qcm(q) {
-      var choisi = null, certitude = 70;
-      var lettres = ["A", "B", "C", "D"];
-      var rep = el("div", { "class": "reponses", role: "group", "aria-label": "Réponses" });
-      var alerte = el("p", { "class": "alerte", text: "Choisis d’abord une réponse.", hidden: "" });
-      var tuiles = q.reponses.map(function (r, k) {
-        var t = el("button", { "class": "tuile", type: "button", "aria-pressed": "false" }, [el("span", { "class": "lettre", text: lettres[k] }), el("span", { text: r }), el("span", { "class": "fin" })]);
-        t.addEventListener("click", function () { choisi = k; tuiles.forEach(function (x, j) { x.setAttribute("aria-pressed", j === k ? "true" : "false"); }); alerte.hidden = true; });
-        rep.appendChild(t);
-        return t;
-      });
-      var regle = el("span", { "class": "meta" });
-      function majRegle() { regle.textContent = "Juste " + signe(BAREME[certitude][0]) + " · faux " + signe(BAREME[certitude][1]); }
-      var jetons = el("div", { "class": "jetons", role: "group", "aria-label": "Ta certitude" });
-      [50, 70, 90, 100].forEach(function (c) {
-        var b = el("button", { type: "button", "aria-pressed": c === certitude ? "true" : "false", text: c + F + "%" });
-        b.addEventListener("click", function () { certitude = c; jetons.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", x === b ? "true" : "false"); }); majRegle(); });
-        jetons.appendChild(b);
-      });
-      majRegle();
-      var pari = el("div", { "class": "pari" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "lib", text: "Ta certitude" }), regle]), jetons]);
-      var valider = el("button", { "class": "btn", type: "button", text: "Valider" });
-      var zone = el("div", { "class": "pile large" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]), rep, pari, valider, alerte]);
-      valider.addEventListener("click", function () {
-        if (choisi === null) { alerte.hidden = false; return; }
-        tuiles.forEach(function (t) { t.disabled = true; t.setAttribute("aria-pressed", "false"); });
-        var juste = choisi === q.bonne;
-        tuiles[q.bonne].classList.add("juste");
-        tuiles[q.bonne].querySelector(".fin").appendChild(icone("juste", "i marque-rep", "Bonne réponse"));
-        if (!juste) { tuiles[choisi].classList.add("faux"); tuiles[choisi].querySelector(".fin").appendChild(icone("faux", "i marque-rep", "Ta réponse, inexacte")); }
-        pari.remove(); valider.remove(); alerte.remove();
-        poser(zone, verdict(q, juste, BAREME[certitude][juste ? 0 : 1]));
-      });
-      return zone;
-    }
-    function bluff(q) {
-      var rep = el("div", { "class": "reponses deux", role: "group", "aria-label": "Ton verdict" });
-      var vraiB = el("button", { "class": "tuile", type: "button", text: "Il dit vrai" });
-      var bluffB = el("button", { "class": "tuile", type: "button", text: "Il bluffe" });
-      rep.appendChild(vraiB); rep.appendChild(bluffB);
-      var tete = el("div", { "class": "marge" });
-      tete.innerHTML = window.rivalSVG ? window.rivalSVG("malin", 48) : "";
-      tete.appendChild(el("p", { "class": "affirmation", text: guill(q.affirmation) }));
-      var zone = el("div", { "class": "pile large" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), tete]), rep]);
-      function conclure(dit) {
-        vraiB.disabled = true; bluffB.disabled = true;
-        var juste = dit === q.vrai;
-        var bon = q.vrai ? vraiB : bluffB;
-        bon.classList.add("juste");
-        bon.appendChild(icone("juste", "i marque-rep", "Bonne réponse"));
-        if (!juste) { var mauvais = dit ? vraiB : bluffB; mauvais.classList.add("faux"); mauvais.appendChild(icone("faux", "i marque-rep", "Ta réponse, inexacte")); }
-        poser(zone, verdict(q, juste, juste ? 8 : -4));
+  function detailSuivi(s) { var r = 5 - (s.fait % 5); return s.fait ? "Palier " + s.fait + " · quiz dans " + pluriel(r, "palier", "paliers") : "Pas encore commencé"; }
+  function vueMaison() {
+    var miens = Object.keys(etat.parcours).map(function (id) { return { id: id, s: etat.parcours[id] }; }).filter(function (x) { return x.s.titre; }).sort(function (a, b) { return (b.s.date || "") > (a.s.date || "") ? 1 : -1; });
+    var blocs = [entete(), carteRecherche()];
+    if (miens.length) {
+      var r = miens[0];
+      blocs.push(el("section", { "class": "carte reprendre", "aria-labelledby": "titre-reprendre" }, [
+        el("span", { "class": "sur", text: "Reprendre" }),
+        r.s.image && r.s.image.src ? el("img", { "class": "photo-r", src: r.s.image.src, alt: "", loading: "lazy" }) : null,
+        el("div", { "class": "ligne-titre" }, [el("h2", { id: "titre-reprendre", text: r.s.titre }), el("span", { "class": "meta", text: (r.s.xp || 0) + N + "XP" })]),
+        el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + ((r.s.fait % 5) / 5 * 100) + "%" })]),
+        el("span", { "class": "meta", text: detailSuivi(r.s) }),
+        lien("#/p/" + encodeURIComponent(r.id), r.s.fait ? "Continuer au palier " + (r.s.fait + 1) : "Commencer", "btn")
+      ]));
+      if (miens.length > 1) {
+        var ul = el("ul", { "class": "liste" });
+        miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, x.s.image, detailSuivi(x.s))); });
+        blocs.push(el("section", { "class": "pile serree" }, [el("h2", { text: "Tes sujets" }), ul]));
       }
-      vraiB.addEventListener("click", function () { conclure(true); });
-      bluffB.addEventListener("click", function () { conclure(false); });
-      return zone;
     }
-    function frise(q) {
-      var placees = [];
-      var n = q.ordre.length;
-      var valeurs = q.valeurs || q.dates || {};
-      var classement = /classement/i.test(q.lib || "") || !/ancien|récent|chronolog/i.test(q.enonce || "");
-      var rayon = el("div", { "class": "rayon", role: "group", "aria-label": "Ton ordre" });
-      var pioche = el("div", { "class": "pioche", role: "group", "aria-label": "Éléments à placer" });
-      var alerte = el("p", { "class": "alerte", text: "Place les " + n + " éléments avant de valider.", hidden: "" });
+    var verifs = el("ul", { "class": "liste" });
+    blocs.push(el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Parcours vérifiés" }), el("span", { "class": "meta", text: "2 sources par notion" })]), verifs]));
+    var jourFait = etat.jours[aujourdhui()];
+    blocs.push(el("section", { "class": "carte" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Question du jour" }), el("span", { "class": "meta", text: serieJours() ? "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") : "La même pour tous" })]),
+      jourFait ? el("p", { "class": "meta", text: jourFait === "juste" ? "Réussie aujourd’hui. La suivante arrive demain." : "Manquée aujourd’hui. La suivante arrive demain." }) : lien("#/jeu/jour", "Répondre", "btn second")]));
+    montrer(el("div", { "class": "page" }, blocs), "accueil", "Accueil");
+    chargerListeVerifies().then(function (l) {
+      l.forEach(function (p) { var s = suivi(p.id); verifs.appendChild(rangeeParcours(p.id, p.titre, null, s.fait ? "Palier " + s.fait + " sur " + p.paliers : pluriel(p.paliers, "palier", "paliers"), el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]))); });
+      if (window.poserIcones) window.poserIcones(verifs);
+    }, function () {});
+  }
+
+  /* ---------- Parcours ---------- */
+  function vueParcours(id, onglet) {
+    montrer(attente("Ouverture du parcours…"), "accueil", "Parcours");
+    chargerParcours(id).then(function (p) {
+      retenir(p); S.ecrire("koios.etat", etat);
+      var s = suivi(p.id), prevus = paliersPrevus(p);
+      var zone = el("div", { "class": "pile" });
+      var tabs = el("div", { "class": "onglets", role: "tablist", "aria-label": "Sections du parcours" });
+      var choix = [["parcours", "Paliers"], ["quiz", "Quiz"], ["defis", "Défis"]];
+      choix.forEach(function (c) {
+        var b = el("button", { type: "button", role: "tab", "aria-selected": c[0] === (onglet || "parcours") ? "true" : "false", text: c[1] });
+        b.addEventListener("click", function () { history.replaceState(null, "", "#/p/" + encodeURIComponent(p.id) + (c[0] === "parcours" ? "" : "/" + c[0])); tabs.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-selected", x === b ? "true" : "false"); }); remplir(c[0]); });
+        tabs.appendChild(b);
+      });
+      function remplir(o) {
+        zone.innerHTML = "";
+        if (o === "quiz") zone.appendChild(ongletQuiz(p, s)); else if (o === "defis") zone.appendChild(ongletDefis(p, s)); else zone.appendChild(ongletPaliers(p, s, prevus));
+        if (window.poserIcones) window.poserIcones(zone);
+      }
+      var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1);
+      montrer(el("div", { "class": "page" }, [
+        el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/" }, [icone("retour"), "Accueil"]), el("span"), puceXP()]),
+        image(p.image, "tete"),
+        el("div", { "class": "pile serree" }, [p.verifie ? el("span", {}, [badge({ statut: "verifie" })]) : el("span", {}, [badge({ statut: "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
+        el("div", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "meta", text: s.fait ? pluriel(s.fait, "palier terminé", "paliers terminés") : "Pas encore commencé" }), el("span", { "class": "meta gain", text: (s.xp || 0) + N + "XP" })]),
+          el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + (p.verifie ? Math.round(s.fait / Math.max(prevus, 1) * 100) : ((s.fait % 10) * 10)) + "%" })])]),
+        fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), "Parcours terminé. Rejoue les quiz et les défis pour consolider."]) : lien("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · palier " + suivant : "Commencer le palier 1", "btn"),
+        tabs, zone
+      ]), "accueil", p.titre);
+      remplir(onglet || "parcours");
+    }, function (e) { montrer(erreurPage(e.statut === 404 ? "Ce parcours n’existe pas encore." : messageErreur(e), "Parcours indisponible"), "accueil"); });
+  }
+  function ongletPaliers(p, s, prevus) {
+    var bloc = el("div", { "class": "pile" });
+    var dernier = p.verifie ? prevus : Math.max(prevus, s.fait + 1);
+    var etapes = p.etapes && p.etapes.length ? p.etapes.slice() : [];
+    var nbEtapes = Math.max(etapes.length, Math.ceil(dernier / 10));
+    for (var e = 1; e <= nbEtapes; e++) {
+      var et = etapes[e - 1] || { numero: e, titre: "Étape " + e, paliers: [] };
+      var ul = el("ol", { "class": "chemin" });
+      var debut = (e - 1) * 10 + 1, finE = Math.min(e * 10, p.verifie ? prevus : e * 10);
+      for (var n = debut; n <= finE; n++) {
+        var t = titrePalier(p, n) || (n <= s.fait + 1 ? "Palier " + n : "Palier à venir");
+        var etatP = n <= s.fait ? "fait" : (n === s.fait + 1 ? "actuel" : "");
+        var ouvert = n <= s.fait + 1;
+        var contenu = [el("span", { "class": "pastille", text: n <= s.fait ? null : String(n), "aria-hidden": "true" }, [n <= s.fait ? icone("juste") : null]), el("span", {}, [el("b", { text: t }), el("span", { "class": "etat", text: n <= s.fait ? "Terminé" : (ouvert ? "À faire" : "Verrouillé") })]), ouvert ? icone("fleche") : icone("signet")];
+        ul.appendChild(el("li", { "class": etatP }, [ouvert ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + n, "aria-label": "Palier " + n + N + ": " + t }, contenu) : el("span", { "class": "bloque" }, contenu)]));
+        if (n % 5 === 0) {
+          var k = n, nom = n % 10 === 0 ? "Défi d’étape" : "Quiz", score = (s.quiz || {})[k];
+          var dispo = s.fait >= k;
+          var c2 = [el("span", { "class": "pastille", "aria-hidden": "true" }, [icone(score !== undefined ? "juste" : (n % 10 === 0 ? "trophee" : "liste"))]), el("span", {}, [el("b", { text: nom + " · paliers " + (k - (n % 10 === 0 ? 9 : 4)) + " à " + k }), el("span", { "class": "etat", text: score !== undefined ? "Meilleur score" + N + ": " + score + F + "%" : (dispo ? "Disponible" : "S’ouvre au palier " + k) })]), dispo ? icone("fleche") : icone("signet")];
+          ul.appendChild(el("li", { "class": "jalon" + (score !== undefined ? " fait" : "") }, [dispo ? el("a", { href: "#/p/" + encodeURIComponent(p.id) + "/" + (n % 10 === 0 ? "defi" : "quiz") + "/" + k }, c2) : el("span", { "class": "bloque" }, c2)]));
+        }
+      }
+      bloc.appendChild(el("div", { "class": "etape-titre" }, [el("h2", { text: "Étape " + e + (et.titre && et.titre !== "Étape " + e ? " · " + et.titre : "") }), el("span", { "class": "meta", text: "Paliers " + debut + " à " + finE })]));
+      bloc.appendChild(ul);
+    }
+    if (!p.verifie) bloc.appendChild(el("p", { "class": "meta", text: "Le parcours continue sans fin" + N + ": chaque étape de 10 paliers en ouvre une autre, plus précise." }));
+    return bloc;
+  }
+  function ongletQuiz(p, s) {
+    return el("div", { "class": "pile" }, [
+      el("div", { "class": "carte" }, [el("h2", { text: "Quiz direct" }), el("p", { "class": "meta", text: "Dix questions sur tout le sujet, avec l’explication de chaque réponse. Disponible tout de suite." }), lien("#/p/" + encodeURIComponent(p.id) + "/quiz/direct", "Lancer le quiz", "btn")]),
+      s.fait >= 5 ? el("div", { "class": "carte" }, [el("h2", { text: "Quiz des paliers" }), el("p", { "class": "meta", text: "Rejoue les quiz déjà ouverts depuis l’onglet Paliers." })]) : el("p", { "class": "verrou" }, [icone("signet"), "Les quiz de paliers s’ouvrent tous les 5 paliers."])
+    ]);
+  }
+  function ongletDefis(p, s) {
+    if (s.fait < 5) return el("p", { "class": "verrou" }, [icone("signet"), "Mini‑jeux et duels s’ouvrent au palier 5. Encore " + pluriel(5 - s.fait, "palier", "paliers") + "."]);
+    var ul = el("ul", { "class": "liste" });
+    [["vraifaux", "Vrai ou faux express", "Huit affirmations, réponds vite."], ["paires", "Associe les notions", "Relie chaque terme à sa définition."], ["ordre", "Remets dans l’ordre", "Classe les dates de tes paliers."], ["duel", "Duel avec un ami", "Dix questions, les mêmes pour vous deux."]].forEach(function (j) {
+      ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/p/" + encodeURIComponent(p.id) + "/jeu/" + j[0] }, [el("span", { "class": "vignette" }, [icone(j[0] === "duel" ? "epee" : j[0] === "paires" ? "liste" : j[0] === "ordre" ? "sablier" : "ampoule")]), el("span", {}, [el("b", { text: j[1] }), el("span", { "class": "meta", text: j[2] })]), icone("fleche")])]));
+    });
+    return ul;
+  }
+
+  /* ---------- Palier (leçon) ---------- */
+  function sectionL(titre, contenu) { return contenu ? el("section", {}, [el("h2", { text: titre }), contenu]) : null; }
+  function texteL(t) { if (!t) return null; var d = el("div", { "class": "texte" }); String(t).split("\n").forEach(function (x) { if (x.trim()) d.appendChild(el("p", { text: x })); }); return d; }
+  function vuePalier(id, n) {
+    montrer(attente("Préparation du palier… La première fois, compte jusqu’à une minute : deux IA rédigent puis vérifient la leçon.", true), null, "Palier");
+    Promise.all([chargerParcours(id), chargerPalier(id, n)]).then(function (r) {
+      var p = r[0], l = r[1];
+      if (!l) throw Object.assign(new Error("introuvable"), { statut: 404 });
+      retenir(p);
+      var s = suivi(p.id), V = window.Visuels || {};
+      var dl = null;
+      var defs = (l.definitions || []).concat(l.reperes || []);
+      if (defs.length) { dl = el("dl", { "class": "definitions" }); defs.forEach(function (d) { dl.appendChild(el("div", {}, [el("dt", { text: d.terme }), el("dd", { text: d.definition })])); }); }
+      var srcs = null;
+      if ((l.sources || []).length) { srcs = el("ul", { "class": "sources-lecon" }); l.sources.forEach(function (x) { srcs.appendChild(el("li", {}, [x[1] ? el("a", { href: x[1], target: "_blank", rel: "noopener", text: x[0] }) : el("span", { text: x[0] })])); }); }
+      var v = l.verification || {};
+      var noteV = v.statut === "verifie" ? v.note : (v.ia ? "Rédigé par " + v.ia[0] + " à partir des sources, puis contrôlé affirmation par affirmation par " + v.ia[1] + (v.retirees ? " (" + pluriel(v.retirees, "affirmation non confirmée retirée", "affirmations non confirmées retirées") + ")." : ".") : "Rédigé à partir des sources ci‑dessous.");
+      // Question de compréhension
+      var bonus = 0, qIndex = (l.questions || []).findIndex(function (q) { return q.type === "qcm"; });
+      var verifBloc = null;
+      if (qIndex >= 0) {
+        verifBloc = el("section", { "class": "carte" }, [el("span", { "class": "sur", text: "Vérifie ta compréhension" })]);
+        verifBloc.appendChild(rendreQuestion(l.questions[qIndex], function (juste) {
+          var it = { palier: l.id, index: qIndex, titre: l.titre };
+          if (juste) { bonus = XP.verif; oublierErreur(it); } else noterErreur(it);
+          S.ecrire("koios.etat", etat);
+        }));
+      }
+      var deja = n <= s.fait;
+      var finir = el("button", { "class": "btn", type: "button", text: deja ? "Palier suivant" : "Terminer le palier · +" + XP.palier + N + "XP" });
+      finir.addEventListener("click", function () {
+        var s2 = suivi(p.id);
+        if (n > s2.fait) { s2.fait = n; etat.parcours[p.id] = s2; gagner(XP.palier + bonus, p.id); toast("+" + (XP.palier + bonus) + N + "XP"); }
+        var base = "#/p/" + encodeURIComponent(p.id);
+        if (p.verifie && n >= paliersPrevus(p)) location.hash = base;
+        else if (n % 10 === 0 && !(s2.quiz || {})[n]) location.hash = base + "/defi/" + n;
+        else if (n % 5 === 0 && !(s2.quiz || {})[n]) location.hash = base + "/quiz/" + n;
+        else location.hash = base + "/" + (n + 1);
+      });
+      var points = el("div", { "class": "etapes-q", "aria-hidden": "true" });
+      var e0 = Math.floor((n - 1) / 10) * 10;
+      for (var k = 1; k <= 10; k++) points.appendChild(el("i", { "class": e0 + k < n ? "fait" : (e0 + k === n ? "ok" : null) }));
+      montrer(el("div", { "class": "page plein" }, [
+        el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer le palier" }, [icone("faux")]), points, puceXP()]),
+        image(l.image),
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre + " · palier " + n }), el("h1", { text: l.titre }), el("span", {}, [badge(v)])]),
+        el("article", { "class": "lecon" }, [
+          sectionL("En bref", texteL(l.sections && l.sections.enBref)),
+          sectionL("Comment", texteL(l.sections && l.sections.comment)),
+          sectionL("Pourquoi", texteL(l.sections && l.sections.pourquoi)),
+          sectionL("Où et quand", texteL(l.sections && l.sections.ouQuand)),
+          sectionL((l.reperes || []).length && !(l.definitions || []).length ? "Repères" : "Définitions", dl),
+          sectionL("Frise", V.frise ? V.frise(l.frise) : null),
+          sectionL("En chiffres", V.barres ? V.barres(l.chiffres) : null),
+          sectionL("Réseau des notions", V.reseau ? V.reseau(l.notions) : null),
+          l.citation && V.citation ? V.citation(l.citation) : null,
+          l.histoire ? el("div", { "class": "anecdote" }, [el("span", { "class": "sur", text: "L’histoire" }), el("p", { text: l.histoire })]) : null,
+          sectionL("Sources", srcs),
+          el("p", { "class": "verif" }, [icone("verifie"), noteV])
+        ]),
+        verifBloc, finir
+      ]), null, l.titre);
+    }, function (e) {
+      montrer(erreurPage(e.statut === 404 ? "Ce palier n’existe pas." : e.statut === 401 ? "La rédaction d’un nouveau palier demande ton compte en ligne. Réessaie dans un moment." : messageErreur(e, "Limite du jour" + N + ": 30 nouveaux paliers par personne. Les paliers déjà rédigés restent ouverts."), "Palier indisponible"), "accueil");
+    });
+  }
+
+  /* ---------- Questions ---------- */
+  function retourQ(juste, q) {
+    var b = el("div", { "class": "retour-q " + (juste ? "ok" : "ko"), role: "status" }, [el("strong", {}, [icone(juste ? "juste" : "faux"), juste ? "Exact" : "Pas tout à fait"]), q.explication ? el("p", { text: q.explication }) : null]);
+    if (window.poserIcones) window.poserIcones(b);
+    return b;
+  }
+  function rendreQuestion(q, rappel) {
+    var z = el("div", { "class": "question" });
+    if (q.type === "vraifaux") {
+      z.appendChild(el("p", { "class": "enonce", text: q.affirmation }));
+      var o = el("div", { "class": "options deux", role: "group", "aria-label": "Vrai ou faux" });
+      [[true, "Vrai"], [false, "Faux"]].forEach(function (c) {
+        var b = el("button", { "class": "option", type: "button", text: c[1] });
+        b.addEventListener("click", function () {
+          o.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+          var juste = c[0] === q.vrai;
+          var bon = o.children[q.vrai ? 0 : 1]; bon.classList.add("juste");
+          if (!juste) b.classList.add("faux");
+          z.appendChild(retourQ(juste, q)); rappel(juste);
+        });
+        o.appendChild(b);
+      });
+      z.appendChild(o);
+    } else if (q.type === "ordre") {
+      var placees = [], n = q.ordre.length, valeurs = q.valeurs || {};
+      z.appendChild(el("p", { "class": "enonce", text: q.enonce }));
+      var rayon = el("div", { "class": "ordre" }), pioche = el("div", { "class": "options" });
+      var valider = el("button", { "class": "btn", type: "button", text: "Valider l’ordre", disabled: "" });
       function dessiner() {
         rayon.innerHTML = "";
-        for (var k = 0; k < n; k++) {
-          var nom = placees[k];
-          var vide = k === 0 ? (classement ? "En premier" : "Le plus ancien") : (k === n - 1 ? (classement ? "En dernier" : "Le plus récent") : "Ensuite");
-          rayon.appendChild(el("div", { "class": "case" + (nom ? " pleine" : "") }, [el("span", { "class": "num", text: String(k + 1) }), nom ? el("span", { text: nom }) : el("em", { text: vide })]));
-        }
-        pioche.querySelectorAll("button").forEach(function (b) { var d = placees.indexOf(b.dataset.nom) >= 0; b.setAttribute("aria-pressed", d ? "true" : "false"); b.querySelector(".etat").textContent = d ? "Retirer" : "Placer"; });
+        for (var k = 0; k < n; k++) rayon.appendChild(el("div", { "class": "case" + (placees[k] ? " pleine" : "") }, [el("span", { "class": "num", text: String(k + 1) }), placees[k] ? el("span", { text: placees[k] }) : el("em", { text: k === 0 ? "En premier" : (k === n - 1 ? "En dernier" : "Ensuite") })]));
+        pioche.querySelectorAll("button").forEach(function (b) { b.setAttribute("aria-pressed", placees.indexOf(b.dataset.nom) >= 0 ? "true" : "false"); b.style.opacity = placees.indexOf(b.dataset.nom) >= 0 ? "0.45" : "1"; });
+        if (placees.length === n) valider.removeAttribute("disabled"); else valider.setAttribute("disabled", "");
       }
       q.elements.forEach(function (nom) {
-        var b = el("button", { "class": "tuile", type: "button", "data-nom": nom, "aria-pressed": "false" }, [el("span", { text: nom }), el("span", { "class": "etat", text: "Placer" })]);
-        b.addEventListener("click", function () { var k = placees.indexOf(nom); if (k >= 0) placees.splice(k, 1); else if (placees.length < n) placees.push(nom); alerte.hidden = true; dessiner(); });
+        var b = el("button", { "class": "option", type: "button", "data-nom": nom, "aria-pressed": "false" }, [el("span", { text: nom })]);
+        b.addEventListener("click", function () { var k = placees.indexOf(nom); if (k >= 0) placees.splice(k, 1); else if (placees.length < n) placees.push(nom); dessiner(); });
         pioche.appendChild(b);
       });
-      var valider = el("button", { "class": "btn", type: "button", text: "Valider l’ordre" });
-      var zone = el("div", { "class": "pile large" }, [el("div", { "class": "feuille" }, [el("span", { "class": "lib", text: q.lib }), el("h1", { text: q.enonce })]), rayon, pioche, valider, alerte]);
       valider.addEventListener("click", function () {
-        if (placees.length < n) { alerte.hidden = false; return; }
         var juste = placees.every(function (x, k) { return x === q.ordre[k]; });
-        pioche.remove(); valider.remove(); alerte.remove();
-        rayon.innerHTML = "";
-        q.ordre.forEach(function (nom, k) {
-          var ok = placees[k] === nom;
-          var txt = el("span", {}, [nom + (valeurs[nom] ? ", " + valeurs[nom] : "")]);
-          if (!ok) txt.appendChild(el("small", { text: "Tu avais placé ici" + N + ": " + placees[k] }));
-          rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(k + 1) }), txt]));
-        });
-        poser(zone, verdict(q, juste, juste ? 10 : 0));
+        pioche.remove(); valider.remove(); rayon.innerHTML = "";
+        q.ordre.forEach(function (nom, k) { var ok = placees[k] === nom; var t = el("span", {}, [nom + (valeurs[nom] ? ", " + valeurs[nom] : "")]); if (!ok) t.appendChild(el("small", { text: "Tu avais placé ici" + N + ": " + placees[k] })); rayon.appendChild(el("div", { "class": "case " + (ok ? "ok" : "ko") }, [el("span", { "class": "num", text: String(k + 1) }), t])); });
+        z.appendChild(retourQ(juste, q)); rappel(juste);
       });
-      dessiner();
-      return zone;
-    }
-    function enregistrer() {
-      var c = etat.chapitres[ch.id] || {};
-      var n = serie.length;
-      var res = { nouveau: false, valide: false };
-      if (opt.revoir) {
-        var corriges = serie.filter(function (q) { return rates.indexOf(q) < 0; }).map(function (q) { return q._i; });
-        c.rates = (c.rates || []).filter(function (r) { return corriges.indexOf(r[0]) < 0; });
-        c.date = new Date().toISOString();
-        etat.chapitres[ch.id] = c;
-        res.valide = !!c.valide;
-      } else {
-        var valide = justes >= Math.ceil(n * 2 / 3);
-        res.nouveau = valide && !c.valide;
-        res.valide = valide || !!c.valide;
-        var e = { valide: res.valide, meilleur: Math.max(c.meilleur || 0, justes), n: n, points: Math.max(c.points || 0, Math.max(0, total)), rates: rates.map(function (q) { return [q._i, q.theme]; }), date: new Date().toISOString() };
-        if (estIA) { e.titre = ch.titre; e.sujet = ch.sujetTitre; }
-        etat.chapitres[ch.id] = e;
-        if (!estIA) { if (valide && etat.enCours === ch.id) etat.enCours = null; if (!valide) etat.enCours = ch.id; }
-      }
-      sauver();
-      return res;
-    }
-    function bilanJeu() {
-      var n = serie.length;
-      var revoirListe = el("ul", { "class": "liste-revoir" });
-      if (rates.length) rates.forEach(function (q) { revoirListe.appendChild(el("li", {}, [icone("revision"), el("span", {}, [q.theme || "Question", el("br"), el("span", { "class": "meta", text: q._titre || "" })])])); });
-      else revoirListe.appendChild(el("li", {}, [icone("juste"), "Sans faute."]));
-      var moitie = Math.ceil(n / 2);
-      var blocs = [el("section", { "class": "feuille", "aria-labelledby": "bilan-titre" }, [
-        el("span", { "class": "lib", text: (opt.titreBarre || "Partie") + " · bilan" }),
-        el("h1", { id: "bilan-titre", text: justes === n ? "Sans faute" : justes >= moitie ? "Bien joué" : "À retravailler" }),
-        el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta", text: Math.round(justes / n * 100) + F + "% · " + pts(total) })]),
-        el("h2", { text: "À revoir" }), revoirListe
-      ])];
-      blocs.push(marge(justes >= moitie ? "vexe" : "ravi", taquin() ? (justes === n ? "Sans faute. J’en reviens à peine." : justes >= moitie ? "Honorable. Les chapitres d’origine t’attendent pour le reste." : "Le hasard ne suffit pas. Les fiches, si.") : (justes + " bonnes réponses sur " + n + ".")));
-      var suite = el("div", { "class": "pile" });
-      blocs.push(suite);
-      if (opt.fin) opt.fin({ justes: justes, n: n, points: total, rates: rates }, suite);
-      return el("div", { "class": "pile large" }, blocs);
-    }
-    function bilan() {
-      if (jeu) return bilanJeu();
-      var n = serie.length;
-      var seuil = Math.ceil(n * 2 / 3);
-      var reussi = opt.revoir ? rates.length === 0 : justes >= seuil;
-      var compte = !brouillon || estIA;
-      var res = compte ? enregistrer() : { valide: reussi, nouveau: false };
-      var revoirListe = el("ul", { "class": "liste-revoir" });
-      if (rates.length) rates.forEach(function (q) { revoirListe.appendChild(el("li", {}, [icone("revision"), q.theme])); });
-      else revoirListe.appendChild(el("li", {}, [icone("juste"), "Rien à revoir sur ce chapitre."]));
-      var titre = opt.revoir ? (reussi ? "Erreurs corrigées" : "Encore un effort") : (reussi ? "Chapitre validé" : "Chapitre à reprendre");
-      var nextC = !brouillon && res.valide ? suivant(ch.id) : null;
-      var nextIA = brouillon && opt.suivant && reussi ? opt.suivant : null;
-      var precision = opt.revoir ? (res.valide ? "Le chapitre reste validé." : "Refais le chapitre entier pour le valider.")
-        : !reussi ? "Il faut " + pluriel(seuil, "bonne réponse", "bonnes réponses") + " sur " + n + " pour valider."
-        : brouillon ? (nextIA ? "Suite" + N + ": " + nextIA.titre + "." : "Programme terminé" + N + ": choisis un sous‑sujet pour aller plus loin.") + " Brouillon" + N + ": il n’allume pas la rosace."
-        : (nextC ? "Suite" + N + ": chapitre " + romain(nextC.numero) + " · " + nextC.titre + "." : "Dernier chapitre disponible de cette formation.");
-      var blocs = [el("section", { "class": "feuille", "aria-labelledby": "bilan-titre" }, [
-        el("span", { "class": "lib", text: (opt.revoir ? "Révision" : (ch.numero ? "Chapitre " + romain(ch.numero) : "Brouillon")) + " · bilan" }),
-        el("h1", { id: "bilan-titre", text: titre }),
-        el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta", text: Math.round(justes / n * 100) + F + "% · " + pts(total) })]),
-        el("h2", { text: "Points à revoir" }), revoirListe,
-        el("p", { "class": "meta", text: precision })
-      ])];
-      if (opt.defi && !opt.revoir) {
-        var d = opt.defi;
-        var issue = justes > d.justes || (justes === d.justes && total > d.points) ? "Défi remporté." : (justes === d.justes && total === d.points ? "Égalité parfaite." : "Défi perdu, cette fois.");
-        blocs.push(el("div", { "class": "bandeau-defi" }, [icone("epee"), el("span", { text: issue + " " + d.pseudo + N + ": " + d.justes + "/" + d.n + ", " + pts(d.points) + ". Toi" + N + ": " + justes + "/" + n + ", " + pts(total) + "." })]));
-      }
-      if (res.nouveau && !brouillon) {
-        var m = el("div", { "class": "allume" });
-        m.innerHTML = Gothique.medaillon(petales(ch.id), lobes(), etiquetteRosace());
-        m.appendChild(el("p", { text: "Un vitrail de plus. Ta rosace en compte " + totalValides() + " allumé" + (totalValides() > 1 ? "s" : "") + " sur " + totalChapitres() + "." }));
-        blocs.push(el("section", { "class": "carte" }, [m]));
-      }
-      var mot = taquin() ? (rates.length === 0 ? "Rien à redire. Le prochain sera moins indulgent." : reussi ? "Validé, mais pas sans fautes. Revois‑les avant d’avancer." : "Pas encore. Relis ce que j’ai surligné, puis reviens.")
-        : (rates.length === 0 ? "Aucune erreur." : reussi ? "Validé. Quelques points à revoir." : "Relis la fiche, puis réessaie.");
-      blocs.push(marge(reussi ? "vexe" : "ravi", mot));
-      var actions = el("div", { "class": "pile" }), liste = [];
-      if (rates.length && compte) {
-        var revoir = el("button", { type: "button", text: "Revoir mes erreurs" });
-        revoir.addEventListener("click", function () {
-          var ia = lireIdIA(ch.id);
-          var cible = ia ? hrefIA(ia.sujet, ia.n) + "/revoir" : "#/chapitre/" + ch.id + "/revoir";
-          if (location.hash === cible) route(); else location.hash = cible;
+      z.appendChild(rayon); z.appendChild(pioche); z.appendChild(valider); dessiner();
+    } else {
+      z.appendChild(el("p", { "class": "enonce", text: q.enonce }));
+      var opts = el("div", { "class": "options", role: "group", "aria-label": "Réponses" });
+      q.reponses.forEach(function (rep, k) {
+        var b = el("button", { "class": "option", type: "button" }, [el("span", { text: rep }), el("span", { "class": "fin" })]);
+        b.addEventListener("click", function () {
+          opts.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
+          var juste = k === q.bonne, bon = opts.children[q.bonne];
+          bon.classList.add("juste"); bon.querySelector(".fin").appendChild(icone("juste", "Bonne réponse"));
+          if (!juste) { b.classList.add("faux"); b.querySelector(".fin").appendChild(icone("faux", "Ta réponse")); }
+          if (window.poserIcones) window.poserIcones(opts);
+          z.appendChild(retourQ(juste, q)); rappel(juste);
         });
-        liste.push(revoir);
-      }
-      if (nextC) liste.push(el("a", { href: "#/chapitre/" + nextC.id, text: "Chapitre suivant" }));
-      if (nextIA) liste.push(el("a", { href: nextIA.href, text: "Chapitre suivant" }));
-      if (brouillon && !nextIA && reussi && opt.retour) liste.push(el("a", { href: opt.retour.href, text: "Choisir un sous‑sujet" }));
-      var info2 = el("p", { "class": "meta", role: "status" });
-      if (!opt.revoir) {
-        var defier = el("button", { type: "button" }, [icone("epee"), "Défier un ami sur ce chapitre"]);
-        defier.addEventListener("click", function () {
-          var ia = lireIdIA(ch.id);
-          var cible = ia ? "ia/" + encodeURIComponent(ia.sujet) + "/" + ia.n : ch.id;
-          var url = location.origin + location.pathname + "#/defi/" + cible + "/" + encodeURIComponent(profil.pseudo) + "/" + justes + "/" + n + "/" + total;
-          partager("Koîos", profil.pseudo + " te défie sur " + guill(ch.titre) + F + ": " + justes + "/" + n + ". À toi.", url, function (t) { info2.textContent = t; });
-        });
-        liste.push(defier);
-      }
-      liste.push(el("a", { href: r.href, text: "Retour" + N + ": " + r.texte.toLowerCase() }));
-      liste.forEach(function (x, k) { x.className = k === 0 ? "btn" : k === 1 ? "btn trait" : "lien"; actions.appendChild(x); });
-      actions.appendChild(info2);
-      blocs.push(actions);
-      return el("div", { "class": "pile large" }, blocs);
+        opts.appendChild(b);
+      });
+      z.appendChild(opts);
     }
+    return z;
+  }
+
+  /* ---------- Quiz (commun à tous les modes) ---------- */
+  function quiz(items, opt) {
+    var k = 0, justes = 0, gagne = 0, rates = [];
+    var points = el("div", { "class": "etapes-q", "aria-hidden": "true" });
+    items.forEach(function () { points.appendChild(el("i")); });
+    var scene = el("main", { "class": "pile" });
+    var compteur = el("span", { "class": "meta" });
+    var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("faux")]), points, compteur]), scene]);
     function afficher() {
-      scene.innerHTML = "";
-      window.scrollTo(0, 0);
-      majEtapes();
-      var bloc;
-      if (etape === 0) bloc = fiche();
-      else if (etape > serie.length) bloc = bilan();
-      else { var q = serie[etape - 1]; bloc = q.type === "qcm" ? qcm(q) : q.type === "bluff" ? bluff(q) : frise(q); }
-      scene.appendChild(bloc);
+      scene.innerHTML = ""; window.scrollTo(0, 0);
+      compteur.textContent = Math.min(k + 1, items.length) + " / " + items.length;
+      if (k >= items.length) return fin();
+      var it = items[k];
+      scene.appendChild(el("span", { "class": "sur", text: opt.titre + (it.titre ? " · " + it.titre : "") }));
+      var suite = el("button", { "class": "btn", type: "button", hidden: "", text: k === items.length - 1 ? "Voir le résultat" : "Question suivante" });
+      suite.addEventListener("click", function () { k += 1; afficher(); });
+      scene.appendChild(rendreQuestion(it.question, function (juste) {
+        points.children[k].className = juste ? "ok" : "ko";
+        if (juste) { justes += 1; gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
+        else { rates.push(it); if (!opt.sansErreurs) noterErreur(it); }
+        suite.hidden = false; setTimeout(function () { suite.focus({ preventScroll: true }); suite.scrollIntoView({ block: "nearest" }); }, 0);
+      }));
+      scene.appendChild(suite);
       if (window.poserIcones) window.poserIcones(scene);
-      var h = scene.querySelector("h1");
-      if (h && (etape > 0 || jeu)) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+      var h = scene.querySelector(".enonce"); if (h) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
+    }
+    function fin() {
+      var n = items.length, pct = Math.round(justes / Math.max(n, 1) * 100);
+      gagner(gagne, opt.parcours);
+      compteur.textContent = "";
+      var revoir = el("div", { "class": "pile" });
+      rates.forEach(function (it) {
+        var q = it.question;
+        revoir.appendChild(el("details", { "class": "plier carte" }, [el("summary", { text: q.enonce || q.affirmation || "Question" }), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
+      });
+      scene.appendChild(el("span", { "class": "sur", text: opt.titre + " · résultat" }));
+      scene.appendChild(el("h1", { text: pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
+      scene.appendChild(el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta gain", text: "+" + gagne + N + "XP" })]));
+      if (rates.length) { scene.appendChild(el("h2", { text: "À revoir" })); scene.appendChild(revoir); }
+      var suite = el("div", { "class": "pile" });
+      scene.appendChild(suite);
+      if (opt.fin) opt.fin({ justes: justes, n: n, pct: pct, gagne: gagne }, suite);
+      if (window.poserIcones) window.poserIcones(scene);
     }
     afficher();
     return page;
   }
-  function vueChapitre(id, mode, defi) {
-    montrer(attente("Le Rival sort le chapitre de l’étagère…", true), null, "Chapitre");
-    chargerChapitre(id).then(function (ch) {
-      montrer(partie(ch, { revoir: mode === "revoir", defi: defi }), null, ch.titre);
-    }, function () { montrer(erreurPage("Ce chapitre n’existe pas, ou n’est pas encore publié."), "bibliotheque"); });
+  function questionsDe(l) { return (l.questions || []).map(function (q, i) { return { palier: l.id, titre: l.titre, index: i, question: q }; }); }
+  function paliersEntre(p, a, b) {
+    var l = [];
+    for (var n = Math.max(1, a); n <= b; n++) l.push(chargerPalier(p.id, n).catch(function () { return null; }));
+    return Promise.all(l).then(function (x) { return x.filter(Boolean); });
   }
-  function vueDefi(p) {
-    var k = p.length;
-    var defi = { pseudo: (p[k - 4] || "Un ami").slice(0, 24), justes: parseInt(p[k - 3], 10) || 0, n: parseInt(p[k - 2], 10) || 3, points: parseInt(p[k - 1], 10) || 0 };
-    if (p[1] === "ia") vueChapitreIA(p[2], parseInt(p[3], 10) || 1, null, defi);
-    else vueChapitre(p[1], null, defi);
-  }
-
-  /* ---------- Explorer ---------- */
-  function vueExplorer() {
-    var champ = el("input", { "class": "champ", id: "sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "La Vendée, le Texas, Kubrick, les volcans…" });
-    var bouton = el("button", { "class": "btn", type: "button", text: "Ouvrir le programme" });
-    var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
-    bouton.addEventListener("click", function () { creerSujet(champ.value, null, bouton, alerte); });
-    champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
-    var communaute = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Le Rival consulte le registre…" })]);
-    var zv = el("div", { "class": "puces" });
-    sujetsVerifies().forEach(function (s) { zv.appendChild(el("a", { "class": "puce verifie", href: "#/livre/" + s.dom.code, text: s.titre })); });
-    DOMAINES.forEach(function (d) { if (chapitres(d.code).length) zv.appendChild(el("a", { "class": "puce verifie", href: "#/livre/" + d.code, text: d.nom })); });
-    montrer(el("div", { "class": "page" }, [entete(),
-      el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: "Sans fin" }), el("h1", { text: "Explorer un sujet" })]),
-      marge(taquin() ? "malin" : "explique", taquin() ? "Donne‑moi un sujet, n’importe lequel. Je te prépare huit chapitres, puis de quoi creuser encore. Et encore." : "Chaque sujet a un programme de huit chapitres et des sous‑sujets plus pointus."),
-      el("section", { "class": "carte" }, [el("label", { "for": "sujet", "class": "titre-champ", text: "Quel sujet veux‑tu approfondir" + F + "?" }), champ, bouton, alerte,
-        el("span", { "class": "lib", text: "Idées" }), puces(SUGGESTIONS, function (t) { champ.value = t; creerSujet(t, null, bouton, alerte); }),
-        el("p", { "class": "astuce" }, [icone("parchemin"), el("span", { text: "Programmes et chapitres sont rédigés par l’IA à partir de Wikipédia, puis partagés avec tous les lecteurs. Ce sont des brouillons" + N + ": les meilleurs entreront dans la bibliothèque vérifiée." })])
-      ]),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "Bibliothèque vérifiée" }), el("span", { "class": "meta", text: "2 sources par notion" })]), zv]),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "Sujets des lecteurs" }), el("span", { "class": "meta", text: "Les plus ouverts" })]), communaute])
-    ]), "explorer", "Explorer");
-    pretServeur.then(function () {
-      if (!serveur.base) { communaute.innerHTML = ""; communaute.appendChild(el("p", { "class": "meta", text: "La liste s’affiche dès que la base en ligne répond." })); return; }
-      api("GET", "sujets").then(function (j) {
-        communaute.innerHTML = "";
-        var l = j.sujets || [];
-        if (!l.length) { communaute.appendChild(el("p", { "class": "meta", text: "Aucun sujet pour l’instant. Ouvre le premier." })); return; }
-        var ul = el("ul", { "class": "lignes" });
-        l.forEach(function (s) { ul.appendChild(el("li", {}, [icone("globe"), el("span", {}, [el("b", { text: s.titre }), el("br"), el("span", { "class": "meta", text: (NIVEAUX[s.niveau] || "Découverte") + " · " + pluriel(s.vues || 0, "lecture", "lectures") })]), lien("#/sujet/" + encodeURIComponent(s.id), "Ouvrir")])); });
-        communaute.appendChild(ul);
-        if (window.poserIcones) window.poserIcones(communaute);
-      }, function () { communaute.innerHTML = ""; communaute.appendChild(el("p", { "class": "meta", text: "Liste indisponible pour l’instant." })); });
-    });
+  function vueQuiz(id, mode) {
+    montrer(attente("Préparation du quiz…", true), null, "Quiz");
+    chargerParcours(id).then(function (p) {
+      var base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id);
+      var k = parseInt(mode, 10), defi = /^defi/.test(location.hash.split("/")[3] || "");
+      var preparer;
+      if (mode === "direct") {
+        preparer = p.verifie ? paliersEntre(p, 1, paliersPrevus(p)).then(function (ls) { return melanger([].concat.apply([], ls.map(questionsDe))).slice(0, 10); })
+          : pretCompte().then(function () { return api("GET", "quiz?parcours=" + encodeURIComponent(p.id) + "&n=10&graine=" + Math.floor(Math.random() * 1e9)); }).then(function (j) {
+            if ((j.questions || []).length >= 5) return j.questions;
+            return api("POST", "quiz-direct", { parcours: p.id }, 100000).then(function (j2) { return j2.questions || []; });
+          }).then(function (l) { return l.map(function (x) { return { palier: x.palier, titre: x.titre, index: x.index, question: x.question }; }); });
+      } else {
+        var debut = defi ? k - 9 : k - 4;
+        preparer = paliersEntre(p, debut, k).then(function (ls) {
+          return [].concat.apply([], ls.map(function (l) {
+            var qs = questionsDe(l), verifIdx = (l.questions || []).findIndex(function (q) { return q.type === "qcm"; });
+            var autres = qs.filter(function (x) { return x.index !== verifIdx; });
+            return defi ? autres.slice(-1) : autres.slice(0, 2);
+          }));
+        }).then(function (l) { return melanger(l).slice(0, defi ? 10 : 8); });
+      }
+      preparer.then(function (items) {
+        if (!items.length) { montrer(erreurPage("Pas encore assez de questions pour ce quiz.", "Quiz indisponible"), "accueil"); return; }
+        var titre = mode === "direct" ? "Quiz direct" : (defi ? "Défi d’étape" : "Quiz des paliers " + (k - 4) + " à " + k);
+        montrer(quiz(items, { titre: titre, retour: base, xp: defi ? XP.defi : XP.quiz, parcours: p.id, fin: function (res, zone) {
+          if (mode !== "direct") { var s2 = suivi(p.id); s2.quiz = s2.quiz || {}; s2.quiz[k] = Math.max(s2.quiz[k] || 0, res.pct); etat.parcours[p.id] = s2; sauver(); }
+          var prochain = mode !== "direct" && !(p.verifie && k >= paliersPrevus(p)) ? k + 1 : null;
+          if (prochain) zone.appendChild(lien(base + "/" + prochain, "Continuer · palier " + prochain, "btn"));
+          zone.appendChild(lien(base + "/jeu/duel", "Défier un ami sur ce sujet", prochain ? "btn second" : "btn"));
+          zone.appendChild(lien(base, "Retour au parcours"));
+        } }), null, titre);
+      }, function (e) { montrer(erreurPage(messageErreur(e), "Quiz indisponible"), "accueil"); });
+    }, function (e) { montrer(erreurPage(messageErreur(e), "Quiz indisponible"), "accueil"); });
   }
 
-  /* ---------- Sujet (programme et sous-sujets) ---------- */
-  function vueSujet(id) {
-    montrer(attente("Le Rival ouvre le programme…"), "explorer", "Sujet");
-    pretServeur.then(function () { return chargerSujet(id); }).then(function (s) {
-      var plan = s.plan || [];
-      var faits = plan.filter(function (c) { return (etat.chapitres[idIA(s.id, c.numero)] || {}).valide; }).length;
-      var table = el("ol", { "class": "table" });
-      plan.forEach(function (c) {
-        var e = etat.chapitres[idIA(s.id, c.numero)];
-        table.appendChild(el("li", {}, [el("a", { href: hrefIA(s.id, c.numero) }, [el("span", { "class": "num", text: romain(c.numero) }), el("span", {}, [el("b", { text: c.titre }), c.resume ? el("span", { "class": "meta", text: c.resume }) : null]), etatLigne(e, false)])]));
+  /* ---------- Mini-jeux et duels d'un parcours ---------- */
+  function vueJeu(id, type) {
+    montrer(attente("Préparation du jeu…", true), null, "Jeu");
+    chargerParcours(id).then(function (p) {
+      var base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id);
+      if (s.fait < 5 && type !== "duel") { montrer(erreurPage("Ce jeu s’ouvre au palier 5.", "Pas encore"), "accueil"); return; }
+      paliersEntre(p, 1, Math.max(s.fait, 1)).then(function (ls) {
+        var toutes = [].concat.apply([], ls.map(questionsDe));
+        if (type === "paires") return montrer(jeuPaires(p, ls), null, "Associe les notions");
+        var items;
+        if (type === "vraifaux") items = melanger(toutes.filter(function (x) { return x.question.type === "vraifaux"; }).concat(melanger(toutes.filter(function (x) { return x.question.type === "qcm"; })))).slice(0, 8);
+        else if (type === "ordre") {
+          var frises = ls.filter(function (l) { return (l.frise || []).length >= 3; });
+          items = melanger(toutes.filter(function (x) { return x.question.type === "ordre"; })).slice(0, 3);
+          frises.slice(0, 3 - items.length).forEach(function (l) { var f = melanger(l.frise).slice(0, 4); var ordre = f.slice().sort(function (a, b) { return l.frise.indexOf(a) - l.frise.indexOf(b); }); var v = {}; f.forEach(function (x) { v[x.evenement] = x.date; }); items.push({ palier: l.id, titre: l.titre, index: -1, question: { type: "ordre", enonce: "Range ces événements du plus ancien au plus récent.", elements: f.map(function (x) { return x.evenement; }), ordre: ordre.map(function (x) { return x.evenement; }), valeurs: v, explication: "Ordre des dates du palier " + guill(l.titre) + "." } }); });
+        } else items = melanger(toutes).slice(0, 10);
+        if (!items.length) { montrer(erreurPage("Pas assez de matière pour ce jeu dans tes paliers. Avance encore un peu.", "Jeu indisponible"), "accueil"); return; }
+        var titres = { vraifaux: "Vrai ou faux express", ordre: "Remets dans l’ordre", duel: "Duel" };
+        montrer(quiz(items, { titre: titres[type] || "Jeu", retour: base + "/defis", xp: type === "duel" ? XP.quiz : XP.jeu * 2, parcours: p.id, sansErreurs: type !== "duel", fin: function (res, zone) {
+          if (type !== "duel") { zone.appendChild(lien(base + "/jeu/" + type, "Rejouer", "btn")); zone.appendChild(lien(base + "/defis", "Autres défis")); return; }
+          creerDuel(items, res, zone, p);
+        } }), null, titres[type] || "Jeu");
       });
-      var barres = el("div", { "class": "barres", style: "grid-template-columns:repeat(" + Math.max(plan.length, 1) + ",1fr)", "aria-hidden": "true" });
-      plan.forEach(function (c) { barres.appendChild(el("i", { "class": (etat.chapitres[idIA(s.id, c.numero)] || {}).valide ? "fait" : null })); });
-      var prochainC = plan.filter(function (c) { return !(etat.chapitres[idIA(s.id, c.numero)] || {}).valide; })[0];
-      var tete = el("div", { "class": "tete-livre" });
-      tete.innerHTML = Gothique.lancette(VERRE_NIVEAU[s.niveau] || VERRE_NIVEAU[1]);
-      tete.appendChild(el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: (NIVEAUX[s.niveau] || "Découverte") + " · " + pluriel(plan.length, "chapitre", "chapitres") }), el("h1", { text: s.titre })]));
-      var champ = el("input", { "class": "champ", id: "sous-sujet", type: "search", maxlength: "80", autocomplete: "off", enterkeyhint: "go", placeholder: "Un angle précis, une période, une personne…" });
-      var bouton = el("button", { "class": "btn trait", type: "button", text: "Ouvrir ce sous‑sujet" });
-      var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
-      bouton.addEventListener("click", function () { creerSujet(champ.value, s.id, bouton, alerte); });
-      champ.addEventListener("keydown", function (e) { if (e.key === "Enter") bouton.click(); });
-      var parentHref = s.parent ? "#/sujet/" + encodeURIComponent(s.parent) : "#/explorer";
-      montrer(el("div", { "class": "page" }, [
-        retour(parentHref, s.parent ? "Sujet parent" : "Explorer"),
-        tete,
-        el("div", { style: "display:grid;gap:6px" }, [barres, el("span", { "class": "meta", text: faits + " validé" + (faits > 1 ? "s" : "") + " sur " + plan.length })]),
-        figure(s.image),
-        s.resume ? el("p", { "class": "chapeau", text: s.resume }) : null,
-        el("div", { "class": "bandeau-brouillon", role: "note" }, [icone("parchemin"), el("span", {}, [el("b", { text: "Programme en brouillon" }), (s.ancrage === "wikipedia" ? "Dressé par l’IA à partir de Wikipédia. " : "Dressé par l’IA. ") + "Partagé avec tous les lecteurs ; non vérifié."])]),
-        el("section", { "class": "carte", "aria-labelledby": "plan-titre" }, [el("h2", { id: "plan-titre", text: "Programme" }), table]),
-        prochainC ? lien(hrefIA(s.id, prochainC.numero), (etat.chapitres[idIA(s.id, prochainC.numero)] ? "Reprendre" : "Commencer") + " le chapitre " + romain(prochainC.numero), "btn") : null,
-        el("section", { "class": "carte", "aria-labelledby": "approfondir-titre" }, [
-          el("div", { "class": "titre-sec" }, [el("h2", { id: "approfondir-titre", text: "Approfondir" }), el("span", { "class": "meta", text: s.niveau >= 3 ? "Niveau expert" : "Niveau suivant" + N + ": " + NIVEAUX[Math.min((s.niveau || 1) + 1, 3)] })]),
-          puces(s.approfondir || [], function (t) { champ.value = t; creerSujet(t, s.id, bouton, alerte); }),
-          el("label", { "for": "sous-sujet", "class": "lib", text: "Ou un autre angle" }), champ, bouton, alerte
-        ]),
-        sources(s.sources, true),
-        marge(taquin() ? "malin" : "explique", taquin() ? "Huit chapitres pour commencer. Après, chaque sous‑sujet en ouvre huit autres. Tu vois où je veux en venir." : "Valide les chapitres, puis choisis un sous‑sujet pour aller plus loin.")
-      ]), "explorer", s.titre);
-    }, function (e) {
-      montrer(erreurPage(e.statut === 404 ? "Ce sujet n’existe pas encore. Ouvre‑le depuis l’écran Explorer." : messageErreur(e), "Sujet indisponible"), "explorer");
-    });
+    }, function (e) { montrer(erreurPage(messageErreur(e), "Jeu indisponible"), "accueil"); });
   }
-
-  /* ---------- Chapitre IA (rédigé à la demande, puis partagé) ---------- */
-  function vueChapitreIA(sujet, n, mode, defi) {
-    montrer(attente("Le Rival rédige ce chapitre à partir de Wikipédia… La première fois, compte une demi‑minute.", true), null, "Chapitre");
+  function jeuPaires(p, ls) {
+    var base = "#/p/" + encodeURIComponent(p.id);
+    var defs = melanger([].concat.apply([], ls.map(function (l) { return (l.definitions || []).concat(l.reperes || []); }))).slice(0, 4);
+    if (defs.length < 3) return erreurPage("Pas assez de définitions dans tes paliers pour ce jeu. Avance encore un peu.", "Jeu indisponible");
+    var gauche = melanger(defs), droite = melanger(defs), choix = null, trouves = 0, essais = 0;
+    var zone = el("div", { "class": "paires" });
+    var colG = el("div", { "class": "options" }), colD = el("div", { "class": "options" });
+    var info = el("p", { "class": "meta", role: "status", text: "Touche un terme, puis sa définition." });
+    var fin = el("div", { "class": "pile" });
+    gauche.forEach(function (d) { var b = el("button", { "class": "option", type: "button", "aria-pressed": "false", text: d.terme }); b._d = d; b.addEventListener("click", function () { colG.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-pressed", "false"); }); b.setAttribute("aria-pressed", "true"); choix = b; }); colG.appendChild(b); });
+    droite.forEach(function (d) { var b = el("button", { "class": "option", type: "button", text: d.definition.length > 110 ? d.definition.slice(0, 107) + "…" : d.definition }); b.addEventListener("click", function () {
+      if (!choix) { info.textContent = "Choisis d’abord un terme à gauche."; return; }
+      essais += 1;
+      if (choix._d === d) { choix.classList.add("juste"); b.classList.add("juste"); choix.disabled = true; b.disabled = true; choix.setAttribute("aria-pressed", "false"); choix = null; trouves += 1; info.textContent = "Exact."; }
+      else { b.classList.add("faux"); setTimeout(function () { b.classList.remove("faux"); }, 600); info.textContent = "Pas cette définition."; }
+      if (trouves === defs.length) { var g = Math.max(0, defs.length * 2 * XP.jeu - (essais - defs.length) * XP.jeu); gagner(g, p.id); fin.appendChild(el("p", { "class": "score" }, [el("strong", { text: trouves + "/" + defs.length }), el("span", { "class": "meta gain", text: "+" + g + N + "XP · " + pluriel(essais, "essai", "essais") })])); fin.appendChild(lien(base + "/jeu/paires", "Rejouer", "btn")); fin.appendChild(lien(base + "/defis", "Autres défis")); }
+    }); colD.appendChild(b); });
+    zone.appendChild(colG); zone.appendChild(colD);
+    return el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: base + "/defis", "aria-label": "Quitter" }, [icone("faux")]), el("span"), puceXP()]), el("span", { "class": "sur", text: p.titre }), el("h1", { text: "Associe les notions" }), info, zone, fin]);
+  }
+  function creerDuel(items, res, zone, p) {
+    var info = el("p", { "class": "meta", role: "status", text: "Enregistrement du duel…" });
+    zone.appendChild(info);
     pretCompte().then(function () {
-      return Promise.all([chargerSujet(sujet), api("GET", "chapitre-ia?sujet=" + encodeURIComponent(sujet) + "&n=" + n, null, 90000)]);
-    }).then(function (res) {
-      var s = res[0], ch = res[1].chapitre;
-      ch.brouillon = true;
-      ch.sujetTitre = ch.sujetTitre || s.titre;
-      var apres = (s.plan || []).filter(function (c) { return c.numero === n + 1; })[0];
-      montrer(partie(ch, {
-        revoir: mode === "revoir", defi: defi,
-        retour: { href: "#/sujet/" + encodeURIComponent(sujet), texte: "Programme" },
-        suivant: apres ? { href: hrefIA(sujet, apres.numero), titre: "chapitre " + romain(apres.numero) + " · " + apres.titre } : null
-      }), null, ch.titre);
-    }, function (e) {
-      montrer(erreurPage(e.statut === 404 ? "Ce chapitre n’existe pas." : e.statut === 401 ? "La rédaction d’un nouveau chapitre demande ton compte en ligne. Réessaie dans un moment." : messageErreur(e, "Limite du jour" + N + ": 15 nouveaux chapitres par lecteur. Les chapitres déjà rédigés restent ouverts."), "Chapitre indisponible"), "explorer");
-    });
-  }
-
-  /* ---------- Jouer : question du jour, quiz éclair, duels, classement ---------- */
-  function questionDeJeu(item, k, total) {
-    var q = {}; Object.keys(item.exercice).forEach(function (x) { q[x] = item.exercice[x]; });
-    q._i = item.index; q._chap = item.chapitre; q._titre = item.titre; q._brouillon = /^ia:/.test(item.chapitre);
-    q.lib = "Question " + (k + 1) + " sur " + total + " · " + item.titre + (q._brouillon ? " · brouillon" : "");
-    return q;
-  }
-  function tirage(graine, n) {
-    var alea = hasard(graine);
-    return chargerQuestions().then(function (pool) {
-      var verifiees = melanger(pool, alea).slice(0, n);
-      return pretServeur.then(function () {
-        if (!serveur.base) return verifiees;
-        return api("GET", "melange?n=" + Math.max(1, Math.floor(n / 3)) + "&graine=" + graine).then(function (j) {
-          var ia = (j.questions || []).map(function (x) { return { chapitre: x.chapitre, titre: x.titre, index: x.index, exercice: x.exercice }; });
-          return melanger(verifiees.slice(0, n - ia.length).concat(ia), alea);
-        }, function () { return verifiees; });
-      });
-    });
+      if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+      return api("POST", "duel", { questions: items.map(function (x) { return { chapitre: x.palier, index: x.index }; }), score: { justes: res.justes, n: res.n, points: res.gagne } });
+    }).then(function (j) {
+      var url = location.origin + location.pathname + "#/duel/" + j.id;
+      info.textContent = "Duel prêt. Tes amis auront les mêmes questions.";
+      var b = el("button", { "class": "btn", type: "button" }, [icone("epee"), "Envoyer le duel"]);
+      var r = el("p", { "class": "meta", role: "status" });
+      b.addEventListener("click", function () { partager("Koîos", profil.pseudo + " te lance un duel sur " + guill(p ? p.titre : "Koîos") + F + ": " + res.justes + "/" + res.n + ". À toi.", url, function (t) { r.textContent = t; }); });
+      zone.appendChild(b); zone.appendChild(r); zone.appendChild(lien("#/duel/" + j.id, "Voir le tableau du duel"));
+      if (window.poserIcones) window.poserIcones(zone);
+    }, function (e) { info.textContent = e.statut === 503 ? "Les duels demandent la connexion en ligne. Réessaie dans un moment." : messageErreur(e); });
   }
   function resoudre(refs) {
-    return chargerQuestions().then(function (pool) {
+    return chargerQuestionsVerifiees().catch(function () { return []; }).then(function (pool) {
       return Promise.all(refs.map(function (r) {
-        var trouve = pool.filter(function (x) { return x.chapitre === r.chapitre && x.index === r.index; })[0];
-        if (trouve) return trouve;
-        if (!lireIdIA(r.chapitre)) return null;
-        return api("GET", "chapitre-ia?id=" + encodeURIComponent(r.chapitre)).then(function (j) { var c = j.chapitre; return c && c.exercices[r.index] ? { chapitre: r.chapitre, titre: c.titre, index: r.index, exercice: c.exercices[r.index] } : null; }, function () { return null; });
+        var t = pool.filter(function (x) { return x.palier === r.chapitre && x.index === r.index; })[0];
+        if (t) return t;
+        var m = /^(.+):(\d+)$/.exec(r.chapitre || "");
+        if (m) return chargerPalier(m[1], parseInt(m[2], 10)).then(function (l) { var q = (l.questions || [])[r.index]; return q ? { palier: l.id, titre: l.titre, index: r.index, question: q } : null; }, function () { return null; });
+        var mq = /^(.+):quiz$/.exec(r.chapitre || "");
+        if (mq) return api("POST", "quiz-direct", { parcours: mq[1] }, 100000).then(function (j) { var x = (j.questions || [])[r.index]; return x ? { palier: r.chapitre, titre: x.titre, index: r.index, question: x.question } : null; }, function () { return null; });
+        return null;
       }));
     }).then(function (l) { return l.filter(Boolean); });
   }
-  function jouer(items, opt) {
-    var ch = { id: null, titre: opt.titre, exercices: items.map(function (it, k) { return questionDeJeu(it, k, items.length); }) };
-    montrer(partie(ch, { jeu: true, titreBarre: opt.titre, retour: { href: "#/jouer", texte: "Jouer" }, fin: opt.fin }), null, opt.titre);
-  }
-  function vueJour() {
-    montrer(attente("Le Rival choisit la question du jour…", true), null, "Question du jour");
-    var d = aujourdhui(), graine = parseInt(d.replace(/-/g, ""), 10);
-    if (etat.jours[d]) { location.replace("#/jouer"); return; }
-    etat.jours[d] = "faux"; sauver(); // une seule tentative : la question compte dès qu'elle est ouverte
-    chargerQuestions().then(function (pool) {
-      var simples = pool.filter(function (x) { return x.exercice.type !== "frise"; });
-      var item = simples[Math.floor(hasard(graine)() * simples.length)];
-      jouer([item], { titre: "Question du jour", fin: function (res, zone) {
-        etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
-        zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine question arrive demain." }));
-        zone.appendChild(lien("#/chapitre/" + item.chapitre, "Lire le chapitre d’origine", "btn"));
-        zone.appendChild(lien("#/jeu/eclair", "Enchaîner sur un quiz éclair", "btn trait"));
-      } });
-    }, function () { montrer(erreurPage("Les questions ne se chargent pas. Vérifie ta connexion."), "jouer"); });
-  }
-  function vueEclair(enDuel) {
-    montrer(attente("Le Rival mélange les questions…", true), null, enDuel ? "Duel" : "Quiz éclair");
-    var graine = Math.floor(Math.random() * 2147483647);
-    tirage(graine, 10).then(function (items) {
-      jouer(items, { titre: enDuel ? "Duel" : "Quiz éclair", fin: function (res, zone) {
-        if (!enDuel) {
-          zone.appendChild(lien("#/jeu/eclair", "Rejouer un quiz éclair", "btn"));
-          zone.appendChild(el("a", { "class": "btn trait", href: "#/jeu/duel" }, [icone("epee"), "Lancer un duel"]));
-          return;
-        }
-        if (!enLigne()) { zone.appendChild(el("p", { "class": "alerte", text: "Les duels demandent la base en ligne. Réessaie dans un moment." })); return; }
-        var info = el("p", { "class": "meta", role: "status", text: "Enregistrement du duel…" });
-        zone.appendChild(info);
-        api("POST", "duel", { questions: items.map(function (x) { return { chapitre: x.chapitre, index: x.index }; }), score: { justes: res.justes, n: res.n, points: res.points } }).then(function (j) {
-          var url = location.origin + location.pathname + "#/duel/" + j.id;
-          info.textContent = "Duel prêt. Envoie‑le à un ami" + N + ": il aura les mêmes questions.";
-          var envoyer = el("button", { "class": "btn", type: "button" }, [icone("epee"), "Envoyer le duel"]);
-          var retourInfo = el("p", { "class": "meta", role: "status" });
-          envoyer.addEventListener("click", function () { partager("Koîos", profil.pseudo + " te lance un duel" + F + ": " + res.justes + "/" + res.n + ". Mêmes questions, à toi.", url, function (t) { retourInfo.textContent = t; }); });
-          zone.appendChild(envoyer); zone.appendChild(retourInfo);
-          zone.appendChild(lien("#/duel/" + j.id, "Voir le tableau du duel"));
-          if (window.poserIcones) window.poserIcones(zone);
-        }, function (e) { info.textContent = messageErreur(e); });
-      } });
-    }, function () { montrer(erreurPage("Les questions ne se chargent pas. Vérifie ta connexion."), "jouer"); });
-  }
-  function tableauDuel(duel) {
-    var scores = (duel.scores || []).slice().sort(function (a, b) { return b.justes - a.justes || b.points - a.points; });
-    var ol = el("ol", { "class": "classement" });
-    scores.forEach(function (x, k) {
-      ol.appendChild(el("li", { "class": profil && x.pseudo === profil.pseudo ? "moi" : null }, [el("span", { "class": "rang", text: String(k + 1) }), el("span", { "class": "qui", text: x.pseudo }), el("span", { "class": "meta", text: x.justes + "/" + x.n + " · " + pts(x.points) })]));
+  function tableauDuel(d) {
+    var ol = el("ol", { "class": "liste" });
+    (d.scores || []).slice().sort(function (a, b) { return b.justes - a.justes || b.points - a.points; }).forEach(function (x, k) {
+      ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (profil && x.pseudo === profil.pseudo ? " (toi)" : "") }), el("span", { "class": "meta", text: x.justes + "/" + x.n })])]));
     });
     return ol;
   }
   function vueDuel(id) {
-    montrer(attente("Le Rival ouvre le duel…", true), null, "Duel");
+    montrer(attente("Ouverture du duel…", true), null, "Duel");
     pretCompte().then(function () { return api("GET", "duel?id=" + encodeURIComponent(id)); }).then(function (j) {
-      var duel = j.duel;
-      var dejaJoue = !!duel.dejaJoue;
-      var lancer = el("button", { "class": "btn", type: "button", text: "Relever le duel (" + pluriel((duel.questions || []).length, "question", "questions") + ")" });
+      var d = j.duel;
+      var lancer = el("button", { "class": "btn", type: "button", text: "Relever le duel · " + pluriel((d.questions || []).length, "question", "questions") });
       lancer.addEventListener("click", function () {
         lancer.disabled = true;
-        resoudre(duel.questions || []).then(function (items) {
-          jouer(items, { titre: "Duel", fin: function (res, zone) {
+        resoudre(d.questions || []).then(function (items) {
+          montrer(quiz(items, { titre: "Duel", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
             var info = el("p", { "class": "meta", role: "status", text: "Enregistrement de ton score…" });
             zone.appendChild(info);
-            api("PUT", "duel", { id: duel.id, score: { justes: res.justes, n: res.n, points: res.points } }).then(function () { return api("GET", "duel?id=" + encodeURIComponent(duel.id)); }).then(function (j2) {
-              info.textContent = "";
-              zone.appendChild(el("section", { "class": "carte" }, [el("h2", { text: "Tableau du duel" }), tableauDuel(j2.duel)]));
-              zone.appendChild(lien("#/jouer", "Retour aux jeux", "btn trait"));
-            }, function (e) { info.textContent = messageErreur(e); });
-          } });
+            api("PUT", "duel", { id: d.id, score: { justes: res.justes, n: res.n, points: res.gagne } }).then(function () { return api("GET", "duel?id=" + encodeURIComponent(d.id)); }).then(function (j2) { info.textContent = ""; zone.appendChild(el("h2", { text: "Tableau du duel" })); zone.appendChild(tableauDuel(j2.duel)); zone.appendChild(lien("#/jouer", "Retour aux jeux", "btn second")); }, function (e) { info.textContent = messageErreur(e); });
+          } }), null, "Duel");
         });
       });
-      montrer(el("div", { "class": "page sans-nav" }, [retour("#/jouer", "Jouer"),
-        el("div", { style: "display:grid;gap:4px" }, [el("span", { "class": "lib", text: "Duel" }), el("h1", { text: profil && duel.createur === profil.pseudo ? "Ton duel" : duel.createur + " te lance un duel" })]),
-        marge("malin", taquin() ? "Mêmes questions, même barème. Que le meilleur gagne, et que l’autre révise." : "Mêmes questions pour tous les joueurs du duel."),
-        dejaJoue ? el("p", { "class": "astuce" }, [icone("juste"), el("span", { text: "Tu as déjà joué ce duel." })]) : (enLigne() ? lancer : el("p", { "class": "alerte", text: "Les duels demandent la base en ligne. Réessaie dans un moment." })),
-        el("section", { "class": "carte" }, [el("h2", { text: "Tableau du duel" }), tableauDuel(duel)])
+      montrer(el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/jouer" }, [icone("retour"), "Jouer"]), el("span"), puceXP()]),
+        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Duel" }), el("h1", { text: profil && d.createur === profil.pseudo ? "Ton duel" : d.createur + " te lance un duel" })]),
+        d.dejaJoue ? el("p", { "class": "verrou" }, [icone("juste"), "Tu as déjà joué ce duel."]) : (enLigne() ? lancer : el("p", { "class": "alerte", text: "Les duels demandent la connexion en ligne. Réessaie dans un moment." })),
+        el("h2", { text: "Tableau" }), tableauDuel(d)
       ]), null, "Duel");
     }, function (e) { montrer(erreurPage(e.statut === 404 ? "Ce duel n’existe pas." : messageErreur(e), "Duel indisponible"), "jouer"); });
   }
+
+  /* ---------- Jouer ---------- */
+  function serieJours() { var n = 0, d = new Date(); if (!etat.jours[jour(d)]) d.setDate(d.getDate() - 1); while (etat.jours[jour(d)]) { n += 1; d.setDate(d.getDate() - 1); } return n; }
+  function vueJour() {
+    var d = aujourdhui();
+    if (etat.jours[d]) { location.replace("#/jouer"); return; }
+    montrer(attente("Préparation…", true), null, "Question du jour");
+    chargerQuestionsVerifiees().then(function (pool) {
+      var simples = pool.filter(function (x) { return x.question.type !== "ordre"; });
+      var it = simples[Math.floor(hasard(parseInt(d.replace(/-/g, ""), 10))() * simples.length)];
+      etat.jours[d] = "faux"; sauver();
+      montrer(quiz([it], { titre: "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
+        etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
+        zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine arrive demain." }));
+        zone.appendChild(lien("#/p/" + it.palier.split(":")[0] + "/" + it.palier.split(":")[1], "Lire le palier d’origine", "btn"));
+        zone.appendChild(lien("#/jouer", "Retour aux jeux"));
+      } }), null, "Question du jour");
+    }, function () { montrer(erreurPage("Les questions ne se chargent pas.", "Indisponible"), "jouer"); });
+  }
+  function vueMelange() {
+    montrer(attente("Mélange des questions…", true), null, "Quiz mélangé");
+    chargerQuestionsVerifiees().then(function (pool) {
+      var miens = Object.keys(etat.parcours).filter(function (id) { return !verifie(id) && suivi(id).fait > 0; }).slice(0, 4);
+      return Promise.all(miens.map(function (id) { return paliersEntre({ id: id }, 1, Math.min(suivi(id).fait, 10)).then(function (ls) { return melanger([].concat.apply([], ls.map(questionsDe))).slice(0, 3); }); })).then(function (lots) {
+        return melanger(melanger(pool).slice(0, 10 - Math.min(5, [].concat.apply([], lots).length)).concat([].concat.apply([], lots).slice(0, 5)));
+      });
+    }).then(function (items) {
+      montrer(quiz(items.slice(0, 10), { titre: "Quiz mélangé", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
+        zone.appendChild(lien("#/jeu/melange", "Rejouer", "btn"));
+        var b = el("button", { "class": "btn second", type: "button", text: "Défier un ami avec ces questions" });
+        b.addEventListener("click", function () { b.remove(); creerDuel(items.slice(0, 10), res, zone, null); });
+        zone.appendChild(b);
+      } }), null, "Quiz mélangé");
+    }, function () { montrer(erreurPage("Les questions ne se chargent pas.", "Indisponible"), "jouer"); });
+  }
+  function vueErreurs() {
+    if (!etat.erreurs.length) { location.replace("#/profil"); return; }
+    montrer(attente("Préparation…", true), null, "Mes erreurs");
+    resoudre(etat.erreurs.slice(-10).map(function (e) { return { chapitre: e.palier, index: e.index }; })).then(function (items) {
+      montrer(quiz(items, { titre: "Revoir mes erreurs", retour: "#/profil", xp: XP.quiz, erreurs: true, fin: function (res, zone) { sauver(); zone.appendChild(lien("#/profil", "Retour au profil", "btn second")); } }), null, "Mes erreurs");
+    });
+  }
   function vueJouer() {
-    var classement = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Le Rival consulte le registre…" })]);
-    var mesDuels = el("div", { "class": "pile" });
+    var classement = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Chargement…" })]);
+    var duels = el("div", { "class": "pile serree" });
     var info = el("p", { "class": "meta", role: "status" });
-    var inviter = el("button", { "class": "lien", type: "button" }, [icone("cercle"), "Inviter un ami dans Koîos"]);
-    inviter.addEventListener("click", function () { partager("Koîos", "Un puits de science avec un Rival qui corrige en marge. Viens me défier.", location.origin + "/", function (t) { info.textContent = t; }); });
-    montrer(el("div", { "class": "page" }, [entete(),
-      el("h1", { text: "Jouer" }),
-      carteJour(),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "Quiz éclair" }), el("span", { "class": "meta", text: "10 questions" })]),
-        el("p", { "class": "chapeau-petit", text: "Tout dans un seul bol" + N + ": questions mélangées de tous les chapitres, vérifiés et explorés." }), lien("#/jeu/eclair", "Lancer un quiz éclair", "btn")]),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "Duel entre amis" }), el("span", { "class": "meta", text: "Mêmes questions" })]),
-        el("p", { "class": "chapeau-petit", text: "Joue dix questions, puis envoie le duel" + N + ": tes amis répondent aux mêmes, le tableau les départage." }), lien("#/jeu/duel", "Lancer un duel", "btn trait"), mesDuels]),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "Classement du cercle" }), el("span", { "class": "meta", text: "Points cumulés" })]), classement, inviter, info])
+    var inviter = el("button", { "class": "lien", type: "button", text: "Inviter un ami dans Koîos" });
+    inviter.addEventListener("click", function () { partager("Koîos", "Apprends n’importe quel sujet, palier par palier, et défie‑moi.", location.origin + "/", function (t) { info.textContent = t; }); });
+    var jourFait = etat.jours[aujourdhui()];
+    montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Jouer" }),
+      el("ul", { "class": "liste" }, [
+        el("li", {}, [el(jourFait ? "div" : "a", { "class": "rangee", href: jourFait ? null : "#/jeu/jour" }, [el("span", { "class": "vignette" }, [icone("ampoule")]), el("span", {}, [el("b", { text: "Question du jour" }), el("span", { "class": "meta", text: jourFait ? (jourFait === "juste" ? "Réussie. Reviens demain." : "Manquée. Reviens demain.") : "La même pour tous" + (serieJours() ? " · série de " + pluriel(serieJours(), "jour", "jours") : "") })]), jourFait ? icone("juste") : icone("fleche")])]),
+        el("li", {}, [el("a", { "class": "rangee", href: "#/jeu/melange" }, [el("span", { "class": "vignette" }, [icone("liste")]), el("span", {}, [el("b", { text: "Quiz mélangé" }), el("span", { "class": "meta", text: "10 questions, tous sujets confondus" })]), icone("fleche")])])
+      ]),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Duels" }), el("p", { "class": "meta", text: "Lance un duel depuis l’onglet Défis d’un sujet, ou depuis le quiz mélangé." }), duels]),
+      el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement, inviter, info])
     ]), "jouer", "Jouer");
     pretServeur.then(function () {
-      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que la base en ligne répond." })); return; }
+      if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); return; }
       api("GET", "cercle").then(function (j) {
         classement.innerHTML = "";
-        var ol = el("ol", { "class": "classement" });
-        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", { "class": profil && x.pseudo === profil.pseudo ? "moi" : null }, [el("span", { "class": "rang", text: String(k + 1) }), el("span", { "class": "qui", text: x.pseudo }), el("span", { "class": "meta", text: x.points + " pts · " + pluriel(x.valides, "chapitre", "chapitres") })])); });
-        classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Personne n’a encore validé de chapitre." }));
+        var ol = el("ol", { "class": "liste" });
+        (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee", style: "grid-template-columns:28px 1fr auto;min-height:52px" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (profil && x.pseudo === profil.pseudo ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
+        classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Personne n’a encore d’XP." }));
       }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); });
       if (enLigne()) api("GET", "duels").then(function (j) {
-        var l = j.duels || [];
-        if (!l.length) return;
-        var ul = el("ul", { "class": "lignes" });
-        l.slice(0, 5).forEach(function (d) { var moi = (d.scores || []).filter(function (x) { return x.pseudo === profil.pseudo; })[0]; ul.appendChild(el("li", {}, [icone("epee"), el("span", {}, [el("b", { text: "Duel de " + d.createur }), el("br"), el("span", { "class": "meta", text: pluriel((d.scores || []).length, "joueur", "joueurs") + (moi ? " · toi" + N + ": " + moi.justes + "/" + moi.n : "") })]), lien("#/duel/" + d.id, "Voir")])); });
-        mesDuels.appendChild(el("span", { "class": "lib", text: "Tes duels" }));
-        mesDuels.appendChild(ul);
-        if (window.poserIcones) window.poserIcones(mesDuels);
+        var ul = el("ul", { "class": "liste" });
+        (j.duels || []).slice(0, 6).forEach(function (d) { ul.appendChild(el("li", {}, [el("a", { "class": "rangee", href: "#/duel/" + d.id, style: "grid-template-columns:1fr auto;min-height:56px" }, [el("span", {}, [el("b", { text: "Duel de " + d.createur }), el("span", { "class": "meta", text: pluriel((d.scores || []).length, "joueur", "joueurs") })]), icone("fleche")])])); });
+        if ((j.duels || []).length) { duels.appendChild(ul); if (window.poserIcones) window.poserIcones(duels); }
       }, function () {});
     });
   }
 
-  /* ---------- Révisions ---------- */
-  function vueRevisions() {
-    var items = aReviser();
-    var contenu;
-    if (items.length) { contenu = el("ul", { "class": "lignes" }); items.forEach(function (it) { contenu.appendChild(ligneRevision(it)); }); }
-    else contenu = el("p", { "class": "meta", text: "Rien à réviser pour l’instant. Tes erreurs arrivent ici après chaque bilan." });
-    montrer(el("div", { "class": "page" }, [entete(),
-      el("h1", { text: "Révisions" }),
-      marge(taquin() ? "malin" : "explique", taquin() ? (items.length ? "Tes erreurs, rangées par chapitre. Je les garde au chaud." : "Aucune erreur en réserve. Pour l’instant.") : "Chaque erreur d’un bilan arrive ici, avec la fiche surlignée."),
-      el("section", { "class": "carte" }, [el("div", { "class": "titre-sec" }, [el("h2", { text: "À revoir" }), el("span", { "class": "meta", text: pluriel(items.length, "point", "points") })]), contenu]),
-      el("section", { "class": "carte" }, [el("h2", { text: "S’entraîner" }), el("p", { "class": "chapeau-petit", text: "Un quiz éclair mélange des questions de tous les chapitres." }), lien("#/jeu/eclair", "Lancer un quiz éclair", "btn trait")])
-    ]), "revisions", "Révisions");
-  }
-
   /* ---------- Profil ---------- */
   function vueProfil() {
+    var n = niveau(etat.xp || 0);
+    var paliers = Object.keys(etat.parcours).reduce(function (s, id) { return s + (etat.parcours[id].fait || 0); }, 0);
+    var sujets = Object.keys(etat.parcours).filter(function (id) { return etat.parcours[id].fait > 0; }).length;
     var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", value: profil.pseudo });
-    champ.addEventListener("change", function () {
-      var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24);
-      if (!p) { champ.value = profil.pseudo; return; }
-      profil.pseudo = p; S.ecrire("koios.profil", profil); pousser(); toast("Nom de lecteur enregistré.");
-    });
-    var choix = choixTon(profil.ton || "taquin", function (t) { profil.ton = t; S.ecrire("koios.profil", profil); pousser(); });
-    var sync = el("p", { "class": "etat-sync" });
-    var cleZone = el("div", { "class": "pile" });
+    champ.addEventListener("change", function () { var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24); if (!p) { champ.value = profil.pseudo; return; } profil.pseudo = p; S.ecrire("koios.profil", profil); pousser(); toast("Nom enregistré."); });
+    var sync = el("p", { "class": "meta" }), cleZone = el("div", { "class": "pile" });
     function majSync() {
-      sync.innerHTML = "";
       var ok = enLigne();
-      sync.className = "etat-sync" + (ok ? "" : " hors");
-      sync.appendChild(icone(ok ? "verifie" : "signet"));
-      sync.appendChild(el("span", { text: ok ? "Progression enregistrée en ligne." : "Progression enregistrée sur cet appareil seulement, pour l’instant." }));
+      sync.textContent = ok ? "Progression enregistrée en ligne." : "Progression enregistrée sur cet appareil.";
       cleZone.innerHTML = "";
       if (ok) {
-        var montre = el("button", { "class": "btn trait", type: "button", text: "Afficher ma clé de lecteur" });
-        montre.addEventListener("click", function () {
-          var cle = profil.id + "." + profil.cle;
-          var copier = el("button", { "class": "lien", type: "button", text: "Copier la clé" });
-          copier.addEventListener("click", function () { try { navigator.clipboard.writeText(cle).then(function () { toast("Clé copiée. Garde‑la pour toi."); }, function () { toast("Sélectionne la clé pour la copier."); }); } catch (e) { toast("Sélectionne la clé pour la copier."); } });
-          montre.replaceWith(el("div", { "class": "pile" }, [el("p", { "class": "cle-lecteur", text: cle }), copier, el("p", { "class": "meta", text: "Cette clé ouvre ta progression. Ne la partage pas." })]));
-        });
+        var montre = el("button", { "class": "btn second", type: "button", text: "Afficher ma clé de connexion" });
+        montre.addEventListener("click", function () { var c = profil.id + "." + profil.cle; montre.replaceWith(el("div", { "class": "pile serree" }, [el("p", { "class": "cle-lecteur", text: c }), el("p", { "class": "meta", text: "Cette clé ouvre ta progression sur un autre appareil. Garde‑la pour toi." })])); });
         cleZone.appendChild(montre);
       }
-      var saisie = el("input", { "class": "champ", type: "text", autocomplete: "off", placeholder: "Colle ici une clé de lecteur", "aria-label": "Clé de lecteur existante" });
-      var retrouver = el("button", { "class": "btn trait", type: "button", text: "Retrouver ma progression" });
-      var alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
-      retrouver.addEventListener("click", function () {
-        var c = saisie.value.trim();
-        if (!/^[a-z0-9]+\.[A-Za-z0-9]+$/.test(c)) { alerte.textContent = "Cette clé n’a pas le bon format."; alerte.hidden = false; return; }
-        retrouver.disabled = true;
-        api("GET", "progression", null, 8000, c).then(function (j) {
-          var parts = c.split(".");
-          profil.id = parts[0]; profil.cle = parts[1];
-          if (j.pseudo) profil.pseudo = j.pseudo;
-          if (j.ton) profil.ton = j.ton;
-          S.ecrire("koios.profil", profil);
-          etat = fusion(etat, j.etat || {});
-          sauver();
-          toast("Progression retrouvée.");
-          vueProfil();
-        }, function (e) { retrouver.disabled = false; alerte.textContent = e.statut === 401 ? "Clé inconnue." : "Impossible pour l’instant. Réessaie plus tard."; alerte.hidden = false; });
-      });
-      if (serveur.base) cleZone.appendChild(el("details", { "class": "sources" }, [el("summary", {}, [icone("signet"), "J’ai déjà une clé de lecteur"]), el("div", { "class": "pile", style: "padding-top:8px" }, [saisie, retrouver, alerte])]));
-      if (window.poserIcones) window.poserIcones(cleZone);
+      if (serveur.base) {
+        var saisie = el("input", { "class": "champ", type: "text", autocomplete: "off", placeholder: "Colle ici ta clé", "aria-label": "Clé de connexion" });
+        var bout = el("button", { "class": "btn second", type: "button", text: "Retrouver ma progression" });
+        var al = el("p", { "class": "alerte", hidden: "", role: "status" });
+        bout.addEventListener("click", function () {
+          var c = saisie.value.trim();
+          if (!/^[a-z0-9]+\.[A-Za-z0-9]+$/.test(c)) { al.textContent = "Cette clé n’a pas le bon format."; al.hidden = false; return; }
+          api("GET", "progression", null, 8000, c).then(function (j) { var x = c.split("."); profil.id = x[0]; profil.cle = x[1]; if (j.pseudo) profil.pseudo = j.pseudo; S.ecrire("koios.profil", profil); etat = fusion(etat, j.etat); sauver(); toast("Progression retrouvée."); vueProfil(); }, function (e) { al.textContent = e.statut === 401 ? "Clé inconnue." : "Impossible pour l’instant."; al.hidden = false; });
+        });
+        cleZone.appendChild(el("details", { "class": "plier" }, [el("summary", { text: "J’ai déjà une clé" }), el("div", { "class": "pile" }, [saisie, bout, al])]));
+      }
     }
-    var vitrail = el("div", { "class": "vitrail", html: Gothique.baie(petales(null), lobes(), etiquetteRosace()) });
     montrer(el("div", { "class": "page" }, [entete(),
-      el("div", { style: "display:grid;gap:2px" }, [el("span", { "class": "lib", text: "Lecteur" }), el("h1", { text: profil.pseudo })]),
-      vitrail,
-      el("div", { "class": "chiffres" }, [
-        el("div", {}, [el("span", { "class": "lib", text: "Vitraux" }), el("strong", { text: totalValides() + "/" + totalChapitres() }), el("span", { "class": "meta", text: "chapitres vérifiés validés" })]),
-        el("div", {}, [el("span", { "class": "lib", text: "Explorations" }), el("strong", { text: String(explorations()) }), el("span", { "class": "meta", text: "chapitres explorés validés" })]),
-        el("div", {}, [el("span", { "class": "lib", text: "Points" }), el("strong", { text: String(totalPoints()) }), el("span", { "class": "meta", text: "meilleurs scores cumulés" })]),
-        el("div", {}, [el("span", { "class": "lib", text: "Série" }), el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: (serieJours() > 1 ? "jours" : "jour") + " de question du jour d’affilée" })])
-      ]),
-      el("section", { "class": "carte" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "lib", text: "Nom de lecteur" }), champ, el("span", { "class": "lib", text: "Le ton du Rival" }), choix]),
-      el("section", { "class": "carte" }, [el("h2", { text: "Ta progression" }), sync, cleZone]),
-      el("p", { "class": "credit", text: "Koîos v1.1 · bibliothèque vérifiée par au moins deux sources · explorations rédigées par l’IA à partir de Wikipédia · icônes Phosphor (licence MIT)" })
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Profil" }), el("h1", { text: profil.pseudo })]),
+      el("div", { "class": "carte" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Niveau " + n.niveau }), el("span", { "class": "meta gain", text: (etat.xp || 0) + N + "XP" })]), el("div", { "class": "progres" }, [el("i", { style: "width:" + Math.round(((etat.xp || 0) - n.base) / (n.suivant - n.base) * 100) + "%" })]), el("span", { "class": "meta", text: (n.suivant - (etat.xp || 0)) + N + "XP avant le niveau " + (n.niveau + 1) })]),
+      el("div", { "class": "chiffres-profil" }, [el("div", {}, [el("span", { "class": "meta", text: "Paliers" }), el("strong", { text: String(paliers) })]), el("div", {}, [el("span", { "class": "meta", text: "Sujets" }), el("strong", { text: String(sujets) })]), el("div", {}, [el("span", { "class": "meta", text: "Série" }), el("strong", { text: String(serieJours()) })]), el("div", {}, [el("span", { "class": "meta", text: "Erreurs à revoir" }), el("strong", { text: String(etat.erreurs.length) })])]),
+      etat.erreurs.length ? lien("#/jeu/erreurs", "Revoir mes erreurs", "btn") : null,
+      el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
+      el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Pexels, Unsplash et Wikimédia · icônes Phosphor (MIT)" })
     ]), "profil", "Profil");
-    majSync();
-    pretServeur.then(majSync);
+    majSync(); pretServeur.then(majSync);
   }
 
   /* ---------- Routeur ---------- */
   function route() {
-    var h = location.hash.replace(/^#\/?/, "");
-    var p = h.split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
+    var p = location.hash.replace(/^#\/?/, "").split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
     if (!profil) { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }
-    chargerCatalogue().then(function () {
-      switch (p[0]) {
-        case "": case "accueil": return vueBibliotheque();
-        case "livre": return vueLivre(p[1]);
-        case "chapitre": return vueChapitre(p[1], p[2]);
-        case "defi": return vueDefi(p);
-        case "explorer": return vueExplorer();
-        case "sujet": return vueSujet(p.slice(1).join("/"));
-        case "ia": return vueChapitreIA(p[1], parseInt(p[2], 10) || 1, p[3]);
-        case "jouer": case "cercle": return vueJouer();
-        case "jeu": return p[1] === "jour" ? vueJour() : vueEclair(p[1] === "duel");
-        case "duel": return vueDuel(p[1]);
-        case "revisions": return vueRevisions();
-        case "profil": return vueProfil();
-        default: location.hash = "#/";
-      }
-    }, function () { montrer(erreurPage("Le catalogue ne se charge pas. Vérifie ta connexion, puis recharge la page."), null); });
+    switch (p[0]) {
+      case "": case "accueil": return vueMaison();
+      case "p":
+        if (!p[1]) return vueMaison();
+        if (!p[2] || p[2] === "quiz" && !p[3] || p[2] === "defis") return vueParcours(p[1], p[2] === "defis" ? "defis" : p[2] === "quiz" ? "quiz" : null);
+        if (p[2] === "quiz" || p[2] === "defi") return vueQuiz(p[1], p[3]);
+        if (p[2] === "jeu") return vueJeu(p[1], p[3]);
+        return vuePalier(p[1], Math.max(1, parseInt(p[2], 10) || 1));
+      case "jeu": return p[1] === "jour" ? vueJour() : p[1] === "erreurs" ? vueErreurs() : vueMelange();
+      case "duel": return vueDuel(p[1]);
+      case "jouer": return vueJouer();
+      case "profil": return vueProfil();
+      default: location.hash = "#/";
+    }
   }
   window.addEventListener("hashchange", route);
   route();
-  pretServeur.then(function () { return synchroniser(); }).then(function () {
-    var h = location.hash.replace(/^#\/?/, "");
-    if (profil && (h === "" || h === "profil")) route();
-  });
+  pretServeur.then(synchroniser).then(function () { var h = location.hash.replace(/^#\/?/, ""); if (profil && (h === "" || h === "profil")) route(); });
 })();

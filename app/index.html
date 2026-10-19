@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#4a3220">
-<meta name="description" content="Koîos, un puits de science : n’importe quel sujet, des chapitres, des jeux et un Rival qui corrige en marge.">
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="Koîos : apprends n’importe quel sujet, palier par palier, avec des quiz et des duels entre amis.">
 <title>Koîos</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icone.svg" type="image/svg+xml">
@@ -14,25 +14,21 @@
 <meta name="apple-mobile-web-app-title" content="Koîos">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div id="app"><p class="page attente">Ouverture de la bibliothèque…</p></div>
+<div id="app"><p class="page attente">Chargement…</p></div>
 <div class="nav" id="nav" hidden>
   <nav aria-label="Navigation principale">
-    <a href="#/" data-onglet="bibliotheque"><span data-ico="livres" data-cls="i"></span>Bibliothèque</a>
-    <a href="#/explorer" data-onglet="explorer"><span data-ico="globe" data-cls="i"></span>Explorer</a>
+    <a href="#/" data-onglet="accueil"><span data-ico="livre" data-cls="i"></span>Apprendre</a>
     <a href="#/jouer" data-onglet="jouer"><span data-ico="trophee" data-cls="i"></span>Jouer</a>
-    <a href="#/revisions" data-onglet="revisions"><span data-ico="revision" data-cls="i"></span>Révisions</a>
     <a href="#/profil" data-onglet="profil"><span data-ico="profil" data-cls="i"></span>Profil</a>
   </nav>
 </div>
 <div class="toast" id="toast" role="status" hidden></div>
 <noscript><p class="page">Koîos a besoin de JavaScript pour fonctionner.</p></noscript>
 <script src="icones.js"></script>
-<script src="rival.js"></script>
-<script src="gothique.js"></script>
 <script src="visuels.js"></script>
 <script>if (window.poserIcones) poserIcones(document.getElementById("nav"));</script>
 <script src="app.js"></script>
