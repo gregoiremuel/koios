@@ -13,7 +13,7 @@
   var DOM = {};
   DOMAINES.forEach(function (d) { DOM[d.code] = d; });
   var NIVEAUX = { 1: "Découverte", 2: "Approfondissement", 3: "Expert" };
-  var VERRE_NIVEAU = { 1: "#4f8f6c", 2: "#4a7fb3", 3: "#b0414f" };
+  var VERRE_NIVEAU = { 1: "#cfa645", 2: "#cfa645", 3: "#cfa645" }; // brouillons : or, jamais les couleurs des domaines vérifiés
   var SUGGESTIONS = ["La Grèce antique", "L’Islande", "La Vendée", "La Bretagne", "Le Mexique", "Le Texas", "Les fonds marins", "La montagne", "La philosophie", "La littérature française", "Le cinéma", "La musique classique", "L’Autriche", "Les grandes découvertes"];
   var BAREME = { 50: [6, -1], 70: [8, -4], 90: [9, -8], 100: [10, -20] };
 
@@ -104,6 +104,7 @@
     try { navigator.clipboard.writeText(url).then(function () { repli("Lien copié" + N + ": colle‑le dans WhatsApp ou un message."); }, echec); } catch (e) { echec(); }
   }
   function enLigne() { return serveur.base && profil && profil.id; }
+  function pretCompte() { return pretServeur.then(function () { return creerJoueur(); }); }
 
   /* ---------- Réseau ---------- */
   function api(methode, chemin, corps, delai, cle) {
@@ -132,7 +133,20 @@
   function pousser() {
     if (!enLigne()) return;
     clearTimeout(minuterieSync);
-    minuterieSync = setTimeout(function () { api("PUT", "progression", { pseudo: profil.pseudo, ton: profil.ton, etat: etat }).catch(function () {}); }, 700);
+    minuterieSync = setTimeout(function () {
+      api("PUT", "progression", { pseudo: profil.pseudo, ton: profil.ton, etat: compacter(etat) }).catch(function (e) {
+        if (e.statut === 413 && !pousser.prevenu) { pousser.prevenu = true; toast("Synchronisation en ligne impossible" + N + ": progression trop volumineuse. Elle reste sur cet appareil."); }
+      });
+    }, 700);
+  }
+  function compacter(e) { // les brouillons IA sans erreur à revoir n'ont pas besoin de leur titre en ligne
+    var c = { version: e.version, enCours: e.enCours, maj: e.maj, jours: e.jours, chapitres: {} };
+    Object.keys(e.chapitres).forEach(function (k) {
+      var x = e.chapitres[k];
+      if (/^ia:/.test(k) && !(x.rates || []).length) c.chapitres[k] = { valide: x.valide, meilleur: x.meilleur, n: x.n, points: x.points, rates: [], date: x.date };
+      else c.chapitres[k] = x;
+    });
+    return c;
   }
   function fusion(a, b) {
     var r = { version: 1, chapitres: {}, jours: {}, enCours: (b.maj || 0) > (a.maj || 0) ? b.enCours : a.enCours, maj: Math.max(a.maj || 0, b.maj || 0) };
@@ -228,18 +242,27 @@
     return cacheSujets[id];
   }
   function idIA(sujet, n) { return "ia:" + sujet + ":" + n; }
+  function normaliser(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, " ").replace(/^(l |la |le |les )/, "").replace(/\s+/g, " ").trim(); }
   function lireIdIA(id) { var m = /^ia:(.+):(\d+)$/.exec(id || ""); return m ? { sujet: m[1], n: parseInt(m[2], 10) } : null; }
   function hrefIA(sujet, n) { return "#/ia/" + encodeURIComponent(sujet) + "/" + n; }
   function creerSujet(titre, parent, bouton, alerte) {
     titre = String(titre || "").trim();
     alerte.hidden = true;
     if (titre.length < 2) { alerte.textContent = "Écris d’abord un sujet, par exemple " + guill("la Vendée") + "."; alerte.hidden = false; return; }
-    if (!enLigne()) { alerte.textContent = "L’exploration demande la connexion à la base en ligne. Réessaie dans un moment."; alerte.hidden = false; return; }
+    if (!parent) {
+      var cle = normaliser(titre);
+      var v = sujetsVerifies().filter(function (s) { return normaliser(s.titre) === cle; })[0];
+      var d = DOMAINES.filter(function (x) { return normaliser(x.nom) === cle && chapitres(x.code).length; })[0];
+      if (v || d) { location.hash = "#/livre/" + (v ? v.dom.code : d.code); return; }
+    }
     var texte = bouton ? bouton.textContent : "";
     if (bouton) { bouton.disabled = true; bouton.textContent = "Le Rival dresse le programme…"; }
     var corps = { titre: titre };
     if (parent) corps.parent = parent;
-    api("POST", "sujet", corps, 90000).then(function (j) {
+    pretCompte().then(function () {
+      if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
+      return api("POST", "sujet", corps, 90000);
+    }).then(function (j) {
       cacheSujets[j.sujet.id] = Promise.resolve(j.sujet);
       location.hash = "#/sujet/" + encodeURIComponent(j.sujet.id);
     }, function (e) {
@@ -587,7 +610,7 @@
       var go = el("button", { "class": "btn", type: "button", id: "commencer", text: revision ? "Rejouer " + (n > 1 ? "les " + n + " exercices manqués" : "l’exercice manqué") : "Passer aux " + pluriel(n, "exercice", "exercices") });
       go.addEventListener("click", function () { etape = 1; afficher(); });
       var lib = brouillon ? "Brouillon · " + (ch.sujetTitre ? ch.sujetTitre + " · " : "") + (ch.numero ? "chapitre " + romain(ch.numero) : "non vérifié") : revision ? "Révision · chapitre " + romain(ch.numero) : dom.nom + (ch.sujet ? " · " + ch.sujet : "") + " · chapitre " + romain(ch.numero);
-      var mot = brouillon ? (taquin() ? "Rédigé à partir de Wikipédia, sans vérification. Méfie‑toi de moi plus que d’habitude." : "Brouillon non vérifié" + N + ": garde un œil critique.")
+      var mot = brouillon ? (taquin() ? (ch.ancrage === "wikipedia" ? "Rédigé à partir de Wikipédia, sans vérification." : "Rédigé sans source de départ.") + " Méfie‑toi de moi plus que d’habitude." : "Brouillon non vérifié" + N + ": garde un œil critique.")
         : revision ? (taquin() ? "J’ai surligné ce qui t’a échappé. Relis, puis on reprend." : "Les repères à revoir sont surlignés.")
         : (taquin() ? pluriel((ch.reperes || []).length, "repère", "repères") + ", et je te les demanderai. Prends ton temps." : "Lis la fiche, puis passe aux exercices.");
       var blocs = [];
@@ -915,7 +938,7 @@
   /* ---------- Chapitre IA (rédigé à la demande, puis partagé) ---------- */
   function vueChapitreIA(sujet, n, mode, defi) {
     montrer(attente("Le Rival rédige ce chapitre à partir de Wikipédia… La première fois, compte une demi‑minute.", true), null, "Chapitre");
-    pretServeur.then(function () {
+    pretCompte().then(function () {
       return Promise.all([chargerSujet(sujet), api("GET", "chapitre-ia?sujet=" + encodeURIComponent(sujet) + "&n=" + n, null, 90000)]);
     }).then(function (res) {
       var s = res[0], ch = res[1].chapitre;
@@ -969,11 +992,13 @@
   function vueJour() {
     montrer(attente("Le Rival choisit la question du jour…", true), null, "Question du jour");
     var d = aujourdhui(), graine = parseInt(d.replace(/-/g, ""), 10);
+    if (etat.jours[d]) { location.replace("#/jouer"); return; }
+    etat.jours[d] = "faux"; sauver(); // une seule tentative : la question compte dès qu'elle est ouverte
     chargerQuestions().then(function (pool) {
       var simples = pool.filter(function (x) { return x.exercice.type !== "frise"; });
       var item = simples[Math.floor(hasard(graine)() * simples.length)];
       jouer([item], { titre: "Question du jour", fin: function (res, zone) {
-        if (!etat.jours[d]) { etat.jours[d] = res.justes ? "juste" : "faux"; sauver(); }
+        etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
         zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine question arrive demain." }));
         zone.appendChild(lien("#/chapitre/" + item.chapitre, "Lire le chapitre d’origine", "btn"));
         zone.appendChild(lien("#/jeu/eclair", "Enchaîner sur un quiz éclair", "btn trait"));
@@ -1016,9 +1041,9 @@
   }
   function vueDuel(id) {
     montrer(attente("Le Rival ouvre le duel…", true), null, "Duel");
-    pretServeur.then(function () { return api("GET", "duel?id=" + encodeURIComponent(id)); }).then(function (j) {
+    pretCompte().then(function () { return api("GET", "duel?id=" + encodeURIComponent(id)); }).then(function (j) {
       var duel = j.duel;
-      var dejaJoue = (duel.scores || []).some(function (x) { return profil && x.pseudo === profil.pseudo; });
+      var dejaJoue = !!duel.dejaJoue;
       var lancer = el("button", { "class": "btn", type: "button", text: "Relever le duel (" + pluriel((duel.questions || []).length, "question", "questions") + ")" });
       lancer.addEventListener("click", function () {
         lancer.disabled = true;
@@ -1149,7 +1174,7 @@
         el("div", {}, [el("span", { "class": "lib", text: "Vitraux" }), el("strong", { text: totalValides() + "/" + totalChapitres() }), el("span", { "class": "meta", text: "chapitres vérifiés validés" })]),
         el("div", {}, [el("span", { "class": "lib", text: "Explorations" }), el("strong", { text: String(explorations()) }), el("span", { "class": "meta", text: "chapitres explorés validés" })]),
         el("div", {}, [el("span", { "class": "lib", text: "Points" }), el("strong", { text: String(totalPoints()) }), el("span", { "class": "meta", text: "meilleurs scores cumulés" })]),
-        el("div", {}, [el("span", { "class": "lib", text: "Série" }), el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: "jours de question du jour" })])
+        el("div", {}, [el("span", { "class": "lib", text: "Série" }), el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: (serieJours() > 1 ? "jours" : "jour") + " de question du jour d’affilée" })])
       ]),
       el("section", { "class": "carte" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "lib", text: "Nom de lecteur" }), champ, el("span", { "class": "lib", text: "Le ton du Rival" }), choix]),
       el("section", { "class": "carte" }, [el("h2", { text: "Ta progression" }), sync, cleZone]),

@@ -9,7 +9,7 @@
   "En 1843, Edward Forbes situait le zéro de la vie animale vers 300 brasses (environ 550 m) ; les dragages de Wyville Thomson, puis l’expédition du Challenger (1872–1876), ont mis fin à cette idée.",
   "Découvertes en 1977 près des îles Galápagos, les sources hydrothermales tirent leur énergie non du soleil mais de la chimiosynthèse : des bactéries oxydent le sulfure d’hydrogène du fluide chaud et nourrissent toute la communauté.",
   "Le ver géant Riftia pachyptila, long d’environ 1,80 m, n’a ni bouche ni appareil digestif : des bactéries logées dans son trophosome le nourrissent.",
-  "Dans le noir, la lumière vient des animaux eux-mêmes : 76 % des individus observés, de la surface à 3 900 m, savent produire de la lumière.",
+  "Dans le noir, la lumière vient des animaux eux-mêmes : lors d’une vaste campagne d’observation au large de la Californie, 76 % des animaux observés, de la surface à 3 900 m, produisaient de la lumière.",
   "Chez la baudroie abyssale, un leurre lumineux, au bout d’une sorte de canne à pêche, attire les proies ; chez trois familles, les mâles, bien plus petits, vivent en parasites soudés à leur partenaire."
  ],
  "reperes": [
@@ -27,7 +27,7 @@
   ],
   [
    "76 %",
-   "Part des individus observés capables de produire de la lumière, de la surface à 3 900 m."
+   "Part des animaux capables de produire de la lumière dans une campagne d’observation au large de la Californie, de la surface à 3 900 m."
   ],
   [
    "Baudroie abyssale",
@@ -327,7 +327,9 @@
   "source": [
    "NOAA Ocean Exploration · Life in the Sea",
    "https://oceanexplorer.noaa.gov/history/quotes-life/"
-  ]
+  ],
+  "langue": "en",
+  "traduction": "Zéro de la vie animale, probablement vers 300 brasses."
  },
  "saviezVous": "Le fluide des sources hydrothermales peut atteindre 350 à 400 °C sans bouillir : la pression des grands fonds l’en empêche."
 }

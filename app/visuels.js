@@ -44,7 +44,14 @@
     return k < 0 ? [t] : [t.slice(0, k), t.slice(k + 1)];
   }
 
-  /* notions : { noeuds: [..], liens: [[a, b, relation]] } ; graphe rayonnant autour de la notion la plus reliée. */
+  /* notions : { noeuds: [..], liens: [[a, b, relation]] } ; graphe rayonnant autour de la notion la plus reliée.
+     Le dessin montre les liens ; la liste dessous nomme chaque relation. Si des nœuds se chevauchent, seule la liste reste. */
+  function liste(liens) {
+    var ul = el("ul", { "class": "liste-notions" });
+    liens.forEach(function (l) { ul.appendChild(el("li", {}, [el("b", { text: l[0] }), " ", el("em", { text: "— " + l[2] + " —" }), " ", el("b", { text: l[1] })])); });
+    return ul;
+  }
+  function chevauche(a, b, marge) { marge = marge || 0; return a.x - marge < b.x + b.w && b.x - marge < a.x + a.w && a.y - marge < b.y + b.h && b.y - marge < a.y + a.h; }
   function reseau(notions) {
     if (!notions || !notions.noeuds || !notions.liens) return null;
     var noeuds = notions.noeuds.slice(0, 7);
@@ -55,33 +62,24 @@
     liens.forEach(function (l) { degre[l[0]] += 1; degre[l[1]] += 1; });
     var centre = noeuds.slice().sort(function (a, b) { return degre[b] - degre[a]; })[0];
     var autres = noeuds.filter(function (n) { return n !== centre; });
-    var W = 340, H = 280, cx = W / 2, cy = H / 2, pos = {};
-    pos[centre] = [cx, cy];
-    autres.forEach(function (n, k) {
-      var a = -Math.PI / 2 + k * 2 * Math.PI / autres.length;
-      pos[n] = [cx + Math.cos(a) * 118, cy + Math.sin(a) * 100];
-    });
-    var s = svg("svg", { "class": "graphe-reseau", viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Réseau des notions\u00a0: " + liens.map(function (l) { return l[0] + " et " + l[1] + ", " + l[2]; }).join(" ; ") });
-    liens.forEach(function (l) {
-      var p = pos[l[0]], q = pos[l[1]];
-      s.appendChild(svg("line", { x1: p[0], y1: p[1], x2: q[0], y2: q[1], "class": "lien-reseau" }));
-    });
-    liens.forEach(function (l) {
-      var p = pos[l[0]], q = pos[l[1]], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
-      var t = String(l[2] || "").slice(0, 22), w = t.length * 5.4 + 8;
-      s.appendChild(svg("rect", { x: mx - w / 2, y: my - 8, width: w, height: 15, rx: 3, "class": "fond-relation" }));
-      s.appendChild(svg("text", { x: mx, y: my + 3.5, "class": "relation", "text-anchor": "middle" }, t));
-    });
+    var W = 340, H = 320, cx = W / 2, cy = H / 2, boite = {};
+    function placer(n, x, y) {
+      var lignes = coupe(n), larg = Math.min(124, Math.max.apply(null, lignes.map(function (t) { return t.length; })) * 6.8 + 16), haut = lignes.length * 15 + 10;
+      x = Math.min(Math.max(x, larg / 2 + 2), W - larg / 2 - 2); y = Math.min(Math.max(y, haut / 2 + 2), H - haut / 2 - 2);
+      boite[n] = { x: x - larg / 2, y: y - haut / 2, w: larg, h: haut, cx: x, cy: y, lignes: lignes };
+    }
+    placer(centre, cx, cy);
+    autres.forEach(function (n, k) { var a = -Math.PI / 2 + k * 2 * Math.PI / autres.length; placer(n, cx + Math.cos(a) * 112, cy + Math.sin(a) * 124); });
+    for (var a1 = 0; a1 < noeuds.length; a1++) for (var b1 = a1 + 1; b1 < noeuds.length; b1++) if (chevauche(boite[noeuds[a1]], boite[noeuds[b1]], 4)) return liste(liens);
+    var s = svg("svg", { "class": "graphe-reseau", viewBox: "0 0 " + W + " " + H, role: "img", "aria-label": "Réseau des notions : " + liens.map(function (l) { return l[0] + " et " + l[1] + ", " + l[2]; }).join(" ; ") });
+    liens.forEach(function (l) { var p = boite[l[0]], q = boite[l[1]]; s.appendChild(svg("line", { x1: p.cx, y1: p.cy, x2: q.cx, y2: q.cy, "class": "lien-reseau" })); });
     noeuds.forEach(function (n) {
-      var lignes = coupe(n), larg = Math.min(130, Math.max.apply(null, lignes.map(function (x) { return x.length; })) * 6.6 + 16);
-      var haut = lignes.length * 15 + 10, p = pos[n];
-      var x = Math.min(Math.max(p[0], larg / 2 + 2), W - larg / 2 - 2), y = Math.min(Math.max(p[1], haut / 2 + 2), H - haut / 2 - 2);
-      s.appendChild(svg("rect", { x: x - larg / 2, y: y - haut / 2, width: larg, height: haut, rx: 6, "class": n === centre ? "noeud centre" : "noeud" }));
-      lignes.forEach(function (ligne, k) {
-        s.appendChild(svg("text", { x: x, y: y - (lignes.length - 1) * 7.5 + k * 15 + 4, "text-anchor": "middle", "class": n === centre ? "nom-noeud centre" : "nom-noeud" }, ligne));
-      });
+      var b = boite[n];
+      s.appendChild(svg("rect", { x: b.x, y: b.y, width: b.w, height: b.h, rx: 6, "class": n === centre ? "noeud centre" : "noeud" }));
+      b.lignes.forEach(function (ligne, k) { s.appendChild(svg("text", { x: b.cx, y: b.cy - (b.lignes.length - 1) * 7.5 + k * 15 + 4, "text-anchor": "middle", "class": n === centre ? "nom-noeud centre" : "nom-noeud" }, ligne)); });
     });
-    return s;
+    s.setAttribute("aria-hidden", "true"); s.removeAttribute("role"); s.removeAttribute("aria-label");
+    return el("div", { "class": "reseau" }, [s, liste(liens)]); // le dessin montre la forme du réseau, la liste nomme chaque relation
   }
 
   /* citation : { texte, auteur, oeuvre, source: [titre, url] } */
@@ -89,7 +87,9 @@
     if (!c || !c.texte || !c.auteur) return null;
     var legende = el("figcaption", {}, ["— " + c.auteur, c.oeuvre ? ", " : null, c.oeuvre ? el("cite", { text: c.oeuvre }) : null]);
     if (c.source && c.source[1]) { legende.appendChild(document.createTextNode(" · ")); legende.appendChild(el("a", { href: c.source[1], target: "_blank", rel: "noopener", text: "source" })); }
-    return el("figure", { "class": "citation" }, [el("blockquote", {}, [el("p", { text: "« " + c.texte + " »" })]), legende]);
+    var bloc = el("blockquote", { lang: c.langue || null }, [el("p", { text: "«\u00a0" + c.texte + "\u202f»" })]);
+    var trad = c.traduction ? el("p", { "class": "traduction", text: "Traduction\u00a0: " + c.traduction }) : null;
+    return el("figure", { "class": "citation" }, [bloc, trad, legende]);
   }
 
   g.Visuels = { barres: barres, reseau: reseau, citation: citation };

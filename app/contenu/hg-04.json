@@ -10,7 +10,7 @@
   "Aristote lui attribue aussi l’ostracisme : ce vote peut bannir un citoyen pour dix ans sans lui retirer ses biens, si au moins 6 000 votants y participent ; la première victime connue, vers 487 av. J.‑C., est Hipparque, fils de Charmos.",
   "Périclès, réélu stratège pendant quinze années successives, parachève le régime en faisant rétribuer les charges publiques, afin que les citoyens modestes puissent y prendre part.",
   "Cette démocratie reste réservée aux citoyens : en 451 av. J.‑C., une loi de Périclès exige d’être né d’un père et d’une mère athéniens, et les femmes, les esclaves et les métèques ne sont pas citoyens.",
-  "Réélu stratège au printemps 429 av. J.‑C., Périclès meurt de la peste en septembre."
+  "Réélu stratège au printemps 429 av. J.‑C., Périclès meurt de la peste la même année."
  ],
  "reperes": [
   [
@@ -33,28 +33,6 @@
    "6 000 votants",
    "Quorum exigé pour valider un ostracisme."
   ]
- ],
- "chiffres": [
-  {
-   "libelle": "Mandat d’un bouleute",
-   "valeur": 1,
-   "unite": "ans"
-  },
-  {
-   "libelle": "Exil par ostracisme",
-   "valeur": 10,
-   "unite": "ans"
-  },
-  {
-   "libelle": "Périclès réélu stratège",
-   "valeur": 15,
-   "unite": "ans"
-  },
-  {
-   "libelle": "Âge d’inscription au dème",
-   "valeur": 18,
-   "unite": "ans"
-  }
  ],
  "notions": {
   "noeuds": [
@@ -93,7 +71,7 @@
    ]
   ]
  },
- "saviezVous": "Un puits de la pente nord de l’Acropole a livré 191 ostraka, presque tous au nom de Thémistocle : 180 d’entre eux sont de la main de 14 scripteurs seulement.",
+ "saviezVous": "Un puits de la pente nord de l’Acropole a livré près de 190 ostraka au nom de Thémistocle, écrits pour l’essentiel par un petit nombre de mains.",
  "sources": [
   [
    "Encyclopædia Britannica · The reforms of Cleisthenes (en anglais)",

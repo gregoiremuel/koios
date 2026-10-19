@@ -97,12 +97,16 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     .first();
   if (!ligne) throw new ErreurHttp(404, 'Duel introuvable.');
   const couples = lireJSONColonne(ligne.questions, []);
+  const lecteur = await auth(request, env).catch(() => null);
+  const brut = lireJSONColonne(ligne.scores, []);
   return json({
     duel: {
       id: ligne.id,
       createur: ligne.createur || 'Un joueur',
       questions: couples, // références {chapitre, index} ; l'app retrouve les questions
-      scores: scoresPublics(lireJSONColonne(ligne.scores, [])),
+      scores: scoresPublics(brut),
+      // Vrai si le lecteur connecté a déjà joué ce duel (reconnu par son identifiant, jamais exposé).
+      dejaJoue: !!(lecteur && brut.some((s) => s.joueur === lecteur.id)),
     },
   });
 });

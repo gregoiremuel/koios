@@ -258,7 +258,7 @@ details.sources a { color: var(--prusse-fonce); display: block; padding: 11px 0;
 .titre-champ { font-family: var(--livre); font-weight: 600; font-size: 21px; }
 .attente svg { flex: none; }
 .puces { display: flex; flex-wrap: wrap; gap: 8px; }
-.puce { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; border: 1px solid var(--ligne-forte); border-radius: 22px; background: var(--page); font-family: var(--livre); font-size: 16px; color: var(--encre); text-decoration: none; cursor: pointer; }
+.puce { display: inline-flex; align-items: center; min-height: 44px; padding: 6px 14px; border: 1px solid var(--ligne-forte); border-radius: 8px; background: var(--page); font-family: var(--livre); font-size: 16px; color: var(--encre); text-decoration: none; cursor: pointer; }
 .puce:hover { border-color: var(--prusse); }
 .puce.verifie { border-color: var(--vert); color: var(--vert-fonce); }
 .table li.groupe { border-top: 0; padding: 14px 0 4px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--or-fonce); }
@@ -274,7 +274,7 @@ details.sources.depart summary .i { color: var(--or-fonce); }
 .graphe-reseau { width: 100%; height: auto; display: block; }
 .graphe-reseau .lien-reseau { stroke: var(--or); stroke-width: 1.2; }
 .graphe-reseau .fond-relation { fill: var(--feuille); }
-.graphe-reseau .relation { font-family: var(--livre); font-style: italic; font-size: 10.5px; fill: var(--encre-2); }
+.graphe-reseau .relation { font-family: var(--livre); font-style: italic; font-size: 12px; fill: var(--encre-2); }
 .graphe-reseau .noeud { fill: var(--page); stroke: var(--ligne-forte); stroke-width: 1; }
 .graphe-reseau .noeud.centre { fill: var(--bordeaux); stroke: var(--bordeaux-fonce); }
 .graphe-reseau .nom-noeud { font-family: var(--ui); font-size: 12px; font-weight: 600; fill: var(--encre); }
@@ -284,10 +284,15 @@ details.sources.depart summary .i { color: var(--or-fonce); }
 .citation p { font-family: var(--livre); font-style: italic; font-size: 19px; line-height: 1.45; }
 .citation figcaption { font-size: 14px; color: var(--encre-2); }
 .citation a { color: var(--prusse-fonce); }
-.saviez { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 14px; border-radius: 8px; background: var(--or-pale); border: 1px solid var(--ligne-forte); }
+.saviez { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 12px 0; border-top: 1px solid var(--ligne-forte); border-bottom: 1px solid var(--ligne-forte); }
 .saviez .i { color: var(--or-fonce); margin-top: 2px; }
-.saviez p { font-family: var(--livre); font-size: 17px; line-height: 1.45; margin-top: 2px; }
+.saviez p { font-family: var(--livre); font-style: italic; font-size: 17px; line-height: 1.45; margin-top: 2px; }
 .chiffres { grid-template-columns: 1fr 1fr; }
 .nav nav { grid-template-columns: repeat(5, 1fr); }
 .nav a { font-size: 11px; }
 figcaption a { color: var(--prusse-fonce); }
+.citation .traduction { font-family: var(--livre); font-size: 15px; color: var(--encre-2); }
+.liste-notions { list-style: none; margin: 0; padding: 0; display: grid; }
+.liste-notions li { padding-block: 8px; border-top: 1px solid var(--ligne); font-family: var(--livre); font-size: 16px; }
+.liste-notions li:first-child { border-top: 0; }
+.liste-notions em { color: var(--encre-2); }

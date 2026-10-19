@@ -52,8 +52,9 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
   let points = 0;
   let valides = 0;
   if (etat.chapitres && typeof etat.chapitres === 'object') {
-    for (const chapitre of Object.values(etat.chapitres)) {
-      if (!chapitre || typeof chapitre !== 'object') continue;
+    for (const [cle, chapitre] of Object.entries(etat.chapitres)) {
+      // Le classement ne compte que les chapitres vérifiés : les brouillons IA (« ia:… ») n'y entrent pas.
+      if (!chapitre || typeof chapitre !== 'object' || cle.startsWith('ia:')) continue;
       points += borner(chapitre.points);
       if (chapitre.valide === true) valides += 1;
     }

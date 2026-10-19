@@ -1658,7 +1658,7 @@ test('duel POST : crée un duel (id de 8 caractères), GET le rend jouable sans 
   ok200(g);
   assert.deepEqual(Object.keys(g.corps), ['duel']);
   const d = g.corps.duel;
-  assert.deepEqual(Object.keys(d), ['id', 'createur', 'questions', 'scores']);
+  assert.deepEqual(Object.keys(d), ['id', 'createur', 'questions', 'scores', 'dejaJoue']);
   assert.equal(d.id, r.corps.id);
   assert.equal(d.createur, 'Alice');
   assert.equal(d.questions.length, 5);
