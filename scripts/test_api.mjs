@@ -19,7 +19,8 @@ import {
 } from '../lib/wiki.js';
 import { generateur, tirer, tirerParmi } from '../lib/questions.js';
 import {
-  GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, redacteurs, verificateurs,
+  GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, oublierEpuisements, redacteurs, verificateurs,
+  GEMINI_BASE, XAI_URL, GROQ_URL, tousLesFournisseurs, estEpuise, corpsGemini,
 } from '../lib/fournisseurs.js';
 import {
   CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, motsSignificatifs, pertinence, imageDeTete, imageDesPages, imageUnsplash, imageWikipedia,
@@ -48,6 +49,7 @@ import { onRequestGet as melangeGet } from '../functions/api/melange.js';
 import { onRequestGet as duelGet, onRequestPost as duelPost, onRequestPut as duelPut } from '../functions/api/duel.js';
 import { onRequestGet as duelsGet } from '../functions/api/duels.js';
 import { onRequestGet as parcoursGet, onRequestPost as parcoursPost } from '../functions/api/parcours.js';
+import { onRequestGet as diagnosticGet } from '../functions/api/diagnostic.js';
 import { onRequestGet as palierGet } from '../functions/api/palier.js';
 import { onRequestGet as glossaireGet } from '../functions/api/glossaire.js';
 import { onRequestGet as ficheGet } from '../functions/api/fiche.js';
@@ -704,7 +706,7 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
 // Fournisseurs externes simulés (GLM, Unsplash, Commons) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, unsplash: null, commons: null };
+const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -733,6 +735,10 @@ function reinitExt() {
   ext.glm = null;
   ext.unsplash = null;
   ext.commons = null;
+  ext.gemini = null;
+  ext.grok = null;
+  ext.groq = null;
+  oublierEpuisements();
   horloge.t = 0;
 }
 
@@ -754,7 +760,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -2173,6 +2179,144 @@ test('Workers AI : modèle, jetons, température transmis ; délai dépassé ; a
   }
 });
 
+// --- Gemini, Grok : chaînes, repli, mémoire de l'épuisement ---
+
+const CLE_GEMINI = 'AQ.cle-gemini-de-test';
+const CLE_GROK = 'grok_cle-de-test';
+const TOUTES = { AI: {}, GLM_API_KEY: CLE_GLM, GEMINI_API_KEY: CLE_GEMINI, GROK_API_KEY: CLE_GROK };
+const MSG = [{ role: 'system', content: 'Sois bref' }, { role: 'user', content: 'Bonjour' }, { role: 'assistant', content: 'Salut' }, { role: 'user', content: 'Suite' }];
+const reponseGemini = (texte) => reponseWiki({ candidates: [{ content: { parts: [{ text: 'réflexion', thought: true }, { text: texte }] } }] });
+const reponseOpenAI = (texte) => reponseWiki({ choices: [{ message: { content: texte } }] });
+
+test('fournisseurs : chaînes de rédaction et de vérification avec Gemini et Grok (famille différente, clés absentes ignorées)', async () => {
+  reinitExt();
+  const noms = (l) => l.map((f) => f.famille + ':' + f.nom);
+  const rl = redacteurs(TOUTES);
+  assert.deepEqual(rl.map((f) => f.famille), ['gemini', 'glm', 'grok', 'workers-ai']);
+  assert.equal(rl[0].nom, 'gemini-2.5-flash');
+  assert.equal(rl[2].nom, 'grok-3-mini');
+  assert.deepEqual(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI }).map((f) => f.famille), ['gemini', 'workers-ai']);
+  assert.deepEqual(redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK }).map((f) => f.famille), ['grok', 'workers-ai']);
+  // Vérification : [grok, gemini, glm, mistral, llama] moins la famille du rédacteur.
+  const fam = (l) => l.map((f) => f.famille);
+  assert.deepEqual(fam(verificateurs(TOUTES, rl[0])), ['grok', 'glm', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUTES, rl[1])), ['grok', 'gemini', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(fam(verificateurs(TOUTES, rl[2])), ['gemini', 'glm', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(noms(verificateurs(TOUTES, rl[3])).map((n) => n.split(':')[0]), ['grok', 'gemini', 'glm', 'workers-ai']);
+  assert.ok(!noms(verificateurs(TOUTES, rl[3])).includes('workers-ai:' + NOM_LLAMA), 'Llama ne se vérifie pas lui-même');
+  for (const r of rl) for (const v of verificateurs(TOUTES, r)) assert.ok(v.famille !== r.famille || r.famille === 'workers-ai');
+  assert.deepEqual(tousLesFournisseurs(TOUTES).map((f) => f.famille), ['gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(tousLesFournisseurs({ AI: {} }).map((f) => f.famille), ['workers-ai', 'workers-ai']);
+});
+
+test('Gemini : adresse, en-tête x-goog-api-key, system -> systemInstruction, JSON forcé, réflexion coupée, sortie lisible', async () => {
+  reinitExt();
+  ext.gemini = () => reponseGemini('Voici {"ok": 2}');
+  const [gem] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
+  const sortie = await gem.appeler(MSG, { maxTokens: 77, temperature: 0.1, delaiMs: 1000 });
+  assert.deepEqual(extraireObjet(sortie), { ok: 2 });
+  const a = ext.appels[0];
+  assert.equal(a.url.href, GEMINI_BASE + 'gemini-2.5-flash:generateContent');
+  assert.equal(a.url.search, '', 'jamais de clé dans l’adresse');
+  assert.equal(new Headers(a.init.headers).get('x-goog-api-key'), CLE_GEMINI);
+  assert.deepEqual(JSON.parse(a.init.body), {
+    contents: [
+      { role: 'user', parts: [{ text: 'Bonjour' }] },
+      { role: 'model', parts: [{ text: 'Salut' }] },
+      { role: 'user', parts: [{ text: 'Suite' }] },
+    ],
+    generationConfig: { maxOutputTokens: 77, temperature: 0.1, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
+    systemInstruction: { parts: [{ text: 'Sois bref' }] },
+  });
+  assert.equal(corpsGemini(MSG, { maxTokens: 5, temperature: 0, modele: 'gemini-2.0-flash' }).generationConfig.thinkingConfig, undefined, 'pas de réflexion à couper en 2.0');
+  assert.equal(corpsGemini([{ role: 'user', content: 'x' }], { maxTokens: 5, temperature: 0, modele: 'gemini-2.5-flash' }).systemInstruction, undefined);
+  // Réponse sans texte (bloquée) : illisible, pas d'exception.
+  ext.gemini = () => reponseWiki({ candidates: [{ finishReason: 'SAFETY' }] });
+  assert.equal(extraireObjet(await gem.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), null);
+  // Modèle refusé (404) ou quota du modèle (429) : modèle suivant, retenu ensuite.
+  reinitExt();
+  ext.gemini = (u) => (/2\.5-flash/.test(u.pathname) ? new Response('no', { status: 404 }) : /2\.0-flash/.test(u.pathname) ? new Response('quota', { status: 429 }) : reponseGemini('{"ok":3}'));
+  const [g2] = redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI });
+  assert.deepEqual(extraireObjet(await g2.appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 3 });
+  assert.equal(ext.appels.length, 3);
+  assert.equal(estEpuise('gemini'), false, 'un modèle de repli a répondu');
+  assert.equal(g2.couple().modele, 'gemini-flash-latest');
+  assert.equal(redacteurs({ AI: {}, GEMINI_API_KEY: CLE_GEMINI })[0].nom, 'gemini-flash-latest', 'couple retenu pour l’isolat');
+  reinitExt();
+});
+
+test('Grok : candidats xAI puis Groq (401, 403, 404 -> suivant), couple retenu', async () => {
+  reinitExt();
+  ext.grok = () => new Response('Incorrect API key', { status: 401 });
+  ext.groq = (u, init) => (JSON.parse(init.body).model === 'llama-3.3-70b-versatile' ? reponseOpenAI('{"ok":4}') : new Response('?', { status: 404 }));
+  const [gk] = redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK });
+  assert.deepEqual(extraireObjet(await gk.appeler(MSG, { maxTokens: 12, temperature: 0.2, delaiMs: 1000 })), { ok: 4 });
+  assert.deepEqual(ext.appels.map((a) => [a.fournisseur, JSON.parse(a.init.body).model]), [['grok', 'grok-3-mini'], ['grok', 'grok-4-fast'], ['groq', 'llama-3.3-70b-versatile']]);
+  assert.equal(ext.appels[0].url.href, XAI_URL);
+  assert.equal(ext.appels[2].url.href, GROQ_URL);
+  assert.equal(new Headers(ext.appels[2].init.headers).get('authorization'), 'Bearer ' + CLE_GROK);
+  assert.deepEqual(gk.couple(), { url: GROQ_URL, modele: 'llama-3.3-70b-versatile' });
+  // Couple retenu : le prochain appel ne repasse plus par xAI.
+  ext.appels.length = 0;
+  const [gk2] = redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK });
+  await gk2.appeler(MSG, { maxTokens: 12, delaiMs: 1000 });
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur), ['groq']);
+  // xAI répond du premier coup.
+  reinitExt();
+  ext.grok = () => reponseOpenAI('{"ok":5}');
+  assert.deepEqual(extraireObjet(await redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK })[0].appeler(MSG, { maxTokens: 5, delaiMs: 1000 })), { ok: 5 });
+  assert.equal(ext.appels.length, 1);
+  // Tous refusés : échec sans clé dans le message.
+  reinitExt();
+  ext.grok = () => new Response('bad ' + CLE_GROK, { status: 401 });
+  ext.groq = () => new Response('bad ' + CLE_GROK, { status: 401 });
+  await assert.rejects(() => redacteurs({ AI: {}, GROK_API_KEY: CLE_GROK })[0].appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => /401/.test(e.message) && !e.message.includes(CLE_GROK));
+  reinitExt();
+});
+
+test('épuisement : 429 ou 4006 -> fournisseur écarté 10 minutes, puis réessayé ; cause affichée avec les noms', async () => {
+  reinitExt();
+  ext.glm = () => new Response('limite', { status: 429 });
+  const env = { AI: { run: async () => { throw new Error('4006: you have used up your daily free allocation of 10,000 neurons'); } }, ...AVEC_GLM };
+  const [glmF, llamaF] = redacteurs(env);
+  await assert.rejects(() => glmF.appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.epuise === true && e.fournisseur === 'GLM' && /429/.test(e.message));
+  await assert.rejects(() => llamaF.appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.epuise === true && e.fournisseur === 'Workers AI');
+  assert.equal(estEpuise('glm'), true);
+  assert.equal(estEpuise('workers-ai'), true);
+  // Tous épuisés : on garde la chaîne complète (mieux vaut réessayer qu'abandonner).
+  assert.equal(redacteurs(env).length, 2);
+  // Avec Gemini en plus : GLM et Llama sont ignorés, Gemini seul reste ; la vérification saute aussi les épuisés.
+  const toutes = { ...env, GEMINI_API_KEY: CLE_GEMINI, GROK_API_KEY: CLE_GROK };
+  assert.deepEqual(redacteurs(toutes).map((f) => f.famille), ['gemini', 'grok']);
+  assert.deepEqual(verificateurs(toutes, redacteurs(toutes)[0]).map((f) => f.famille), ['grok']);
+  // Après 10 minutes, GLM revient.
+  horloge.t += 10 * 60 * 1000 + 1000;
+  assert.equal(estEpuise('glm'), false);
+  assert.deepEqual(redacteurs(toutes).map((f) => f.famille), ['gemini', 'glm', 'grok', 'workers-ai']);
+  reinitExt();
+});
+
+test('diagnostic : protégé par DIAG_KEY, teste tous les fournisseurs configurés, rapporte le couple, jamais de clé', async () => {
+  reinitExt();
+  ext.gemini = () => reponseGemini('{"ok":true}');
+  ext.glm = () => new Response('limite ' + CLE_GLM, { status: 429 });
+  ext.grok = () => new Response('non', { status: 401 });
+  ext.groq = () => reponseOpenAI('{"ok":true}');
+  const env = { ...TOUTES, DIAG_KEY: 'sésame', AI: { run: async () => ({ response: '{"ok":true}' }) } };
+  erreurFr(await appel(diagnosticGet, { env, requete: '?cle=faux' }), 404);
+  erreurFr(await appel(diagnosticGet, { env: { ...env, DIAG_KEY: undefined }, requete: '?cle=' }), 404);
+  const r = await appel(diagnosticGet, { env, requete: '?cle=sésame' });
+  ok200(r);
+  assert.deepEqual(r.corps.resultats.map((x) => x.famille), ['gemini', 'glm', 'grok', 'workers-ai', 'workers-ai']);
+  assert.deepEqual(r.corps.resultats.map((x) => x.etat), ['ok', 'echec', 'ok', 'ok', 'ok']);
+  assert.equal(r.corps.resultats[0].couple.modele, 'gemini-2.5-flash');
+  assert.deepEqual(r.corps.resultats[2].couple, { url: GROQ_URL, modele: 'llama-3.3-70b-versatile' });
+  assert.equal(r.corps.resultats[1].quota, 'épuisé');
+  const texte = JSON.stringify(r.corps);
+  for (const c of [CLE_GEMINI, CLE_GLM, CLE_GROK, 'sésame']) assert.ok(!texte.includes(c), 'aucune clé dans la réponse');
+  reinitExt();
+});
+
 // --- Images ---
 
 const photoUnsplash = (extra = {}) => ({
@@ -3584,6 +3728,32 @@ async function prepare() {
   wiki.appels.length = 0;
   return j;
 }
+
+test('palier GET : Gemini 429 -> GLM rédige, Grok vérifie ; Gemini mis de côté', async () => {
+  const j = await prepare();
+  reinitExt();
+  const sc = scenario(partiesStandard());
+  ext.gemini = () => new Response('RESOURCE_EXHAUSTED', { status: 429 });
+  ext.grok = (u, init) => sc.glm(u, init);
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc, { GEMINI_API_KEY: CLE_GEMINI, GROK_API_KEY: CLE_GROK, ...AVEC_GLM });
+  ok200(r);
+  assert.deepEqual(r.corps.palier.verification.ia, ['glm-4.7-flash', 'grok-3-mini']);
+  assert.equal(estEpuise('gemini'), true);
+  // Gemini essaie ses 3 modèles (chacun a son quota), puis plus rien : il est mis de côté.
+  assert.deepEqual(ext.appels.map((a) => a.fournisseur).filter((f) => f !== 'commons'), ['gemini', 'gemini', 'gemini', 'glm', 'grok']);
+  reinitExt();
+});
+
+test('causes d’échec : quota gratuit de GLM épuisé ; Workers AI épuisé', async () => {
+  const j = await prepare();
+  reinitExt();
+  const sc = scenario(partiesStandard());
+  sc.glm = () => new Response('limite', { status: 429 });
+  sc.ai = { run: async () => { throw new Error('4006: you have used up your daily free allocation of 10,000 neurons'); } };
+  erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, sc, AVEC_GLM), 502, /\(cause : quota gratuit de GLM épuisé ; Workers AI épuisé\)/);
+  assert.equal(estEpuise('glm') && estEpuise('workers-ai'), true);
+  reinitExt();
+});
 
 test('palier GET : paramètres invalides 400, parcours ou palier hors plan 404, 401 sans connexion, 503 sans IA ; rien consommé', async () => {
   const j = await prepare();

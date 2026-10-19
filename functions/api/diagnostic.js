@@ -1,34 +1,45 @@
-// GET /api/diagnostic?cle=<DIAG_KEY> : essaie chaque IA avec une question minuscule et rapporte l'état (durée, extrait court).
-// Protégé par le secret DIAG_KEY (aucune clé n'est affichée). Sert à trouver pourquoi une génération échoue.
+// GET /api/diagnostic?cle=<DIAG_KEY> : essaie chaque IA configurée (gemini, glm, grok, llama, mistral) avec une question
+// minuscule et rapporte l'état (durée, extrait court). Pour gemini, glm et grok, `couple` = (url, modèle) qui a répondu.
+// Protégé par le secret DIAG_KEY (aucune clé n'est affichée, ni dans les adresses, ni dans les erreurs).
 import { ErreurHttp, enveloppe, json } from '../../lib/api.js';
-import { LLAMA, MISTRAL, cleGLM, redacteurs } from '../../lib/fournisseurs.js';
+import {
+  LLAMA, MISTRAL, cleGLM, cleGemini, cleGrok, nomsEpuises, tousLesFournisseurs,
+} from '../../lib/fournisseurs.js';
 
-async function essai(nom, f) {
+async function essai(f, secrets) {
   const debut = Date.now();
+  const sansCle = (t) => secrets.reduce((acc, c) => (c ? acc.split(c).join('***') : acc), String(t));
+  const sortie = { nom: f.nom, famille: f.famille };
   try {
-    const sortie = await f.appeler(
+    const reponse = await f.appeler(
       [{ role: 'user', content: 'Réponds uniquement par ce JSON : {"ok":true,"mot":"bonjour"}' }],
       { maxTokens: 40, temperature: 0, delaiMs: 30000 },
     );
-    const texte = JSON.stringify(sortie).slice(0, 300);
-    return { nom, etat: 'ok', ms: Date.now() - debut, extrait: texte };
+    Object.assign(sortie, { etat: 'ok', ms: Date.now() - debut, extrait: sansCle(JSON.stringify(reponse)).slice(0, 300) });
   } catch (e) {
-    return { nom, etat: 'echec', ms: Date.now() - debut, erreur: String((e && e.message) || e).slice(0, 200) };
+    Object.assign(sortie, {
+      etat: 'echec', ms: Date.now() - debut, erreur: sansCle((e && e.message) || e).slice(0, 200),
+      ...(e && e.epuise ? { quota: 'épuisé' } : {}),
+    });
   }
+  if (typeof f.couple === 'function' && f.couple()) sortie.couple = f.couple();
+  return sortie;
 }
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   const cle = new URL(request.url).searchParams.get('cle') || '';
   if (!env.DIAG_KEY || cle !== env.DIAG_KEY) throw new ErreurHttp(404, 'Introuvable.');
-  const fournisseurs = redacteurs(env);
-  const liste = [];
-  for (const f of fournisseurs) liste.push(f);
-  // Workers AI : les deux modèles, même si GLM rédige (c'est eux qui vérifient).
-  const dejaVus = new Set(liste.map((f) => f.modele));
-  for (const f of redacteurs({ AI: env.AI })) if (!dejaVus.has(f.modele)) liste.push(f);
+  const secrets = [env.GEMINI_API_KEY, env.GLM_API_KEY, env.GROK_API_KEY].map((c) => (typeof c === 'string' ? c.trim() : ''));
   const resultats = [];
-  for (const f of liste) resultats.push(await essai(f.nom, f));
+  for (const f of tousLesFournisseurs(env)) resultats.push(await essai(f, secrets));
   return json({
-    glmCle: cleGLM(env), ai: !!env.AI, unsplash: !!env.UNSPLASH_KEY, modeles: [LLAMA, MISTRAL], resultats,
+    geminiCle: cleGemini(env),
+    glmCle: cleGLM(env),
+    grokCle: cleGrok(env),
+    ai: !!env.AI,
+    unsplash: !!env.UNSPLASH_KEY,
+    modeles: [LLAMA, MISTRAL],
+    epuisesAvant: nomsEpuises(),
+    resultats,
   });
 });
