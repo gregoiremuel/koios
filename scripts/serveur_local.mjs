@@ -244,6 +244,8 @@ function commons(u, init) {
   if (!entete(init, 'user-agent').startsWith('Koios/')) return json({ error: { info: 'User-Agent manquant' } }, 403);
   const recherche = u.searchParams.get('gsrsearch') || '';
   if (/zzz|ambiance/i.test(recherche)) return json({ batchcomplete: '' });
+  let nombre = 0; // un nom de fichier par requête : les tuiles ne montrent pas toutes le même aplat
+  for (const c of recherche) nombre = (nombre * 31 + c.charCodeAt(0)) % 997;
   const fichier = (index, nom, largeur, licence, auteur) => ({
     pageid: 9000 + index, ns: 6, title: 'File:' + nom, index,
     imageinfo: [{
@@ -258,7 +260,7 @@ function commons(u, init) {
   return json({ batchcomplete: '', query: { pages: {
     9001: fichier(1, 'Simule_non_libre.jpg', 3000, 'CC BY-NC 4.0', 'Auteur simulé A'),
     9002: fichier(2, 'Simule_petit.jpg', 640, 'CC BY-SA 4.0', 'Auteur simulé B'),
-    9003: fichier(3, 'Simule_libre.jpg', 3000, 'CC BY-SA 4.0', '<a href="//commons.wikimedia.org/wiki/User:Auteur_simule">Auteur simulé</a>'),
+    9003: fichier(3, `Simule_libre_${nombre}.jpg`, 3000, 'CC BY-SA 4.0', '<a href="//commons.wikimedia.org/wiki/User:Auteur_simule">Auteur simulé</a>'),
   } } });
 }
 
@@ -310,7 +312,7 @@ if (photos === 'unsplash') env.UNSPLASH_KEY = cleFactice('unsplash');
 const ctx = { waitUntil() {} };
 
 // Aplats gris neutres pour les images simulées : quatre tons, choisis selon l'adresse d'origine. Aucun motif, aucun texte.
-const TONS = ['e4e6e9', 'd8dbdf', 'ced2d7', 'dfe2e5'];
+const TONS = ['c4c9cf', 'b3b9c1', 'a4abb4', 'd0d4d9'];
 const HOTES_IMAGES = /https:\/\/(?:upload\.wikimedia\.org|images\.unsplash\.com|images\.pexels\.com|commons\.wikimedia\.org\/wiki\/Special:FilePath)\/[^"\\]*/g;
 function imagesLocales(texte) {
   return texte.replace(HOTES_IMAGES, (adresse) => {
