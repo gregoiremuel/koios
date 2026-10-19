@@ -22,7 +22,7 @@ import {
   GLM_URL, LLAMA, MISTRAL, REGLAGES, cleGLM, nomCourt, redacteurs, verificateurs,
 } from '../lib/fournisseurs.js';
 import {
-  CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, imageDeTete, imageDesPages, imageUnsplash, imageWikipedia,
+  CREDIT_WIKIMEDIA, USER_AGENT_COMMONS, chercherCommons, chercherImage, motsSignificatifs, pertinence, imageDeTete, imageDesPages, imageUnsplash, imageWikipedia,
   licenceLibre, requeteImage, texteDeHtml,
 } from '../lib/images.js';
 import {
@@ -2231,7 +2231,7 @@ test('images : Unsplash — links.download_location est appelé quand une photo 
 const fichierCommons = (index, { meta = {}, info = {}, page = {} } = {}) => ({
   pageid: 100 + index,
   ns: 6,
-  title: `File:Photo_${index}.jpg`,
+  title: `File:Photo_${index}_Eiffel_Tower_tour.jpg`,
   index,
   imageinfo: [{
     thumburl: `https://upload.wikimedia.org/wikipedia/commons/thumb/a/a${index}/Photo_${index}.jpg/1200px-Photo_${index}.jpg`,
@@ -2356,6 +2356,39 @@ test('images : Commons — largeur d’au moins 800 px, types d’image, JPEG av
   reinitExt();
 });
 
+test('images : Commons — un fichier sans mot de la requête (titre ou description) est écarté, les autres sont classés par pertinence', async () => {
+  reinitExt();
+  const f = (i, titre, extra = {}) => fichierCommons(i, { page: { title: 'File:' + titre }, ...extra });
+  const requete = 'gemstone faceted ruby sapphire';
+  // Premier résultat hors sujet (un bijou de musée sans rapport) : il n'est pas pris.
+  ext.commons = () => reponseCommons(f(1, 'Tiara of Queen Alexandra.jpg'), f(2, 'Cut Gemstone collection.jpg'), f(3, 'Faceted ruby and sapphire gemstones.jpg'));
+  assert.equal((await chercherCommons(requete, 'Gemmologie')).image.lien, 'https://commons.wikimedia.org/wiki/File:Photo_3.jpg', 'le plus de mots dans le titre gagne');
+  // Aucun fichier pertinent : pas d'image (l'app affiche alors la tuile d'icône).
+  ext.commons = () => reponseCommons(f(1, 'Tiara of Queen Alexandra.jpg'), f(2, 'Eiffel Tower at night.jpg'));
+  assert.deepEqual(await chercherCommons(requete, 'Gemmologie'), { image: null, incertain: false });
+  // La description compte (1 point) ; le titre pèse plus (2 points).
+  const description = (t) => ({ meta: { ImageDescription: { value: '<p>' + t + '</p>' } } });
+  ext.commons = () => reponseCommons(f(1, 'IMG_2043.jpg', description('A large sapphire')), f(2, 'Sapphire.jpg'));
+  assert.match((await chercherCommons(requete, 'G')).image.lien, /Photo_2\.jpg$/, 'le titre passe avant la description');
+  ext.commons = () => reponseCommons(f(1, 'IMG_2043.jpg', description('A large faceted sapphire')), f(2, 'IMG_9.jpg'));
+  assert.match((await chercherCommons(requete, 'G')).image.lien, /Photo_1\.jpg$/, 'description seule : acceptée');
+  // À pertinence égale, le JPEG passe avant le PNG, puis l'ordre de la recherche.
+  const png = f(1, 'Ruby.png', { info: { mime: 'image/png' } });
+  ext.commons = () => reponseCommons(png, f(2, 'Ruby.jpg'));
+  assert.match((await chercherCommons('ruby', 'R')).image.lien, /Photo_2\.jpg$/);
+  // Pluriels et accents : « émeraudes » trouve « Emeraude ».
+  ext.commons = () => reponseCommons(f(1, 'Emeraude brute.jpg'));
+  assert.ok((await chercherCommons('émeraudes', 'E')).image);
+  // Requête sans mot significatif (mots vides, deux lettres) : aucun tri possible, on garde le premier.
+  ext.commons = () => reponseCommons(f(1, 'Quelque chose.jpg'));
+  assert.ok((await chercherCommons('of an', 'x')).image);
+  reinitExt();
+  assert.deepEqual(motsSignificatifs('The Faceted Gemstones, rubis & Émeraude !'), ['faceted', 'gemstone', 'rubi', 'emeraude']);
+  assert.equal(pertinence(['ruby'], { title: 'File:Ruby_ring.jpg' }, ''), 2);
+  assert.equal(pertinence(['ruby'], { title: 'File:IMG.jpg' }, 'a ruby'), 1);
+  assert.equal(pertinence(['ruby'], { title: 'File:IMG.jpg' }, 'rien'), 0);
+});
+
 const GET_IMAGE = (q, source) => `?q=${encodeURIComponent(q)}${source ? '&source=' + source : ''}`;
 const ENV_IMAGE = () => ({ DB: db, UNSPLASH_KEY: 'cle-unsplash' });
 
@@ -2427,7 +2460,7 @@ test('image GET : cache par source et par requête (absence comprise), pas de ca
   reinitExt();
   db.base.exec('DELETE FROM images');
   db.base.exec('DELETE FROM quotas');
-  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.commons = () => reponseCommons(fichierCommons(1, { page: { title: 'File:Eiffel Tower, Sujet en panne, Quota un.jpg' } }));
   ext.unsplash = () => reponseWiki({ results: [photoUnsplash()] });
   const lire = (q, source) => appel(imageGet, { env: ENV_IMAGE(), requete: GET_IMAGE(q, source) });
   const premiere = await lire('Eiffel Tower', 'commons');
@@ -2453,7 +2486,7 @@ test('image GET : cache par source et par requête (absence comprise), pas de ca
   ext.commons = () => new Response('trop de requêtes', { status: 429 });
   assert.deepEqual((await lire('Sujet en panne', 'commons')).corps, { image: null });
   assert.equal(lignes('SELECT requete FROM images WHERE requete = ?', 'commons:sujet en panne').length, 0, 'pas de cache après une panne');
-  ext.commons = () => reponseCommons(fichierCommons(1));
+  ext.commons = () => reponseCommons(fichierCommons(1, { page: { title: 'File:Eiffel Tower, Sujet en panne, Quota un.jpg' } }));
   assert.equal((await lire('Sujet en panne', 'commons')).corps.image.source, 'commons', 'la panne passée n’empêche pas la bonne réponse');
   // Quota : 400 recherches nouvelles par jour ; au-delà, null sans appel ; le cache reste lisible.
   db.base.exec("DELETE FROM quotas WHERE cle = 'image:total'");

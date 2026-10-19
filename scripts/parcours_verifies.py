@@ -18,11 +18,14 @@ RESUMES = {
 # Requête de photo (anglais, simple et concrète), choisie d'après le titre du parcours et son premier chapitre.
 # Lue par l'app : GET /api/image?q=<motImage>&source=auto (Wikimedia Commons d'abord, puis Unsplash).
 MOTS_IMAGE = {
-    "hg": "French Revolution",  # chapitre 1 : De la Révolution à l'Empire
-    "sn": "Solar system planets",  # chapitre 1 : Le système solaire en chiffres
-    "ac": "Gothic cathedral",  # chapitre 1 : L'architecture gothique
-    "gj": "Faceted gemstones",  # chapitre 1 : Dureté de Mohs et clivage
+    "hg": "French Revolution Bastille",  # chapitre 1 : De la Révolution à l'Empire
+    "sn": "solar system planets",  # chapitre 1 : Le système solaire en chiffres
+    "ac": "Gothic cathedral facade",  # chapitre 1 : L'architecture gothique
+    "gj": "gemstone faceted ruby sapphire",  # chapitre 1 : Dureté de Mohs et clivage
 }
+# Photo imposée, facultative : { src, credit, lien } (vide = on cherche avec motImage). Elle prime sur la recherche ;
+# à remplir à la main dans app/contenu/parcours/v-xx.json, ou ici pour qu'elle survive à une régénération.
+IMAGES_FIXES = {dom: {"src": "", "credit": "", "lien": ""} for dom in MOTS_IMAGE}
 
 
 def explication(t):
@@ -77,9 +80,9 @@ def main():
             for i, q in enumerate(palier["questions"]):
                 questions.append({"palier": palier["id"], "titre": ch["titre"], "parcoursTitre": NOMS[dom], "index": i, "question": q})
         etapes = [{"numero": e + 1, "titre": "Étape " + str(e + 1), "paliers": paliers[e * 10:(e + 1) * 10]} for e in range((len(paliers) + 9) // 10)]
-        p = {"id": pid, "titre": NOMS[dom], "verifie": True, "resume": RESUMES[dom], "image": None, "motImage": MOTS_IMAGE[dom], "etapes": etapes, "sources": []}
+        p = {"id": pid, "titre": NOMS[dom], "verifie": True, "resume": RESUMES[dom], "image": None, "motImage": MOTS_IMAGE[dom], "imageFixe": IMAGES_FIXES[dom], "etapes": etapes, "sources": []}
         (R / "parcours" / f"{pid}.json").write_text(json.dumps(p, ensure_ascii=False) + "\n", encoding="utf-8")
-        liste.append({"id": pid, "titre": NOMS[dom], "paliers": len(paliers), "resume": RESUMES[dom], "motImage": MOTS_IMAGE[dom]})
+        liste.append({"id": pid, "titre": NOMS[dom], "paliers": len(paliers), "resume": RESUMES[dom], "motImage": MOTS_IMAGE[dom], "imageFixe": IMAGES_FIXES[dom]})
     (R / "parcours.json").write_text(json.dumps({"parcours": liste}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     (R / "questions.json").write_text(json.dumps(questions, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     print("Parcours vérifiés : " + ", ".join(f"{x['id']} ({x['paliers']} paliers)" for x in liste) + f" · {len(questions)} questions")

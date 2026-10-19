@@ -1,8 +1,10 @@
-# DESIGN.md — Koîos (v6, « blanc et net », avec photos et mouvement fin)
+# DESIGN.md — Koîos (v7, « blanc et net », photos, mouvement fin et teintes de catégorie)
 
 Koîos est une app de formation pour adultes de 20 à 50 ans : on tape n'importe quel sujet, on avance leçon par leçon, on gagne de l'XP, et des quiz, mini-jeux et duels s'ouvrent en chemin. Elle doit ressembler à une vraie app de quiz professionnelle : blanche, épurée, minimaliste, agréable, et finie : des photos vraies, des icônes qui servent à se repérer, un mouvement discret. En cas de doute, ce fichier gagne.
 
 Historique : v1 musée, v2 librairie ludique, v3 bibliothèque d'étude, v4 bibliothèque gothique (18 octobre 2026). Le 19 octobre 2026, Greg demande un fond blanc, minimaliste, sans décor : tout le décor (bois, gothique, rosace, renard) est abandonné. Le même jour, il demande de vraies photos, des icônes, des boutons soignés et de fines animations, pour que l'app fasse produit fini sans redevenir décorative (v6).
+
+Le 19 octobre 2026, Greg demande plus de couleur et un côté « site d'apprentissage » (v7) : la règle « tout blanc, noir et or » est remplacée par les teintes de catégorie ci-dessous.
 
 ## Principes
 
@@ -28,7 +30,22 @@ Historique : v1 musée, v2 librairie ludique, v3 bibliothèque d'étude, v4 bibl
 | `--faux` / `--faux-pale` | #c4372f / #fbeceb | Mauvaise réponse, erreur |
 | `--lien` | #1f5fbf | Liens des sources, anneau de focus |
 
-Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste et au faux.
+Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste et au faux. Noir : boutons principaux.
+
+### Teintes de catégorie (v7)
+
+Six teintes douces : un accent (texte, icône, pastille) et un fond très clair, contraste 4,5:1 au moins. Jetons `--acc`, `--pale`, `--bord`, posés par les classes `t1` à `t6`.
+
+| Classe | Teinte | Accent | Fond | Catégories |
+| --- | --- | --- | --- | --- |
+| t1 | bleu | #1f5fbf | #eaf1fb | sciences, technologie, économie, langues |
+| t2 | turquoise | #0f766e | #e6f4f2 | nature, montagne, géographie, régions |
+| t3 | ocre doux | #b45309 | #fdf1e3 | histoire, littérature, cuisine, livre par défaut |
+| t4 | rose corail | #be3a4a | #fceced | arts, cinéma, musique |
+| t5 | bleu nuit | #334e8a | #eceff8 | gemmologie, joaillerie |
+| t6 | olive | #5c6b1f | #f1f3e2 | philosophie, sport |
+
+Le rose corail ne sert jamais à un état d'erreur. Pas de violet, de dégradé, de beige ni de crème. Prennent la teinte de leur catégorie : tuiles de catégorie, tuiles d'idées, en-têtes de niveau (niveaux 1 à 4 : t1, t2, t3, t5), pastilles de module, tuiles bento (fond teinté, teintes en alternance), icônes des sections de leçon, bloc « À retenir », définitions, bandeau d'en-tête de formation (sous la photo), boutons secondaires. Sans photo pertinente, la couverture montre la tuile d'icône colorée, jamais une photo hors sujet. Un parcours vérifié peut imposer sa photo : champ `imageFixe` { src, credit, lien } de `app/contenu/parcours/v-xx.json`, prioritaire sur la recherche.
 
 ## Typographie
 
@@ -45,7 +62,7 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
 
 ## Composants
 
-- **Bouton principal** : noir plein, texte blanc, 52 px de haut, coins 12 px. Une flèche à droite (icône « fleche ») quand il fait avancer (Continuer, Commencer, Répondre, Leçon suivante, Ouvrir ce module). Appuyé : légèrement assombri et réduit à 98 %. **Secondaire** : contour 1 px. **Lien** : texte souligné.
+- **Bouton principal** : noir plein, texte blanc, 52 px de haut, coins 12 px, bord inférieur de 3 px gris foncé (relief par bordure, jamais d'ombre). Une flèche à droite (icône « fleche ») quand il fait avancer (Continuer, Commencer, Répondre, Leçon suivante, Ouvrir ce module). Appuyé : légèrement assombri et réduit à 98 %. **Secondaire** : fond et bord de la teinte, texte `--acc` (bord inférieur de 3 px). **Lien** : texte souligné.
 - **Focus** : anneau de 2 px `--lien`, décalé de 2 px, sur tout ce qui se touche.
 - **Logo** : carré noir au K blanc et à la barre or (celui de `icone.svg`), en SVG en ligne de 24 px, à gauche du mot « Koîos ».
 - **Carte** : fond blanc, bord 1 px `--ligne`, coins 12 px, aucune ombre. Pas de carte dans une carte.
@@ -67,13 +84,13 @@ Or : réservé à l'XP et à la progression. Vert et rouge : réservés au juste
 - **En-tête de niveau** (sommaire) : tuile ronde de 40 px avec l'icône du niveau, « Niveau 1 » en 12 px capitales espacées `--encre-2` au-dessus du titre (20 px, 700), « 1/3 modules » à droite, puis barre de 4 px.
 - **Rangée de module** : numéro dans un cercle de 32 px (fait : plein `--encre`, chiffre blanc ; en cours : contour `--encre` ; verrouillé : contour `--ligne`, chiffre `--encre-2`), titre 16 px 600, objectif 14 px `--encre-2` sur 2 lignes au plus, chevron (ouvert ou ouvrable) ou cadenas (verrouillé, avec aria-label « verrouillé »). Un module ouvert se déplie sur ses leçons. Une seule phrase en tête du sommaire : « Les modules s’ouvrent dans l’ordre. »
 - **Titre de section** de leçon : icône de 20 px `--encre-2` alignée sur la ligne du titre (20 px, 600).
-- **Bloc « À retenir »** : fond `--surface`, coins 12 px, aucun liseré, titre avec l'icône « epingle » (PushPin), puces. **Définitions** : liste `dl` avec filets fins de 1 px entre les termes, sans cartes empilées.
+- **Bloc « À retenir »** : fond `--pale` (teinte de la catégorie), coins 12 px, aucun liseré, titre avec l'icône « epingle » (PushPin), puces. **Définitions** : liste `dl` ; chaque terme en 17 px 700 couleur `--acc`, pastille de 8 px à gauche (pas de liseré), définition en 16 px, fond blanc, filets fins de 1 px ; le premier terme d'une leçon est une tuile mise en avant (fond `--pale`, coins 16 px).
 - **Mot déjà défini** (dans une leçon) : `span` en ligne, `role="button"` et `tabindex="0"`, souligné en pointillés `--encre-2`, activable par Entrée et Espace ; il se coupe en fin de ligne comme le texte (jamais un `button`). Zone de toucher élargie par un padding vertical de 8 px qui ne change pas l'interligne. Les mots de 4 lettres ou moins ne se soulignent qu'à casse identique.
 - **Ligne méta d'une leçon** : badge, « Leçon n », durée estimée (« ≈ 3 min », 200 mots par minute, 1 minute au moins, affichée seulement si elle est calculée).
 - **Attente de génération** : titre, barre indéterminée de 4 px, une phrase, puis « Ce qui se passe » en trois lignes à icône (Recherche des sources, Rédaction de la leçon, Vérification par une 2e IA). Ce sont des étapes décrites : ni coche animée, ni pourcentage. Le bloc n'apparaît qu'après une demi-seconde.
 - **État vide** : icône de 32 px `--encre-2`, une phrase, un bouton utile. Pas de carte. (Sans formation, c'est la tuile « Lance ta première formation ».)
 - **Formation** : liste verticale de leçons (pastille numérotée, titre, état) ; jalons « Quiz » toutes les 5 leçons et « Grand quiz » toutes les 10.
-- **Réponse de quiz** : rangée pleine largeur, bord 1 px ; juste en vert pâle avec une coche qui se dessine ; fausse en rouge pâle avec un léger tremblement ; l'explication s'affiche toujours après la réponse.
+- **Réponse de quiz** : rangée pleine largeur, coins 14 px, lettre A B C D dans un cercle de 32 px, survol et appui en teinte, bord 1 px ; juste en vert pâle avec une coche qui se dessine ; fausse en rouge pâle avec un léger tremblement ; l'explication s'affiche toujours après la réponse.
 - **XP** : pastille or discrète (« Niv. 4 · 320 XP »), barre fine de 4 px. **Anneau de niveau** (profil) : 148 px, anneau `--or` de progression vers le niveau suivant, numéro en 48 px, puis trois chiffres clés séparés par des filets.
 - **Icônes** : Phosphor « regular » (licence MIT, mention en tête de `icones.js`), 20 px dans le texte, 24 px dans une tuile, 32 px dans un état vide ou un cadre photo, 22 px dans la navigation. Toujours avec un rôle : repérer une catégorie, un niveau, une section, un état, une action. Jamais en décor. Flèche (« fleche ») pour les boutons qui avancent ; chevron (« chevron ») pour les rangées de liste et le coin des tuiles qui sont des liens.
 

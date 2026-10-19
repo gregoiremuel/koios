@@ -65,7 +65,16 @@
     return f;
   }
   /* Une photo ne s'affiche qu'avec son auteur et sa licence : seules celles de Commons ou d'Unsplash passent. Les anciennes images de Wikipédia, sans crédit complet, sont ignorées. */
-  function imageOk(img) { return img && img.src && img.credit && (img.source === "commons" || img.source === "unsplash") ? img : null; }
+  function imageOk(img) { return img && img.src && img.credit && (img.source === "commons" || img.source === "unsplash" || img.source === "fixe") ? img : null; }
+  /* Photo imposée par le contenu (imageFixe : { src, credit, lien }) : elle prime sur toute recherche. Vide ou incomplète : ignorée. */
+  function imageFixe(p) {
+    var f = p && p.imageFixe;
+    if (!f || typeof f.src !== "string" || typeof f.credit !== "string" || !f.src.trim() || !f.credit.trim()) return null;
+    if (!/^(https:\/\/|\/|contenu\/|images\/)/.test(f.src.trim())) return null;
+    return { src: f.src.trim(), credit: f.credit.trim(), lien: typeof f.lien === "string" && /^https:\/\//.test(f.lien) ? f.lien : null, source: "fixe" };
+  }
+  /* Requête de photo d'une formation : motImage (anglais, précis), sinon le titre. */
+  function requetePhoto(p) { return (p && p.motImage) || (p && p.titre) || ""; }
   /* Photos trouvées par /api/image (« auto », « commons » ou « unsplash »), gardées en mémoire pour la session ; null si rien ne vient. */
   var imagesMem = {};
   function trouverImage(requete, source) {
@@ -102,8 +111,24 @@
     for (var k = 0; k < CATEGORIES.length; k++) if (CATEGORIES[k][1].test(t)) return CATEGORIES[k][0];
     return "livre";
   }
+  /* Teinte d'une catégorie (t1 bleu, t2 turquoise, t3 ocre, t4 rose corail, t5 bleu nuit, t6 olive), d'après le nom de son icône. Une icône de rôle sans catégorie prend une teinte stable tirée de son nom. */
+  var TEINTES_ICONE = {
+    atome: "t1", puce: "t1", courbe: "t1", langues: "t1", livres: "t1", aide: "t1", eclair: "t1",
+    feuille: "t2", montagne: "t2", globe: "t2", carte: "t2", liste: "t2", carnet: "t2",
+    histoire: "t3", litterature: "t3", livre: "t3", ampoule: "t3",
+    diamant: "t5", pinceau: "t4", clap: "t4", musique: "t4", epee: "t4",
+    cerveau: "t6", chemin: "t5", medaille: "t5",
+    ballon: "t6", marmite: "t3", sablier: "t6", pousse: "t6"
+  };
+  var ORDRE_TEINTES = ["t1", "t2", "t3", "t5", "t6", "t4"];
+  function teinte(nom) {
+    if (TEINTES_ICONE[nom]) return TEINTES_ICONE[nom];
+    var h = 0; String(nom || "").split("").forEach(function (c) { h += c.charCodeAt(0); });
+    return ORDRE_TEINTES[h % ORDRE_TEINTES.length];
+  }
+  function teinteSujet(titre) { return teinte(categorie(titre)); }
   /* Tuile d'icône (48 px) : catégorie d'un sujet, ou rôle d'une rangée. */
-  function tuile(nom) { return el("span", { "class": "tuile", "aria-hidden": "true" }, [icone(nom)]); }
+  function tuile(nom) { return el("span", { "class": "tuile " + teinte(nom), "aria-hidden": "true" }, [icone(nom)]); }
   /* Vignette d'une liste : photo (48 px, décorative) si l'image est connue, sinon la tuile de la catégorie du sujet. */
   function vignette(img, titre) {
     var t = tuile(categorie(titre));
@@ -264,7 +289,8 @@
   function parProgramme(p) { return !!(p.programme && p.programme.niveaux); }
   function formationComplete(p) { return parProgramme(p) && (p.etapes || []).length >= (p.modulesTotal || 0); } // tous les modules sont ouverts
   function fini(p) { return (p.verifie || formationComplete(p)) && suivi(p.id).fait >= paliersPrevus(p); }
-  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.image = imageOk(p.image) || imageOk(s.image) || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
+  /* Une photo gardée n'est conservée que si elle vient de la requête actuelle du parcours (sinon une ancienne photo hors sujet resterait). */
+  function retenir(p) { var s = suivi(p.id); s.titre = p.titre; s.motImage = p.motImage || null; var gardee = imageOk(s.image) && s.image.req === requetePhoto(p) ? s.image : null; s.image = imageFixe(p) || imageOk(p.image) || gardee || null; if (p.verifie || formationComplete(p)) s.total = paliersPrevus(p); etat.parcours[p.id] = s; }
   function modulesFaits(p, fait) { return (p.etapes || []).filter(function (e) { var l = e.paliers || []; return l.length && l[l.length - 1].numero <= fait; }).length; }
   function creerParcours(titre, bouton, alerte, statut) {
     titre = String(titre || "").trim();
@@ -325,7 +351,7 @@
     ["L’histoire du jazz", "Saxophone"], ["Les pierres précieuses", "Cut gemstones"], ["La philosophie stoïcienne", "Marcus Aurelius"]
   ];
   /* Cadre photo : fond clair avec l'icône de catégorie ; la photo se pose par-dessus quand elle arrive (et son crédit est noté). */
-  function cadrePhoto(sujet, cls) { return el("span", { "class": "cadre" + (cls ? " " + cls : ""), "aria-hidden": "true" }, [icone(categorie(sujet))]); }
+  function cadrePhoto(sujet, cls) { return el("span", { "class": "cadre teinte " + teinteSujet(sujet) + (cls ? " " + cls : ""), "aria-hidden": "true" }, [icone(categorie(sujet))]); }
   function poserDansCadre(cadre, im, sujet, credits) {
     var i = el("img", { src: im.src, alt: "", loading: "lazy", decoding: "async" });
     i.addEventListener("error", function () { i.remove(); });
@@ -392,7 +418,7 @@
     var grille = el("div", { "class": "idees" });
     IDEES.forEach(function (idee, i) {
       var cadre = cadrePhoto(idee[0], i < 2 ? "r21" : "r43");
-      var b = el("button", { "class": "idee" + (i < 2 ? " grande" : ""), type: "button", style: "--i:" + i }, [cadre, el("span", { "class": "idee-titre" }, [icone(categorie(idee[0])), el("b", { text: idee[0] })])]);
+      var b = el("button", { "class": "idee " + teinteSujet(idee[0]) + (i < 2 ? " grande" : ""), type: "button", style: "--i:" + i }, [cadre, el("span", { "class": "idee-titre" }, [icone(categorie(idee[0])), el("b", { text: idee[0] })])]);
       b.addEventListener("click", function () { champ.value = idee[0]; creerParcours(idee[0], bouton, alerteIdees, statutIdees); });
       grille.appendChild(b);
       photoDansCadre(cadre, idee[1], idee[0], credits);
@@ -420,11 +446,12 @@
   function bande(enfants, alt) { return el("div", { "class": "bande" + (alt ? " alt" : "") }, [el("div", { "class": "colonne" }, enfants)]); }
   /* Carte d'un parcours vérifié dans le carrousel : photo, badge, nombre de leçons, progression. */
   function carteVerifiee(p, credits) {
-    var s = suivi(p.id), cadre = cadrePhoto(p.titre, "r169");
-    if (imageOk(s.image)) poserDansCadre(cadre, s.image, p.titre, credits);
-    else if (p.motImage) photoDansCadre(cadre, p.motImage, p.titre, credits, function (im) { memoriserImage(p.id, im); });
+    var s = suivi(p.id), cadre = cadrePhoto(p.titre, "r169"), fixe = imageFixe(p);
+    if (fixe) poserDansCadre(cadre, fixe, p.titre, credits);
+    else if (imageOk(s.image) && s.image.req === requetePhoto(p)) poserDansCadre(cadre, s.image, p.titre, credits);
+    else if (p.motImage) photoDansCadre(cadre, p.motImage, p.titre, credits, function (im) { memoriserImage(p.id, im, p.motImage); });
     var pct = p.paliers ? Math.min(100, Math.round((s.fait || 0) / p.paliers * 100)) : 0;
-    return el("li", {}, [el("a", { "class": "carte-v", href: "#/p/" + encodeURIComponent(p.id) }, [cadre, el("span", { "class": "carte-v-corps" }, [
+    return el("li", {}, [el("a", { "class": "carte-v " + teinteSujet(p.titre), href: "#/p/" + encodeURIComponent(p.id) }, [cadre, el("span", { "class": "carte-v-corps" }, [
       el("span", { "class": "badge verifie" }, [icone("verifie"), "Vérifié"]),
       el("b", { text: p.titre }),
       el("span", { "class": "meta", text: pluriel(p.paliers, "leçon", "leçons") + (s.fait ? " · " + s.fait + (s.fait > 1 ? " faites" : " faite") : "") }),
@@ -478,11 +505,11 @@
   }
   /* Tuile « Reprendre » : photo de la formation en cours, titre, progression, un seul bouton noir. */
   function tuileReprendre(r, credits) {
-    var photoR = cadrePhoto(r.s.titre, "photo-r r169");
-    if (imageOk(r.s.image)) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
-    else photoDansCadre(photoR, r.s.titre, r.s.titre, credits, function (im) { memoriserImage(r.id, im); });
+    var photoR = cadrePhoto(r.s.titre, "photo-r r169"), requete = r.s.motImage || r.s.titre;
+    if (imageOk(r.s.image) && (r.s.image.source === "fixe" || r.s.image.req === requete)) poserDansCadre(photoR, r.s.image, r.s.titre, credits);
+    else photoDansCadre(photoR, requete, r.s.titre, credits, function (im) { memoriserImage(r.id, im, requete); });
     var q = quizEnAttente(r.s), avance = !(termine(r.s) && !q);
-    return el("section", { "class": "tb reprendre", "aria-labelledby": "titre-reprendre" }, [
+    return el("section", { "class": "tb reprendre " + teinteSujet(r.s.titre), "aria-labelledby": "titre-reprendre" }, [
       photoR,
       el("div", { "class": "reprendre-corps" }, [
         el("span", { "class": "sur", text: "Reprendre" }),
@@ -512,7 +539,12 @@
     function ranger() {
       var fin = bento.querySelectorAll(".tb.fin");
       Array.prototype.forEach.call(fin, function (t) { t.classList.toggle("seul", fin.length === 1); });
-      Array.prototype.forEach.call(bento.children, function (t, k) { t.style.setProperty("--i", Math.min(k, 8)); });
+      Array.prototype.forEach.call(bento.children, function (t, k) {
+        t.style.setProperty("--i", Math.min(k, 8));
+        if (t.classList.contains("reprendre")) return; // celle-ci a la teinte de sa formation
+        ORDRE_TEINTES.forEach(function (c) { t.classList.remove(c); });
+        t.classList.add(ORDRE_TEINTES[(k + 1) % ORDRE_TEINTES.length]);
+      });
     }
     ranger();
     // Pas d'erreur à revoir : la tuile Glossaire (termes déjà rencontrés dans la formation en cours) prend la place, si elle a des termes.
@@ -539,14 +571,18 @@
   }
 
   /* ---------- Parcours ---------- */
-  function memoriserImage(id, im) { var s = etat.parcours[id]; if (s && !imageOk(s.image)) { s.image = { src: im.src, credit: im.credit, lien: im.lien, source: im.source, auteur: im.auteur, lienAuteur: im.lienAuteur, lienSource: im.lienSource }; S.ecrire("koios.etat", etat); } }
+  function memoriserImage(id, im, req) { var s = etat.parcours[id]; if (s && !imageOk(s.image)) { s.image = { req: req || null, src: im.src, credit: im.credit, lien: im.lien, source: im.source, auteur: im.auteur, lienAuteur: im.lienAuteur, lienSource: im.lienSource }; S.ecrire("koios.etat", etat); } }
   /* Couverture 16:9 : l'image du parcours, sinon une photo cherchée sur Commons puis Unsplash (cadre gris le temps de la recherche, retiré si rien ne vient). */
   function couverture(p) {
-    if (imageOk(p.image)) return photo(p.image, "couverture", p.titre);
-    var attendre = el("figure", { "class": "photo couverture", "aria-hidden": "true" }, [el("div", { "class": "cadre" })]);
-    trouverImage(p.motImage || p.titre, "auto").then(function (im) {
+    var fixe = imageFixe(p) || imageOk(p.image);
+    if (fixe) return photo(fixe, "couverture", p.titre);
+    var gardee = suivi(p.id).image;
+    if (imageOk(gardee) && gardee.req === requetePhoto(p)) return photo(gardee, "couverture", p.titre);
+    /* Tuile de catégorie colorée le temps de la recherche, et si aucune photo pertinente ne vient (jamais une photo hors sujet). */
+    var attendre = el("figure", { "class": "photo couverture", "aria-hidden": "true" }, [el("div", { "class": "cadre categorie teinte " + teinteSujet(p.titre) }, [icone(categorie(p.titre))])]);
+    trouverImage(requetePhoto(p), "auto").then(function (im) {
       var f = im ? photo(im, "couverture", p.titre) : null;
-      if (f) { attendre.replaceWith(f); memoriserImage(p.id, im); } else attendre.remove();
+      if (f) { attendre.replaceWith(f); memoriserImage(p.id, im, requetePhoto(p)); }
     });
     return attendre;
   }
@@ -571,10 +607,10 @@
         if (window.poserIcones) window.poserIcones(zone);
       }
       var suivant = Math.min(s.fait + 1, p.verifie ? prevus : s.fait + 1), prog = parProgramme(p), mf = prog ? modulesFaits(p, s.fait) : 0;
-      montrer(el("div", { "class": "page" }, [
+      montrer(el("div", { "class": "page " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/" }, [icone("retour"), "Accueil"]), el("span"), puceXP()]),
         couverture(p),
-        el("div", { "class": "pile serree" }, [el("span", {}, [badge({ statut: p.verifie ? "verifie" : "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
+        el("div", { "class": "pile serree bandeau" }, [el("span", {}, [badge({ statut: p.verifie ? "verifie" : "recoupe" })]), el("h1", { text: p.titre }), p.resume ? el("p", { "class": "meta", style: "font-size:16px", text: p.resume }) : null]),
         el("div", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("span", { "class": "meta", text: (s.fait ? pluriel(s.fait, "leçon terminée", "leçons terminées") : "Pas encore commencé") + (prog && s.fait ? " · " + mf + " sur " + pluriel(p.modulesTotal, "module", "modules") : "") }), el("span", { "class": "meta gain", text: (s.xp || 0) + N + "XP" })]),
           el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + (prog ? Math.round(mf / Math.max(p.modulesTotal, 1) * 100) : p.verifie ? Math.round(s.fait / Math.max(prevus, 1) * 100) : ((s.fait % 10) * 10)) + "%" })])]),
         fini(p) ? el("p", { "class": "verrou" }, [icone("diplome"), prog ? "Formation terminée. Rejoue les quiz et les défis pour consolider." : "Formation terminée. Rejoue les quiz et les défis pour consolider."]) : lienAvance("#/p/" + encodeURIComponent(p.id) + "/" + suivant, s.fait ? "Continuer · leçon " + suivant : "Commencer la leçon 1", "btn"),
@@ -657,7 +693,7 @@
           ul.appendChild(el("li", { "class": "module-ferme", "aria-label": "verrouillé" }, [el("div", { "class": "rang" }, rangModule(m, "bloque", icone("cadenas")))]));
         }
       });
-      bloc.appendChild(el("section", { "class": "pile niveau" }, [
+      bloc.appendChild(el("section", { "class": "pile niveau " + ["t1", "t2", "t3", "t5"][((niv.numero || 1) - 1) % 4] }, [
         el("div", { "class": "niveau-haut" }, [
           el("span", { "class": "tuile ronde", "aria-hidden": "true" }, [icone(ICONES_NIVEAU[niv.numero] || "livre")]),
           el("div", {}, [el("span", { "class": "sur", text: "Niveau " + niv.numero }), el("h2", { text: niv.titre })]),
@@ -670,7 +706,7 @@
   }
   function ongletQuiz(p, s) {
     return el("div", { "class": "pile" }, [
-      el("div", { "class": "carte" }, [el("h2", { text: "Quiz direct" }), el("p", { "class": "meta", text: "Dix questions sur tout le sujet, avec l’explication de chaque réponse. Disponible tout de suite." }), lien("#/p/" + encodeURIComponent(p.id) + "/quiz/direct", "Lancer le quiz", "btn")]),
+      el("div", { "class": "carte" }, [el("h2", { text: "Quiz direct" }), el("p", { "class": "meta", text: "Dix questions sur tout le sujet, avec l’explication de chaque réponse. Disponible tout de suite." }), lienAvance("#/p/" + encodeURIComponent(p.id) + "/quiz/direct", "Lancer le quiz", "btn")]),
       s.fait >= 5 ? el("div", { "class": "carte" }, [el("h2", { text: "Quiz des leçons" }), el("p", { "class": "meta", text: "Rejoue les quiz déjà ouverts depuis l’onglet Leçons." })]) : el("p", { "class": "verrou" }, [icone("cadenas"), "Les quiz s’ouvrent toutes les 5 leçons."])
     ]);
   }
@@ -876,7 +912,7 @@
       el("span", { "class": "sur", text: p.titre || "Formation" }),
       el("h1", { text: "Formation terminée" }),
       el("p", { text: "Tu as fait le tour de ce sujet" + (nb ? N + ": " + pluriel(nb, "leçon", "leçons") + (p.modulesTotal ? " dans " + pluriel(p.modulesTotal, "module", "modules") : "") : "") + "." }),
-      lien(base + "/quiz/direct", "Lancer le quiz direct", "btn"),
+      lienAvance(base + "/quiz/direct", "Lancer le quiz direct", "btn"),
       lien("#/", "Retour à l’accueil", "btn second")])]), "accueil", "Formation terminée");
   }
   function vuePalier(id, n) {
@@ -901,7 +937,7 @@
       if (n > s.fait + 1) { montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [el("p", { "class": "verrou" }, [icone("cadenas"), "Cette leçon s’ouvre après la leçon " + (n - 1) + "."]), lien("#/p/" + encodeURIComponent(p.id) + "/" + (s.fait + 1), "Aller à la leçon " + (s.fait + 1), "btn")])]), "accueil", "Leçon verrouillée"); return; }
       var dl = null;
       var defs = (l.definitions || []).concat((l.frise || []).length >= 2 ? [] : (l.reperes || []));
-      if (defs.length) { dl = el("dl", { "class": "definitions" }); defs.forEach(function (d) { dl.appendChild(el("div", {}, [el("dt", { text: d.terme }), el("dd", { text: d.definition })])); }); }
+      if (defs.length) { dl = el("dl", { "class": "definitions" }); defs.forEach(function (d, k) { dl.appendChild(el("div", { "class": k === 0 ? "vedette" : null }, [el("dt", { text: d.terme }), el("dd", { text: d.definition })])); }); }
       var srcs = null;
       if ((l.sources || []).length) { srcs = el("ul", { "class": "sources-lecon" }); l.sources.forEach(function (x) { srcs.appendChild(el("li", {}, [x[1] ? el("a", { href: x[1], target: "_blank", rel: "noopener", text: x[0] }) : el("span", { text: x[0] })])); }); }
       var v = l.verification || {};
@@ -965,7 +1001,7 @@
       // Photo de la leçon : la sienne, sinon une photo libre cherchée sur Commons. Rien n'est réservé tant que l'adresse n'est pas connue.
       var emplacement = el("div", { "class": "emplacement", hidden: "" });
       function poserPhoto(img) { var f = photo(img, "lecon-img", l.titre); if (f) { emplacement.appendChild(f); emplacement.hidden = false; } }
-      montrer(el("div", { "class": "page plein" }, [
+      montrer(el("div", { "class": "page plein " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer la leçon" }, [icone("fermer")]), points, puceXP()]),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre }), filAriane(l, p.id), el("h1", { text: l.titre }),
           el("div", { "class": "meta-lecon" }, [badge(v), el("span", { "class": "meta", text: "Leçon " + n }), minutes ? el("span", { "class": "meta", text: "≈" + N + minutes + N + "min" }) : null])]),
@@ -974,7 +1010,7 @@
         verifBloc, finir, rangeeNav
       ]), null, l.titre);
       if (imageOk(l.image)) poserPhoto(l.image);
-      else trouverImage(l.titre + " " + p.titre, "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
+      else trouverImage(String(l.titre || "").slice(0, 50).trim() + " " + requetePhoto(p), "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
       // Mots déjà définis dans les leçons précédentes : soulignés, avec leur fiche. Sans glossaire, la leçon reste telle quelle.
       glossaireJusqua(p, n - 1).then(function (termes) { if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
     }, function (e) {
@@ -1038,7 +1074,7 @@
       z.appendChild(el("p", { "class": "enonce", text: q.enonce }));
       var opts = el("div", { "class": "options", role: "group", "aria-label": "Réponses" });
       q.reponses.forEach(function (rep, k) {
-        var b = el("button", { "class": "option", type: "button" }, [el("span", { text: rep }), el("span", { "class": "fin" })]);
+        var b = el("button", { "class": "option avec-lettre", type: "button" }, [el("span", { "class": "lettre", "aria-hidden": "true", text: "ABCDEF".charAt(k) }), el("span", { text: rep }), el("span", { "class": "fin" })]);
         b.addEventListener("click", function () {
           opts.querySelectorAll("button").forEach(function (x) { x.disabled = true; });
           var juste = k === q.bonne, bon = opts.children[q.bonne];
@@ -1063,7 +1099,7 @@
     var compteur = el("span", { "class": "meta" });
     var page = el("div", { "class": "page plein" }, [el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: opt.retour, "aria-label": "Quitter" }, [icone("fermer")]), points, compteur]), scene]);
     function afficher() {
-      scene.innerHTML = ""; window.scrollTo(0, 0);
+      scene.innerHTML = ""; scene.className = "pile " + ORDRE_TEINTES[k % ORDRE_TEINTES.length]; window.scrollTo(0, 0);
       compteur.textContent = Math.min(k + 1, items.length) + " / " + items.length;
       if (k >= items.length) return fin();
       var it = items[k];
@@ -1170,7 +1206,7 @@
         if (!items.length) { montrer(erreurPage("Pas assez de matière pour ce jeu dans tes leçons. Avance encore un peu.", "Jeu indisponible"), "accueil"); return; }
         var titres = { vraifaux: "Vrai ou faux express", ordre: "Remets dans l’ordre", duel: "Duel" };
         montrer(quiz(items, { titre: titres[type] || "Jeu", retour: base + "/defis", xp: type === "duel" ? XP.quiz : XP.jeu * 2, parcours: p.id, sansErreurs: type !== "duel", fin: function (res, zone) {
-          if (type !== "duel") { zone.appendChild(lien(base + "/jeu/" + type, "Rejouer", "btn")); zone.appendChild(lien(base + "/defis", "Autres défis")); return; }
+          if (type !== "duel") { zone.appendChild(lienAvance(base + "/jeu/" + type, "Rejouer", "btn")); zone.appendChild(lien(base + "/defis", "Autres défis")); return; }
           creerDuel(items, res, zone, p);
         } }), null, titres[type] || "Jeu");
       });
@@ -1272,7 +1308,7 @@
       montrer(quiz([it], { titre: "Question du jour", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
         etat.jours[d] = res.justes ? "juste" : "faux"; sauver();
         zone.appendChild(el("p", { "class": "meta", text: "Série" + N + ": " + pluriel(serieJours(), "jour", "jours") + ". La prochaine arrive demain." }));
-        zone.appendChild(lien("#/p/" + it.palier.split(":")[0], "Ouvrir cette formation", "btn"));
+        zone.appendChild(lienAvance("#/p/" + it.palier.split(":")[0], "Ouvrir cette formation", "btn"));
         zone.appendChild(lien("#/jouer", "Retour aux jeux"));
       } }), null, "Question du jour");
     }, function () { if (vive()) montrer(erreurPage("Les questions ne se chargent pas.", "Indisponible"), "jouer"); });
@@ -1288,7 +1324,7 @@
     }).then(function (items) {
       if (!vive()) return;
       montrer(quiz(items.slice(0, 10), { titre: "Quiz mélangé", retour: "#/jouer", xp: XP.quiz, fin: function (res, zone) {
-        zone.appendChild(lien("#/jeu/melange", "Rejouer", "btn"));
+        zone.appendChild(lienAvance("#/jeu/melange", "Rejouer", "btn"));
         var b = el("button", { "class": "btn second", type: "button", text: "Défier un ami avec ces questions" });
         b.addEventListener("click", function () { b.remove(); creerDuel(items.slice(0, 10), res, zone, null); });
         zone.appendChild(b);

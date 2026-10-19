@@ -5,28 +5,48 @@
    "titre": "Histoire et géographie",
    "paliers": 7,
    "resume": "De la démocratie athénienne aux sommets du monde : des repères datés, vérifiés chacun par deux sources sérieuses.",
-   "motImage": "French Revolution"
+   "motImage": "French Revolution Bastille",
+   "imageFixe": {
+    "src": "",
+    "credit": "",
+    "lien": ""
+   }
   },
   {
    "id": "v-sn",
    "titre": "Sciences et nature",
    "paliers": 5,
    "resume": "Système solaire, ADN, volcans, abysses : les bases des sciences de la nature, vérifiées par deux sources sérieuses.",
-   "motImage": "Solar system planets"
+   "motImage": "solar system planets",
+   "imageFixe": {
+    "src": "",
+    "credit": "",
+    "lien": ""
+   }
   },
   {
    "id": "v-ac",
    "titre": "Arts et culture",
    "paliers": 5,
    "resume": "Cathédrales gothiques, impressionnisme, Boléro, cinéma : les jalons de l'histoire des arts, vérifiés.",
-   "motImage": "Gothic cathedral"
+   "motImage": "Gothic cathedral facade",
+   "imageFixe": {
+    "src": "",
+    "credit": "",
+    "lien": ""
+   }
   },
   {
    "id": "v-gj",
    "titre": "Gemmologie et joaillerie",
    "paliers": 5,
    "resume": "Dureté, réfraction, corindons, béryls, diamant : la gemmologie de base, recoupée avec les cours de l'Institut National de Gemmologie.",
-   "motImage": "Faceted gemstones"
+   "motImage": "gemstone faceted ruby sapphire",
+   "imageFixe": {
+    "src": "",
+    "credit": "",
+    "lien": ""
+   }
   }
  ]
 }
