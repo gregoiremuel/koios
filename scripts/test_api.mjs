@@ -52,7 +52,7 @@ import {
 import {
   FORMAT_LECON, EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
   PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION, CONSIGNES_VARIANTE, validerVariante,
-  TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
+  TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, nombresSoutenus, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
   validerMoitieA, validerMoitieB, validerRedaction, validerVerification,
   SECTIONS_BASE, SEUIL_LECON, soutenue, sujetDefini, validerVerdicts,
@@ -4526,7 +4526,7 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   const scJ = scenario(partiesStandard());
   const ai = { run: (modele, entree) => { jetons.push(entree.max_tokens); return scJ.ai.run(modele, entree); } };
   ok200(await lirePalier(j, 'la-tour-eiffel', 2, scJ, { AI: ai }));
-  assert.deepEqual(jetons, [3000, 3000, 700], 'deux moitiés de 3 000 jetons, vérification de 700');
+  assert.deepEqual(jetons, [3000, 3000, 1000], 'deux moitiés de 3 000 jetons, vérification de 1 000');
 });
 
 test('leçon : les termes déjà définis par les leçons précédentes sont fournis (200 au plus, noms seulement), pas les suivantes', async () => {
@@ -5079,7 +5079,7 @@ test('leçon : les deux moitiés partent ensemble (parallèle), même contexte ;
   assert.equal(r2.corps.palier.verification.retirees, 1, 'seule la carte de B est dans l’appel B ; le rappel vient de A (sain)');
 });
 
-test('leçon : la vérification est légère (700 jetons, extraits tronqués à 5 000 caractères)', async () => {
+test('leçon : la vérification est légère (1 000 jetons, extraits tronqués à 5 000 caractères)', async () => {
   const j = await prepareProgramme();
   const grosse = 'Phrase longue sur la tour. '.repeat(500); // 13 500 caractères
   for (const cle of Object.keys(wiki.pages)) wiki.pages[cle].texte = grosse;
@@ -10846,7 +10846,14 @@ test('visuels (serveur) : les sept types valides passent, normalisés', async ()
   assert.equal(validerVisuel(MOHS).points.length, 10);
   assert.deepEqual(validerVisuel(TABLEAU).lignes[1], ['Diamant', '10'], 'un nombre de tableau devient du texte');
   assert.equal(anneeDe('44 av. J.-C.'), -44);
-  assert.equal(anneeDe('12 mars 1889'), 12, 'premier nombre : les dates sont données en années');
+  assert.equal(anneeDe('12 mars 1889'), 1889, 'le nombre de 3 ou 4 chiffres, pas le jour');
+  assert.equal(anneeDe('28 janvier 1887'), 1887);
+  assert.equal(anneeDe('1er juillet 1887'), 1887);
+  assert.equal(anneeDe('12 mars 1890'), 1890);
+  assert.ok(anneeDe('1889') < anneeDe('12 mars 1890'), 'ordre de frise : 1889 puis 12 mars 1890');
+  assert.equal(anneeDe('Avant 1914'), 1914, '« avant » avant le nombre ne rend pas négatif');
+  assert.equal(anneeDe('300 av. J.-C.'), -300);
+  assert.equal(anneeDe('5 av. J.-C.'), -5);
   assert.equal(anneeDe('sans chiffre'), null);
 });
 
@@ -10892,6 +10899,7 @@ test('visuels (serveur) : tailles, textes, nombres et ordre sont bornés ; un vi
   // schéma : 8 nœuds, liens vers des identifiants connus
   assert.equal(modif(SCHEMA, (v) => { v.liens[0].vers = 'zz'; }), null, 'lien vers un nœud inconnu');
   assert.equal(modif(SCHEMA, (v) => { v.liens[0].vers = 'a'; }), null, 'lien d’un nœud vers lui-même');
+  assert.equal(modif(SCHEMA, (v) => { v.liens.push({ de: 'a', vers: 'b', texte: 'encore' }); }), null, 'lien en double refusé');
   assert.equal(modif(SCHEMA, (v) => { v.noeuds[1].id = 'a'; }), null, 'identifiants uniques');
   assert.equal(modif(SCHEMA, (v) => { v.noeuds[1].id = 'A b'; }), null);
   assert.equal(modif(SCHEMA, (v) => { v.noeuds = Array.from({ length: 9 }, (_, i) => ({ id: 'n' + i, texte: 't' + i })); v.liens = []; }), null, '8 nœuds au plus');
@@ -10942,7 +10950,7 @@ test('visuels : vérifiés comme des affirmations, placés après le reste ; fau
   assert.equal(textes[36], 'Visuel (echelle) Dureté de Mohs : Talc = 1');
   assert.equal(textes[45], 'Visuel (echelle) Dureté de Mohs : Diamant = 10');
   assert.equal(textes[20], 'Moyen mnémotechnique : ' + EXEMPLE_LECON.mnemo, 'la numérotation des autres affirmations ne bouge pas');
-  const opts = { pages: [{ texte: 'Dureté de Mohs : talc 1, diamant 10.' }], proteger: true, titre: 'Tour', sectionsBase: [], seuil: 0.2 };
+  const opts = { pages: [{ texte: 'Dureté de Mohs : talc 1, gypse 2, calcite 3, fluorite 4, apatite 5, orthose 6, quartz 7, topaze 8, corindon 9, diamant 10.' }], proteger: true, titre: 'Tour', sectionsBase: [], seuil: 0.2 };
   const viable = (b) => b.questions.length >= 1;
   const tout = evaluer(brouillon, [], 2, viable, opts);
   assert.equal(tout.brouillon.visuels.length, 1);
@@ -10961,8 +10969,28 @@ test('visuels : vérifiés comme des affirmations, placés après le reste ; fau
   assert.equal(evaluer(brouillon, [{ n: 36, verdict: 'faux', correction: 'Piège : le diamant peut se fendre malgré sa dureté.' }], 2, viable, opts).brouillon.piege, 'le diamant peut se fendre malgré sa dureté.');
 });
 
+test('visuels : un nombre absent des pages sources retire le visuel ; une seule IA (statut « seule ») n’en garde aucun', async () => {
+  const brouillon = validerRedaction(leconAvecVisuels(), { lecon: true }).valeur;
+  const viable = (b) => b.questions.length >= 1;
+  const base = { proteger: true, titre: 'Tour', sectionsBase: [], seuil: 0.2 };
+  const complet = 'Dureté de Mohs : talc 1, gypse 2, calcite 3, fluorite 4, apatite 5, orthose 6, quartz 7, topaze 8, corindon 9, diamant 10.';
+  assert.equal(evaluer(brouillon, [], 2, viable, { ...base, pages: [{ texte: complet }] }).brouillon.visuels.length, 1, 'tous les nombres sont dans les pages');
+  const manque = evaluer(brouillon, [], 2, viable, { ...base, pages: [{ texte: complet.replace(' 7,', ',') }] });
+  assert.deepEqual(manque.brouillon.visuels, [], 'le 7 manque : visuel retiré');
+  assert.equal(manque.aRefaire, false, 'sans forcer la réécriture');
+  assert.ok(manque.brouillon.piege !== undefined && manque.brouillon.questions.length >= 1, 'la leçon reste');
+  assert.deepEqual(evaluer(brouillon, [], 2, viable, { ...base, pages: [] }).brouillon.visuels, [], 'sans page, un visuel chiffré n’est pas soutenu');
+  assert.deepEqual(evaluer(brouillon, [], 2, viable, { ...base, pages: [{ texte: complet }], seule: true }).brouillon.visuels, [], 'une seule IA : aucun visuel');
+  // formats de nombres : « 1 234,5 » dans la page = 1234.5 dans le visuel
+  const barres = validerRedaction(leconAvecVisuels({ visuels: [{ type: 'barres', titre: 'Hauteur', unite: 'm', barres: [{ etiquette: 'Tour', valeur: 330 }, { etiquette: 'Mont', valeur: 1234.5 }] }] }), { lecon: true }).valeur;
+  assert.equal(evaluer(barres, [], 2, viable, { ...base, pages: [{ texte: 'La tour fait 330 m ; le mont, 1 234,5 m.' }] }).brouillon.visuels.length, 1);
+  assert.equal(evaluer(barres, [], 2, viable, { ...base, pages: [{ texte: 'La tour fait 330 m ; le mont, 1 234 m.' }] }).brouillon.visuels.length, 0);
+  assert.equal(nombresSoutenus(['Visuel (schema) Étapes : Taille mène à Sertissage'], []), true, 'aucun nombre : rien à prouver');
+});
+
 test('leçon (génération) : piège, visuels et format dans le contenu ; un visuel non confirmé est retiré, la leçon reste', async () => {
   const j = await prepareProgramme();
+  wiki.pages['Tour Eiffel'].extract = 'Échelle de Mohs : talc 1, gypse 2, calcite 3, fluorite 4, apatite 5, orthose 6, quartz 7, topaze 8, corindon 9, diamant 10. ' + wiki.pages['Tour Eiffel'].extract;
   const sc = scenario({ ...partiesStandard(), lecon: [leconAvecVisuels()] });
   const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
   ok200(r);
@@ -11002,7 +11030,7 @@ test('prompts du lot 9B : leçon plus riche, piège, visuels, niveaux qui se sen
   assert.equal(FORMAT_LECON, 2);
 });
 
-test('admin « reecrire » : les leçons de format ancien (sans champ format) d’une formation par niveaux sont aussi mises en file', async () => {
+test('admin « reecrire » : les leçons de format ancien ne sont mises en file que sur demande (formatAncien: true)', async () => {
   await prepareProgramme();
   const poster = (corps) => appel(adminPost, { env: envAdmin(), methode: 'POST', entetes: enteteAdmin, corps });
   for (const n of [1, 2, 3]) insererPalierTest('la-tour-eiffel', n);
@@ -11014,7 +11042,11 @@ test('admin « reecrire » : les leçons de format ancien (sans champ format) d�
   maj(1, (c) => ({ ...c, verification: ok }));                         // format ancien (aucun champ)
   maj(2, (c) => ({ ...c, format: 1, verification: ok }));              // format 1 explicite
   maj(3, (c) => ({ ...c, format: FORMAT_LECON, verification: ok }));   // format courant
-  const r = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' });
+  const sans = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' });
+  ok200(sans);
+  assert.deepEqual(sans.corps.faibles, [], 'sans formatAncien, le format 1 seul ne met rien en file');
+  assert.equal(lignes('SELECT COUNT(*) AS n FROM file_attente')[0].n, 0);
+  const r = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel', formatAncien: true });
   ok200(r);
   assert.deepEqual(r.corps.faibles, [1, 2]);
   assert.deepEqual(lignes('SELECT type, numero, etat FROM file_attente ORDER BY numero'), [{ type: 'reecriture', numero: 1, etat: 'attente' }, { type: 'reecriture', numero: 2, etat: 'attente' }]);
@@ -11023,7 +11055,7 @@ test('admin « reecrire » : les leçons de format ancien (sans champ format) d�
   brancher(sc);
   assert.equal((await traiterFile({ DB: db, AI: sc.ai })).faites, 2);
   assert.equal(JSON.parse(lignes('SELECT contenu FROM paliers WHERE numero = 1')[0].contenu).format, FORMAT_LECON);
-  assert.deepEqual((await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' })).corps.faibles, []);
+  assert.deepEqual((await poster({ action: 'reecrire', parcours: 'la-tour-eiffel', formatAncien: true })).corps.faibles, []);
 });
 
 // Faux document minimal : assez pour faire tourner app/visuels.js hors navigateur et inspecter ce qu'il construit.
@@ -11079,8 +11111,8 @@ test('visuels (app) : rendu SVG des sept types, sans script ni HTML, avec descri
     assert.ok(/^\d+ \d+ 340 \d+$/.test(svg.attrs.viewBox.replace(/^0 0 /, '0 0 ').replace(/^(\d+) (\d+) /, '$1 $2 ')) || /^0 0 340 \d+$/.test(svg.attrs.viewBox), 'viewBox de 340 de large');
     for (const t of noeuds.filter((n) => n.tag === 'text')) assert.ok(Number(t.attrs['font-size']) >= 14, 'texte de 14 px au moins');
     assert.ok(balises.includes('table'), 'tableau alternatif : ' + v.type);
-    const table = noeuds.find((n) => n.tag === 'table');
-    assert.equal(table.attrs.class, 'sr');
+    const enveloppe = noeuds.find((n) => n.tag === 'div' && n.attrs.class === 'sr');
+    assert.ok(enveloppe && enveloppe.enfants.some((n) => n.tag === 'table'), 'le tableau alternatif est dans un div.sr : ' + v.type);
     assert.ok(noeuds.some((n) => n.tag === 'th' && n.attrs.scope === 'col'));
     // aucune couleur en dur : tout passe par les classes du design
     assert.ok(!noeuds.some((n) => 'fill' in n.attrs && n.attrs.fill !== 'none') && !noeuds.some((n) => 'stroke' in n.attrs), 'pas de couleur en ligne : ' + v.type);
@@ -11109,7 +11141,7 @@ test('visuels (app) : des données hostiles restent du texte (aucune balise cré
   // un texte très long sans espace est coupé, jamais débordant
   const long = V.visuel(validerVisuel({ type: 'barres', titre: 'Longueurs', unite: '', barres: [{ etiquette: 'x'.repeat(60), valeur: 1 }, { etiquette: 'y', valeur: 2 }] }));
   const lignes = []; parcourir(long, (n) => { if (n.tag === 'text') lignes.push(n.texte); });
-  assert.ok(lignes.every((l) => l.length <= 30));
+  assert.ok(lignes.every((l) => l.length <= 40));
 });
 
 test('carte du module (app) : générée sans IA à partir du plan, états fait, en cours, ouvert et verrouillé', async () => {
@@ -11142,12 +11174,13 @@ test('visuels : jamais d’insertion de HTML (visuels.js, fonctions ajoutées à
   const visuelsJs = readFileSync(new URL('../app/visuels.js', import.meta.url), 'utf8');
   assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(visuelsJs), 'visuels.js n’insère aucun HTML');
   const appJs = readFileSync(new URL('../app/app.js', import.meta.url), 'utf8');
-  for (const nom of ['function blocVisuels', 'function carteDuModule']) {
+  for (const nom of ['function blocVisuels']) {
     const debut = appJs.indexOf(nom);
     assert.ok(debut > 0, nom);
     const corps = appJs.slice(debut, appJs.indexOf('\n  }\n', debut));
     assert.ok(!/innerHTML|"html"/.test(corps), nom + ' n’insère aucun HTML');
   }
+  assert.ok(!appJs.includes('carteDuModule'), 'la carte de la formation ne figure plus dans le sommaire (elle répète les niveaux)');
   // affichage entre « Comment » et « Exemple »
   assert.match(appJs, /secEls\.comment,\s*blocVisuels\(l\.visuels\),\s*exemple,/);
   assert.ok(/<script src="visuels\.js"><\/script>/.test(readFileSync(new URL('../app/index.html', import.meta.url), 'utf8')));

@@ -14,6 +14,7 @@
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
 //   POST /api/admin {action: 'reecrire', parcours} : met en file la réécriture des leçons faibles (statut « partiel » avec plus de 20 % de
 //                                       retraits, ou marquées « à revoir »). La nouvelle version remplace l'ancienne : seul cas où l'on écrase.
+//                                       Avec `formatAncien: true` : seules les leçons de format 1 (sans visuels ni piège) d'une formation par niveaux.
 //   POST /api/admin {action: 'credit', montant} : crédit Claude chargé (dollars), dépense cumulée remise à zéro. GET (état de la file)
 //                                       renvoie `credit` : {charge, depense, restant, seuil, alerte, epuise}.
 //   GET  /api/admin?signalements=1 : leçons signalées par des lecteurs (parcours, numéro, titres, nombre de joueurs, motifs, messages, `enFile` si
@@ -231,7 +232,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     return json({ ok: true, ajoutees, ...(await etatFile(env, corps.parcours)) });
   }
   if (corps.action === 'reecrire') {
-    const { ajoutees, faibles } = await reecrire(env, corps.parcours);
+    const { ajoutees, faibles } = await reecrire(env, corps.parcours, { formatAncien: corps.formatAncien === true });
     return json({ ok: true, ajoutees, faibles, ...(await etatFile(env, corps.parcours)) });
   }
   if (corps.action === 'ignorer_signalements') {

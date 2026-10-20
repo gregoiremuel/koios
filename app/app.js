@@ -1239,8 +1239,6 @@
     function visible(m) { return !ess || m.essentiel === true || m.numero === courant || (m.numero === prochain && s.fait >= prevus); }
     if (ess) bloc.appendChild(el("p", { "class": "meta", text: "Mode Essentiel" + N + ": les modules clés. Les leçons s’enchaînent toujours dans l’ordre" + N + ": un module masqué apparaît quand c’est ton tour." }));
     else if (!formationComplete(p)) bloc.appendChild(el("p", { "class": "meta", text: "Les modules s’ouvrent dans l’ordre." }));
-    var carte = carteDuModule(p, s, ouverts, courant, visible);
-    if (carte) bloc.appendChild(carte);
     p.programme.niveaux.forEach(function (niv) {
       var mods = niv.modules.filter(visible);
       var faits = mods.filter(function (m) { var e = ouverts[m.numero], l = e ? e.paliers || [] : []; return l.length && l[l.length - 1].numero <= s.fait; }).length;
@@ -1605,21 +1603,6 @@
     var figures = liste.slice(0, 2).map(function (v) { return V.visuel(v); }).filter(Boolean);
     return figures.length ? el("div", { "class": "visuels-lecon" }, figures) : null;
   }
-  /* Carte de la formation (sommaire), sans IA : niveaux, modules (fait, en cours, ouvert, verrouillé) et leçons faites du module en cours. */
-  function carteDuModule(p, s, ouverts, courant, visible) {
-    var V = window.Visuels;
-    if (!V || !V.carteModule || !p.programme) return null;
-    var plan = { titre: p.titre, courant: null, niveaux: p.programme.niveaux.map(function (niv) {
-      return { titre: niv.titre, modules: niv.modules.filter(visible).map(function (m) {
-        var e = ouverts[m.numero], l = e ? e.paliers || [] : [];
-        var fait = l.length > 0 && l[l.length - 1].numero <= s.fait;
-        return { numero: m.numero, titre: m.titre, etat: fait ? "fait" : m.numero === courant && e ? "cours" : e ? "ouvert" : "ferme" };
-      }) };
-    }) };
-    var ec = ouverts[courant];
-    if (ec && (ec.paliers || []).length) plan.courant = { titre: ec.titre, lecons: ec.paliers.map(function (x, i) { return { numero: i + 1, fait: x.numero <= s.fait }; }) };
-    return V.carteModule(plan);
-  }
   /* « À retenir » : bloc à part (filet gauche, fond --surface, puces). */
   function blocRetenir(liste) { var ul = listeRetenir(liste); return ul ? el("section", { "class": "retenir" }, [titreSection("À retenir", "epingle"), ul]) : null; }
   /* Durée de lecture estimée : mots du texte affiché (hors sources, note de vérification et dessin du réseau), 200 mots par minute, 1 minute au moins ; 0 si rien n'est lisible. */
@@ -1872,7 +1855,7 @@
         blocVisuels(l.visuels),
         exemple,
         secEls.pourquoi,
-        sectionL("Piège fréquent", typeof l.piege === "string" && l.piege ? el("p", { text: l.piege }) : null, "loupe"),
+        sectionL("Piège fréquent", typeof l.piege === "string" && l.piege ? el("p", { text: l.piege }) : null, "faux"),
         secEls.ouQuand,
         sectionL(!(l.definitions || []).length ? "Repères" : "Définitions", dl, "livre-ouvert"),
         sectionL("Frise", V.frise ? V.frise(l.frise) : null, "frise"),

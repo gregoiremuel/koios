@@ -659,29 +659,34 @@ textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; li
 .visuel-svg .v-t { fill: var(--encre); }
 .visuel-svg .v-t2 { fill: var(--encre-2); }
 .visuel-svg .v-gras { font-weight: 600; font-variant-numeric: tabular-nums; }
-.visuel-svg .v-trait { stroke: var(--ligne-forte); stroke-width: 2; fill: none; }
+.visuel-svg .v-trait { stroke: var(--encre-2); stroke-width: 1.5; fill: none; }
 .visuel-svg .v-lien { stroke: var(--encre-2); stroke-width: 1.5; }
 .visuel-svg .v-fleche { fill: var(--encre-2); }
 .visuel-svg .v-point { fill: var(--fond); stroke: var(--encre); stroke-width: 2; }
 .visuel-svg .v-barre { fill: var(--acc, var(--lien)); }
-.visuel-svg .v-noeud { fill: var(--pale, var(--surface)); stroke: var(--bord, var(--ligne)); stroke-width: 1; }
+.visuel-svg .v-noeud { fill: var(--pale, var(--surface)); stroke: var(--acc, var(--encre-2)); stroke-width: 1.5; }
 .visuel-svg .v-centre { fill: var(--encre); }
 .visuel-svg .v-centre-t { fill: #fff; }
-.visuel-svg .v-serie { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.visuel-svg .v-serie { stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .visuel-svg .v-pt { stroke: var(--fond); stroke-width: 1.5; }
-.visuel-svg .v-s1 { stroke: var(--acc, var(--lien)); fill: var(--acc, var(--lien)); }
-.visuel-svg .v-s2 { stroke: var(--encre); fill: var(--encre); stroke-dasharray: 6 4; }
-.visuel-svg .v-s3 { stroke: var(--encre-2); fill: var(--encre-2); stroke-dasharray: 2 4; }
-.visuel-svg .v-pt.v-s2, .visuel-svg .v-pt.v-s3 { stroke-dasharray: none; }
+/* Trait et remplissage séparés : la couleur de la série va au trait des lignes, au remplissage des points seulement. */
+.visuel-svg .v-s1 { stroke: var(--acc, var(--lien)); }
+.visuel-svg .v-s2 { stroke: var(--encre); stroke-dasharray: 6 4; }
+.visuel-svg .v-s3 { stroke: var(--encre-2); stroke-dasharray: 2 4; }
+.visuel-svg circle.v-s1 { fill: var(--acc, var(--lien)); }
+.visuel-svg circle.v-s2 { fill: var(--encre); }
+.visuel-svg circle.v-s3 { fill: var(--encre-2); }
+.visuel-svg .v-pt.v-s1, .visuel-svg .v-pt.v-s2, .visuel-svg .v-pt.v-s3 { stroke: var(--fond); stroke-dasharray: none; }
+.visuel-svg polyline.v-serie, .visuel-svg line.v-serie { fill: none; } /* en dernier : jamais d'aplat sous une courbe */
 .visuel-svg .v-m { stroke-width: 2; }
 .visuel-svg .v-m-fait { fill: var(--encre); stroke: var(--encre); }
 .visuel-svg .v-m-cours, .visuel-svg .v-m-ouvert { fill: var(--fond); stroke: var(--encre); }
-.visuel-svg .v-m-ferme { fill: var(--fond); stroke: var(--ligne); }
+.visuel-svg .v-m-ferme { fill: var(--fond); stroke: var(--encre-2); }
 .visuel-svg .v-num { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .visuel-svg .v-num-fait { fill: #fff; }
-.visuel-tableau { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 1.4; }
+.visuel-tableau { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; line-height: 1.4; }
 .visuel-tableau caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.visuel-tableau th, .visuel-tableau td { padding: 8px 6px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ligne); font-variant-numeric: tabular-nums; }
+.visuel-tableau th, .visuel-tableau td { overflow-wrap: anywhere; padding: 8px 6px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ligne); font-variant-numeric: tabular-nums; }
 .visuel-tableau th { font-weight: 600; color: var(--encre-2); background: var(--surface); }
 .visuels-lecon { display: grid; gap: 20px; }
 @media print {

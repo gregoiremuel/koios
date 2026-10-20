@@ -17,14 +17,14 @@ L'IA ne dessine jamais. Elle fournit des DONNÉES structurées dans un champ `vi
 Règles de validation (serveur, lib/visuels.js) : tailles et nombres bornés, textes courts (60 caractères), nombres finis, aucun HTML. Un visuel invalide est retiré (la leçon reste valable), jamais la leçon entière.
 Fiabilité : chaque nombre d'un visuel doit se retrouver dans les extraits sources ou être marqué par le vérificateur ; le vérificateur reçoit les visuels aplatis en affirmations (ex. « Diamant : dureté 10 »). Rejeté ou incertain : retiré.
 Rendu : SVG inline construit avec createElementNS (jamais innerHTML), couleurs du design seulement, texte lisible à 390 px (>= 14 px), `role="img"` + `aria-label` complet (description en phrases), tableau alternatif lisible par lecteur d'écran, impression correcte.
-Cartes mentales : un visuel « carte du module » généré SANS IA à partir du plan (niveaux, modules, leçons faites) dans le sommaire.
+La « carte du module » (`Visuels.carteModule`, sans IA) reste dans `app/visuels.js` et ses tests, mais n'est plus affichée dans le sommaire : elle répétait les niveaux.
 
 ## 9B. Contenu plus profond
 - Prompt du rédacteur : leçon plus riche. Cibles : « comment » 4 à 6 phrases courtes, « pourquoi » obligatoire, 2 exemples concrets (dont un du métier si le sujet s'y prête), 3 à 6 définitions, « à retenir » 3 à 5, un « piège fréquent » (champ `piege`, 1 à 2 phrases), et selon le niveau (novice, intermédiaire, avancé, expert) un vocabulaire et une profondeur croissants (le niveau doit se sentir : chiffres, méthodes, exceptions à l'expert).
 - Taille : rester lisible sur téléphone : sections courtes, pas de phrase de plus de 25 mots.
 - « Aller plus loin » existant : conserver.
 - Chaque affirmation chiffrée garde ses sources ; le vérificateur reste inchangé (3 verdicts).
-- Les anciennes leçons restent valides (champs nouveaux optionnels) et sont réécrites par la file de nuit (type `reecriture`) quand leur version de format est ancienne : ajouter `format` (nombre) dans le contenu ; `reecrire()` sélectionne aussi les leçons de format < courant.
+- Les anciennes leçons restent valides (champs nouveaux optionnels) et sont réécrites par la file de nuit (type `reecriture`) quand leur version de format est ancienne : ajouter `format` (nombre) dans le contenu ; `reecrire()` ne les met en file que sur demande explicite : `{action: 'reecrire', parcours, formatAncien: true}`.
 
 ## 9C. Ordre de travail
 1. lib/visuels.js (validation + aplatissement pour le vérificateur) + app/visuels.js (rendu SVG) + tests Node des deux.
