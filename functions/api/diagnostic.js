@@ -9,8 +9,9 @@
 import { ErreurHttp, enveloppe, json, secretsEgaux } from '../../lib/api.js';
 import { extraireObjet } from '../../lib/libre.js';
 import {
-  MAX_TOKENS_VERIF, PROMPT_VERIFICATION, messageVerification, validerVerdicts,
+  MAX_TOKENS_VERIF, PROMPT_VERIFICATION, aplatir, messageVerification, textesDe, validerVerdicts,
 } from '../../lib/paliers.js';
+import { pagesAncrees } from '../../lib/sources.js';
 import {
   LLAMA, MISTRAL, cleCerebras, cleClaude, cleGLM, cleGemini, cleGrok, cleGroq, cleMistral, etatModelesCompat, etatModelesGemini, nomsEpuises, nomsIgnores,
   tousLesFournisseurs, verificateurs,
@@ -50,7 +51,16 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   // ?verif=1 : essai réel de la vérification (le même prompt et la même validation que pour une leçon) sur chaque vérificateur d'un rédacteur Claude.
   if (new URL(request.url).searchParams.get('verif') === '1') {
     const pages = [{ langue: 'fr', titre: 'Gemmologie', texte: 'La gemmologie est la science qui étudie les gemmes. Le diamant est du carbone cristallisé. Le rubis et le saphir sont des variétés de corindon. L\u2019émeraude est une variété de béryl.' }];
-    const textes = ['La gemmologie étudie les gemmes.', 'Le diamant est du carbone cristallisé.', 'Le rubis est une variété de béryl.', 'Le saphir est une variété de corindon.', 'Toutes les pierres précieuses se jugent selon les 4 C.'];
+    let textes = ['La gemmologie étudie les gemmes.', 'Le diamant est du carbone cristallisé.', 'Le rubis est une variété de béryl.', 'Le saphir est une variété de corindon.', 'Toutes les pierres précieuses se jugent selon les 4 C.'];
+    // ?verif=1&reel=N : taille réelle (extraits Wikipédia et affirmations de la leçon N de la formation gemmologie-et-joaillerie).
+    const reel = Number(new URL(request.url).searchParams.get('reel'));
+    if (Number.isInteger(reel) && reel > 0) {
+      const ligne = await env.DB.prepare('SELECT contenu FROM paliers WHERE parcours = ? AND numero = ?').bind('gemmologie-et-joaillerie', reel).first();
+      if (ligne) {
+        try { textes = textesDe(aplatir(JSON.parse(ligne.contenu))); } catch { /* garde l'exemple */ }
+        try { const p = await pagesAncrees(env, 'Gemmologie'); if (Array.isArray(p) && p.length) pages.splice(0, pages.length, ...p); } catch { /* garde l'exemple */ }
+      }
+    }
     const demande = [{ role: 'system', content: PROMPT_VERIFICATION }, { role: 'user', content: messageVerification(pages, textes) }];
     const sorties = [];
     for (const f of verificateurs(env, { famille: 'claude', modele: 'claude-haiku-5-5' })) {
@@ -60,7 +70,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
         const rep = await f.appeler(demande, { maxTokens: MAX_TOKENS_VERIF, temperature: 0, delaiMs: 30000 });
         const obj = extraireObjet(rep);
         const val = obj ? validerVerdicts(obj, textes.length) : null;
-        Object.assign(brut, { etat: val && val.valeur !== undefined ? 'ok' : 'illisible', ms: Date.now() - debut, verdicts: val && val.valeur, raison: val && val.raison, extrait: JSON.stringify(rep).slice(0, 400) });
+        Object.assign(brut, { etat: val && val.valeur !== undefined ? 'ok' : 'illisible', ms: Date.now() - debut, taille: JSON.stringify(demande).length, nbTextes: textes.length, verdicts: val && val.valeur, raison: val && val.raison, extrait: JSON.stringify(rep).slice(0, 400) });
       } catch (e) {
         Object.assign(brut, { etat: 'echec', ms: Date.now() - debut, erreur: String((e && e.message) || e).slice(0, 200) });
       }
