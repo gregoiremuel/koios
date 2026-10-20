@@ -609,6 +609,12 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
 .cocher input { width: 24px; height: 24px; accent-color: var(--encre); flex: none; }
 .google-zone, .google-bouton { display: flex; justify-content: center; min-height: 44px; }
 textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; line-height: 1.4; font-family: inherit; }
-.ligne-ami { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 8px 0; }
+.ligne-ami { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 8px 0; }
 .ligne-ami > .pile { min-width: 0; overflow-wrap: anywhere; }
 .ligne-ami .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: none; }
+
+.bandeau-credit { display: grid; gap: 4px; padding: 12px 16px; border: 1px solid var(--faux); border-radius: 12px; background: var(--faux-pale); }
+.bandeau-credit .alerte { margin: 0; }
+
+.pages-admin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+@media (max-width: 480px) { .ligne-ami .actions { flex-basis: 100%; justify-content: flex-start; } }

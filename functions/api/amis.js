@@ -9,7 +9,7 @@ import {
   ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON, quota, sha256Hex,
 } from '../../lib/api.js';
 import {
-  effacerEchecs, exigerPasBloque, joueurParPseudo, noterEchec,
+  compterEssais, effacerEchecs, joueurParPseudo,
 } from '../../lib/comptes.js';
 
 const RECHERCHES_PAR_JOUR = 30;
@@ -106,19 +106,16 @@ async function inviter(env, moi) {
 
 async function rejoindre(env, moi, corps) {
   const limites = [[`echec:invitation:${moi.id}`, ECHECS_INVITATION_PAR_JOUR]];
-  await exigerPasBloque(env, limites);
-  const refus = async () => {
-    await noterEchec(env, limites);
-    return new ErreurHttp(404, 'Ce lien n’est plus valable.');
-  };
-  if (typeof corps.jeton !== 'string' || !/^[a-z0-9]{24}$/.test(corps.jeton)) throw await refus();
+  await compterEssais(env, limites);
+  const refus = () => new ErreurHttp(404, 'Ce lien n’est plus valable.');
+  if (typeof corps.jeton !== 'string' || !/^[a-z0-9]{24}$/.test(corps.jeton)) throw refus();
   const empreinte = await sha256Hex(corps.jeton);
   const ligne = await env.DB.prepare(
     `SELECT i.joueur_id, i.expire, i.usages, i.usages_max, j.pseudo, j.bloque FROM invitations i JOIN joueurs j ON j.id = i.joueur_id WHERE i.jeton_hash = ?`,
   )
     .bind(empreinte)
     .first();
-  if (!ligne || ligne.bloque || !(Date.parse(ligne.expire) > Date.now()) || ligne.usages >= ligne.usages_max) throw await refus();
+  if (!ligne || ligne.bloque || !(Date.parse(ligne.expire) > Date.now()) || ligne.usages >= ligne.usages_max) throw refus();
   if (ligne.joueur_id === moi.id) throw new ErreurHttp(400, 'C’est ton propre lien.');
   const rel = await relation(env, moi.id, ligne.joueur_id);
   if (rel && rel.etat === 'ami') return json({ ok: true, dejaAmis: true, pseudo: ligne.pseudo });
@@ -126,7 +123,7 @@ async function rejoindre(env, moi, corps) {
   const pris = await env.DB.prepare('UPDATE invitations SET usages = usages + 1 WHERE jeton_hash = ? AND usages < usages_max AND expire > ?')
     .bind(empreinte, new Date().toISOString())
     .run();
-  if (!(pris.meta && pris.meta.changes === 1)) throw await refus();
+  if (!(pris.meta && pris.meta.changes === 1)) throw refus();
   await env.DB.batch([
     env.DB.prepare('DELETE FROM amities WHERE (a = ? AND b = ?) OR (a = ? AND b = ?)').bind(moi.id, ligne.joueur_id, ligne.joueur_id, moi.id),
     env.DB.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', ?)").bind(ligne.joueur_id, moi.id, new Date().toISOString()),

@@ -29,6 +29,7 @@ import {
   CLAUDE_MODELE, CLAUDE_URL, GEMINI_MODELES, corpsClaude, estIgnore, fournisseurPerso, marquerEpuise, tousEpuises,
   CEREBRAS_MODELES, CEREBRAS_URL, GROQ_MODELES, MISTRAL_MODELES, MISTRAL_URL, etatModelesCompat, nomsIgnores,
   EPUISEMENT_MISTRAL_MS, cleClaude,
+  coutClaude, creditDepuis, etatCredit, chargerCredit, SEUIL_CREDIT,
 } from '../lib/fournisseurs.js';
 import { DUREE_CACHE_MS, pageDeReference, pagesAncrees } from '../lib/sources.js';
 import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
@@ -138,11 +139,22 @@ async function appel(handler, { env: e = env, methode = 'GET', corps, brut, jeto
   return { statut: reponse.status, corps: contenu, type: reponse.headers.get('content-type') };
 }
 
-async function creerJoueur(pseudo = 'Greg') {
-  const r = await appel(joueurPost, { methode: 'POST', corps: { pseudo }, ip: nouvelleIp() });
-  assert.equal(r.statut, 200, JSON.stringify(r.corps));
-  return { ...r.corps, jeton: `${r.corps.id}.${r.corps.cle}` };
+// /api/joueur est fermé (410) : on insère directement. Par défaut un joueur AVEC compte (pseudo_cle posé, sans mot de passe : la clé suffit
+// pour l'en-tête) ; `{ ancien: true }` donne un ancien profil sans compte (il lit et joue, il ne crée plus avec l'IA).
+let compteurJoueurs = 0;
+const alphanum = (n) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (o) => 'abcdefghijklmnopqrstuvwxyz0123456789'[o % 36]).join('');
+async function creerJoueur(pseudo = 'Greg', { ancien = false } = {}) {
+  const id = alphanum(12);
+  const cle = alphanum(32);
+  const maintenant = new Date().toISOString();
+  compteurJoueurs += 1;
+  db.base.prepare(
+    `INSERT INTO joueurs (id, cle_hash, pseudo, ton, etat, points, valides, cree, maj, pseudo_cle, role, bloque, vu)
+     VALUES (?, ?, ?, 'taquin', '{}', 0, 0, ?, ?, ?, 'joueur', 0, ?)`,
+  ).run(id, await sha256Hex(cle), pseudo, maintenant, maintenant, ancien ? null : 'test-' + compteurJoueurs + '-' + id, maintenant);
+  return { id, cle, pseudo, jeton: `${id}.${cle}` };
 }
+const creerAncienProfil = (pseudo = 'Vieux') => creerJoueur(pseudo, { ancien: true });
 
 function toutVider() {
   for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache', 'sessions', 'codes', 'codes_utilises', 'amities', 'invitations']) {
@@ -171,7 +183,6 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
   assert.deepEqual(r.corps, { base: false, ia: false });
   const jeton = 'abcdefghij12.' + 'a'.repeat(32);
   const cas = [
-    [joueurPost, { methode: 'POST', corps: { pseudo: 'Greg' } }],
     [progressionGet, { jeton }],
     [progressionPut, { methode: 'PUT', jeton, corps: { etat: {} } }],
     [cercleGet, {}],
@@ -270,64 +281,22 @@ test('quota : compte, refuse au-delà, repart à zéro le lendemain', async () =
   assert.deepEqual(lignes("SELECT n, jour FROM quotas WHERE cle = 'essai'"), [{ n: 1, jour: aujourdhui() }]);
 });
 
-// --- POST /api/joueur ------------------------------------------------------
+// --- POST /api/joueur : fermé -----------------------------------------------
 
-test('joueur : crée id 12 car., cle 32 car., ne garde que le hash de la clé et de l’IP', async () => {
+test('joueur : POST /api/joueur est fermé (410), rien n’est créé, quelle que soit la demande', async () => {
   toutVider();
-  const ip = '192.0.2.55';
-  const r = await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'Greg' }, ip });
-  assert.equal(r.statut, 200);
-  assert.match(r.corps.id, /^[a-z0-9]{12}$/);
-  assert.match(r.corps.cle, /^[a-z0-9]{32}$/);
-  assert.equal(r.corps.pseudo, 'Greg');
-  const [ligne] = lignes('SELECT * FROM joueurs');
-  assert.equal(ligne.id, r.corps.id);
-  assert.equal(ligne.cle_hash, await sha256Hex(r.corps.cle));
-  assert.equal(ligne.ton, 'taquin');
-  assert.equal(ligne.etat, '{}');
-  assert.equal(ligne.points, 0);
-  assert.equal(ligne.valides, 0);
-  const tout = JSON.stringify([lignes('SELECT * FROM joueurs'), lignes('SELECT * FROM quotas')]);
-  assert.ok(!tout.includes(r.corps.cle), 'la clé ne doit pas être stockée');
-  assert.ok(!tout.includes(ip), 'l’IP ne doit pas être stockée en clair');
-  assert.deepEqual(lignes('SELECT cle FROM quotas').map((q) => q.cle), ['joueur:' + (await sha256Hex(ip))]);
+  for (const options of [{ corps: { pseudo: 'Greg' } }, { corps: {} }, { brut: '{pas du json' }, {}]) {
+    erreurFr(await appel(joueurPost, { methode: 'POST', ip: nouvelleIp(), ...options }), 410, /fermée/);
+  }
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+  assert.equal(lignes('SELECT * FROM quotas').length, 0);
 });
 
-test('joueur : deux créations donnent des id et des clés différents', async () => {
+test('joueur : deux créations (aide de test) donnent des id et des clés différents', async () => {
   const a = await creerJoueur('A');
   const b = await creerJoueur('B');
   assert.notEqual(a.id, b.id);
   assert.notEqual(a.cle, b.cle);
-});
-
-test('joueur : pseudo nettoyé, ou refusé en 400', async () => {
-  toutVider();
-  const ok = await appel(joueurPost, { methode: 'POST', corps: { pseudo: '  Gr\u0000é‮g \n\tM  ' }, ip: nouvelleIp() });
-  assert.equal(ok.corps.pseudo, 'Grég M');
-  for (const mauvais of ['', '   ', '\u0000\u0001', 'x'.repeat(25), 12, null, ['a'], undefined]) {
-    const r = await appel(joueurPost, { methode: 'POST', corps: { pseudo: mauvais }, ip: nouvelleIp() });
-    erreurFr(r, 400);
-  }
-  const limite = await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'é'.repeat(24) }, ip: nouvelleIp() });
-  assert.equal(limite.statut, 200);
-});
-
-test('joueur : corps illisible 400, trop gros 413', async () => {
-  erreurFr(await appel(joueurPost, { methode: 'POST', brut: '{pas du json' }), 400);
-  erreurFr(await appel(joueurPost, { methode: 'POST', brut: '[1,2]' }), 400);
-  erreurFr(await appel(joueurPost, { methode: 'POST' }), 400);
-  erreurFr(await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'a', bourrage: 'x'.repeat(2000) } }), 413);
-  erreurFr(await appel(joueurPost, { methode: 'POST', brut: '{}', entetes: { 'content-length': '999999' } }), 413);
-});
-
-test('joueur : 20 créations par jour et par IP, la 21e reçoit 429', async () => {
-  toutVider();
-  const ip = '192.0.2.99';
-  for (let i = 0; i < 20; i++) {
-    assert.equal((await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'P' + i }, ip })).statut, 200);
-  }
-  erreurFr(await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'trop' }, ip }), 429);
-  assert.equal((await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'autre' }, ip: '192.0.2.100' })).statut, 200);
 });
 
 // --- Authentification et progression ---------------------------------------
@@ -405,7 +374,7 @@ test('progression : PUT calcule points (etat.xp, 0 à 1 000 000) et valides (pal
 
 test('progression : PUT change pseudo et ton, valide les deux, garde l’ancien sinon', async () => {
   toutVider();
-  const j = await creerJoueur('Greg');
+  const j = await creerAncienProfil('Greg');
   assert.equal((await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { pseudo: ' Fox\u0007 ', ton: 'sobre', etat: {} } })).statut, 200);
   assert.deepEqual((await appel(progressionGet, { jeton: j.jeton })).corps, { pseudo: 'Fox', ton: 'sobre', etat: {} });
   assert.equal((await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { a: 1 } } })).statut, 200);
@@ -1835,8 +1804,8 @@ test('duel POST : crée un duel (id de 8 caractères), GET le rend jouable sans 
 
 test('duel PUT : ajoute ou remplace le score du lecteur, 401, 400, 404', async () => {
   preparerDuels();
-  const a = await creerJoueur('Alice');
-  const b = await creerJoueur('Bob');
+  const a = await creerAncienProfil('Alice');
+  const b = await creerAncienProfil('Bob');
   const { id } = (await creerDuel(a)).corps;
   const put = (joueur, corps) => appel(duelPut, { methode: 'PUT', jeton: joueur && joueur.jeton, corps });
   const lireScores = async () => (await appel(duelGet, { requete: '?id=' + id })).corps.duel.scores;
@@ -3944,7 +3913,7 @@ test('parcours GET : un parcours (une vue de plus), 400 sans id, 404 inconnu ; l
   ok200(liste);
   assert.deepEqual(Object.keys(liste.corps), ['parcours']);
   assert.equal(liste.corps.parcours.length, 60);
-  assert.deepEqual(Object.keys(liste.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
+  assert.deepEqual(Object.keys(liste.corps.parcours[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint', 'niveaux']);
   const ordre = attendus.sort((a, b) => b.vues - a.vues || (a.cree < b.cree ? 1 : a.cree > b.cree ? -1 : 0) || (a.id < b.id ? -1 : 1)).slice(0, 60);
   assert.deepEqual(liste.corps.parcours.map((x) => x.id), ordre.map((x) => x.id));
   const vues = liste.corps.parcours.map((x) => x.vues);
@@ -4684,7 +4653,7 @@ test('parcours à programme : GET renvoie programme et modulesTotal ; l’ancien
   assert.deepEqual(a.etapes[1], { numero: 2, titre: 'Étape 2', paliers: nombres(11, 20).map((numero) => ({ numero, titre: `Palier ${numero} de Ancien` })) });
   // Liste : inchangée (même clés), nombre de leçons connues.
   const liste = (await appel(parcoursGet)).corps.parcours;
-  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
+  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint', 'niveaux']);
   assert.deepEqual(liste.map((x) => [x.id, x.paliers]), [['prog', 10], ['ancien', 20]]);
   // Ancien format : une leçon hors plan écrit encore une étape de 10 paliers, sans fin (aucune « formation terminée »).
   const sc = scenario({ ...partiesStandard(), etape: [etape2Brute()] });
@@ -5359,7 +5328,7 @@ test('parcours GET ?q= : recherche dans les titres sans accents ni casse, 30 ré
   // Une recherche ne compte pas de vue ; sans q, la liste habituelle est inchangée.
   assert.deepEqual(lignes('SELECT SUM(vues) AS v FROM parcours'), [{ v: 7 + 40 + 99 + 3 }]);
   const liste = (await appel(parcoursGet)).corps.parcours;
-  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint']);
+  assert.deepEqual(Object.keys(liste[0]), ['id', 'titre', 'image', 'vues', 'paliers', 'lecons', 'modules', 'ouverts', 'niveauAtteint', 'niveaux']);
   assert.equal(liste.length, 4);
 });
 
@@ -8773,7 +8742,7 @@ test('compte inscrire : 20 inscriptions par jour et par IP, la 21e reçoit 429 ;
 
 test('compte inscrire : avec la clé d’un ancien profil, le profil est complété (progression gardée) et son ancienne clé ne marche plus', async () => {
   toutVider();
-  const ancien = await creerJoueur('Vieux');
+  const ancien = await creerAncienProfil('Vieux');
   ok200(await appel(progressionPut, { methode: 'PUT', jeton: ancien.jeton, corps: { etat: { xp: 320, parcours: { a: { fait: [1, 2, 3] } } } } }));
   const r = await postCompte({ action: 'inscrire', prenom: 'Vieux', nom: 'Profil', pseudo: 'vieux', mdp: MDP }, { jeton: ancien.jeton });
   assert.equal(r.statut, 200, JSON.stringify(r.corps));
@@ -8884,9 +8853,15 @@ test('compte bloqué : 403 partout (routes à connexion et routes ouvertes), seu
     [duelGet, { requete: '?id=abcd1234' }], [partieGet, { requete: '?id=ABCDEF' }], [groupeGet, { requete: '?id=abcd1234' }], [tournoiGet, {}],
     [groupePost, { methode: 'POST', corps: { nom: 'Les phares', parcours: 'phares' } }],
     [comptePost, { methode: 'POST', corps: { action: 'mdp', ancien: MDP, nouveau: 'un autre mot de passe' } }],
-    [comptePost, { methode: 'POST', corps: { action: 'supprimer', mdp: MDP } }],
   ];
   for (const [handler, options] of cas) erreurFr(await appel(handler, { ...options, jeton: a.jeton }), 403, /bloqué/);
+  // Seule exception : un compte bloqué peut supprimer son propre compte (mot de passe exigé).
+  erreurFr(await appel(comptePost, { methode: 'POST', corps: { action: 'supprimer', mdp: 'mauvais mot de passe' }, jeton: a.jeton }), 401);
+  assert.deepEqual((await appel(comptePost, { methode: 'POST', corps: { action: 'supprimer', mdp: MDP }, jeton: a.jeton })).corps, { ok: true });
+  assert.equal(lignes('SELECT * FROM joueurs WHERE id = ?', a.id).length, 0);
+  const b = await creerCompte('Greg');
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(b.id);
+  Object.assign(a, b);
   // Connexion : mauvais mot de passe -> 401 (rien n'est révélé), bon mot de passe -> 403.
   erreurFr(await connexion('greg', 'mauvais mot de passe'), 401);
   erreurFr(await connexion('greg'), 403, /bloqué/);
@@ -8936,7 +8911,7 @@ test('session : clé et identifiant doivent aller ensemble, 180 jours d’inacti
 
 test('session : un ancien profil garde sa clé tant qu’il n’a pas de compte ; sessions et anciennes clés se vérifient à temps constant', async () => {
   toutVider();
-  const ancien = await creerJoueur('Vieux');
+  const ancien = await creerAncienProfil('Vieux');
   assert.equal((await appel(progressionGet, { jeton: ancien.jeton })).statut, 200);
   const g = (await appel(compteGet, { jeton: ancien.jeton })).corps;
   assert.equal(g.compte, false);
@@ -9038,7 +9013,7 @@ test('compte secours : mauvaise phrase, phrase d’un autre compte, pseudo incon
     erreurFr(await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: court }), 400);
   }
   assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'echec:secours:greg'")[0].n, 5, 'seuls les vrais essais ratés comptent (pas les 400)');
-  assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'echec:secours:inconnu'")[0].n, 1);
+  assert.equal(lignes("SELECT * FROM quotas WHERE cle LIKE 'echec:secours:inconnu%' AND cle NOT LIKE 'echec:secours:inconnu:%'").length, 0, 'aucune ligne au nom d’un pseudo inventé');
 });
 
 test('compte secours : 10 échecs par jour par pseudo et par IP, puis 429 même avec la bonne phrase ; la connexion a son propre compteur', async () => {
@@ -9084,7 +9059,7 @@ test('compte mdp : change le mot de passe, garde cette session, efface les autre
   erreurFr(await postCompte({ action: 'mdp', ancien: NOUVEAU, nouveau: MDP }, { jeton: a.jeton }), 429);
   assert.equal(await verifierMdp(NOUVEAU, ligneJoueur(a.id).mdp_hash), true);
   // Un ancien profil n'a pas de mot de passe à changer.
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   erreurFr(await postCompte({ action: 'mdp', ancien: 'x', nouveau: NOUVEAU }, { jeton: vieux.jeton }), 400, /compte/);
 });
 
@@ -9178,7 +9153,7 @@ const NOUVEAU_SANS = 'le bon mot de passe est ' + MDP.length;
 
 test('compte supprimer : un ancien profil confirme avec confirmer: true ; sinon 400', async () => {
   toutVider();
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   erreurFr(await postCompte({ action: 'supprimer' }, { jeton: vieux.jeton }), 400, /Confirme/);
   erreurFr(await postCompte({ action: 'supprimer', confirmer: 'oui' }, { jeton: vieux.jeton }), 400);
   assert.ok(ligneJoueur(vieux.id));
@@ -9273,7 +9248,7 @@ test('compte google : un ancien profil est complété avec Google (progression g
   toutVider();
   reinitExt();
   ext.google = reponseGoogle(infoGoogle());
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   ok200(await appel(progressionPut, { methode: 'PUT', jeton: vieux.jeton, corps: { etat: { xp: 77 } } }));
   const r = await postGoogle({ pseudo: 'vieux', prenom: 'V', nom: 'P' }, { jeton: vieux.jeton });
   assert.equal(r.statut, 200, JSON.stringify(r.corps));
@@ -9303,7 +9278,7 @@ test('admin par session : un compte admin entre sans clé ; un compte ordinaire,
   toutVider();
   const chef = await creerCompte('Chef');
   const simple = await creerCompte('Simple');
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   faireAdmin(chef);
   assert.equal((await adminAvec(adminGet, { jeton: chef.jeton })).statut, 200);
   assert.equal((await postAdmin({ action: 'pause' }, { jeton: chef.jeton })).statut, 200);
@@ -9331,7 +9306,7 @@ test('admin par session : un compte admin entre sans clé ; un compte ordinaire,
 test('admin promouvoir : exige un compte connecté ET la clé ADMIN_KEY (limitée à 20 essais par jour) ; le compte devient admin', async () => {
   toutVider();
   const a = await creerCompte('Greg');
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   const ip = '192.0.2.230';
   erreurFr(await postAdmin({ action: 'promouvoir' }, { entetes: { 'x-admin-cle': CLE_ADMIN }, ip }), 401, /Connecte-toi/);
   erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: vieux.jeton, entetes: { 'x-admin-cle': CLE_ADMIN }, ip }), 401);
@@ -9454,6 +9429,221 @@ test('admin reinitialiser : code temporaire de 8 caractères valable 24 h, gard�
 
 // --- Codes d'amis et limites de création --------------------------------------------------------------------------
 
+test('crédit Claude : coût (0,10 $ / 0,50 $ par million), seuil 0,5 $, jetons cumulés, refus « credit balance », action credit, rien pour un non-admin', async () => {
+  toutVider();
+  // Calcul pur.
+  assert.equal(coutClaude(1e6, 0), 0.1);
+  assert.equal(coutClaude(0, 1e6), 0.5);
+  assert.equal(coutClaude(2e6, 4e6), 2.2);
+  assert.equal(SEUIL_CREDIT, 0.5);
+  assert.deepEqual(creditDepuis({ charge: 5, entree: 1e6, sortie: 1e6 }), { charge: 5, depense: 0.6, restant: 4.4, seuil: 0.5, alerte: false, epuise: false });
+  assert.equal(creditDepuis({ charge: 1, entree: 0, sortie: 1.1e6 }).alerte, true, 'restant 0,45 $ : sous le seuil');
+  assert.equal(creditDepuis({ charge: 1, entree: 0, sortie: 1.1e6 }).restant, 0.45);
+  assert.equal(creditDepuis({ charge: 100, epuise: true }).alerte, true, 'épuisé : alerte même avec du crédit calculé');
+  // Action credit et GET : réservés à l'admin.
+  const chef = await creerCompte('ChefCredit');
+  const simple = await creerCompte('SimpleCredit');
+  faireAdmin(chef);
+  for (const options of [{ jeton: simple.jeton }, {}]) {
+    const g = await adminAvec(adminGet, options);
+    erreurFr(g, 403);
+    assert.ok(!JSON.stringify(g.corps).includes('credit'), 'rien du crédit pour un non-admin');
+    erreurFr(await postAdmin({ action: 'credit', montant: 10 }, options), 403);
+  }
+  const AVEC = { DB: db, CLAUDE_API_KEY: CLE_CLAUDE, ADMIN_KEY: CLE_ADMIN };
+  const vide = (await adminAvec(adminGet, { jeton: chef.jeton, env: AVEC })).corps.credit;
+  assert.deepEqual(vide, { charge: 0, depense: 0, restant: 0, seuil: 0.5, alerte: true, epuise: false });
+  erreurFr(await postAdmin({ action: 'credit', montant: 'dix' }, { jeton: chef.jeton, env: AVEC }), 400);
+  erreurFr(await postAdmin({ action: 'credit', montant: -3 }, { jeton: chef.jeton, env: AVEC }), 400);
+  const charge = await postAdmin({ action: 'credit', montant: 5 }, { jeton: chef.jeton, env: AVEC });
+  assert.deepEqual(charge.corps, { ok: true, credit: { charge: 5, depense: 0, restant: 5, seuil: 0.5, alerte: false, epuise: false } });
+  // Réponses réussies : usage cumulé (clé du serveur seulement).
+  reinitExt();
+  oublierEpuisements();
+  ext.claude = () => reponseWiki({ content: [{ type: 'text', text: '{"ok":true}' }], usage: { input_tokens: 1000000, output_tokens: 200000 } });
+  const claudeServeur = () => redacteurs(AVEC)[0];
+  assert.equal(claudeServeur().famille, 'claude');
+  await claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+  await claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+  assert.deepEqual(lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'claude:%' AND cle IN ('claude:in', 'claude:out') ORDER BY cle"), [{ cle: 'claude:in', n: 2000000 }, { cle: 'claude:out', n: 400000 }]);
+  assert.deepEqual(await etatCredit(AVEC), { charge: 5, depense: 0.4, restant: 4.6, seuil: 0.5, alerte: false, epuise: false });
+  const get = (await adminAvec(adminGet, { jeton: chef.jeton, env: AVEC })).corps.credit;
+  assert.equal(get.depense, 0.4);
+  // Clé personnelle Claude : ne touche pas au compteur du serveur.
+  await redacteurs({ ...AVEC, clePerso: { fournisseur: 'claude', cle: 'sk-ant-api03-perso' } })[0].appeler(MSG, { maxTokens: 5, delaiMs: 1000 });
+  assert.equal((await etatCredit(AVEC)).depense, 0.4);
+  // Refus 400 « credit balance » : épuisé, Claude écarté sans bruit, la cascade continue.
+  ext.claude = () => new Response('{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}', { status: 400 });
+  await assert.rejects(() => claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), (e) => e.fournisseur === 'Claude' && !e.cleRefusee && !e.epuise);
+  assert.equal((await etatCredit(AVEC)).epuise, true);
+  assert.equal((await etatCredit(AVEC)).alerte, true);
+  assert.ok(!redacteurs(AVEC).map((f) => f.famille).includes('claude'), 'écarté de la cascade');
+  // Un 400 sans « credit balance » ne coupe rien.
+  oublierEpuisements();
+  await chargerCredit(AVEC, 3);
+  ext.claude = () => new Response('{"error":{"message":"max_tokens trop grand"}}', { status: 400 });
+  await assert.rejects(() => claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 }));
+  assert.equal((await etatCredit(AVEC)).epuise, false);
+  // Épuisé en base : un autre isolat (mémoire vide) n'appelle pas Anthropic.
+  ext.claude = () => new Response('{"error":{"message":"Your credit balance is too low"}}', { status: 400 });
+  await assert.rejects(() => claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 }));
+  oublierEpuisements();
+  const avant = ext.appels.length;
+  await assert.rejects(() => claudeServeur().appeler(MSG, { maxTokens: 5, delaiMs: 1000 }), /crédit épuisé/);
+  assert.equal(ext.appels.length, avant, 'aucun appel réseau');
+  // Recharge : remet la dépense à zéro et rouvre Claude.
+  const recharge = await postAdmin({ action: 'credit', montant: 2.5 }, { jeton: chef.jeton, env: AVEC });
+  assert.deepEqual(recharge.corps.credit, { charge: 2.5, depense: 0, restant: 2.5, seuil: 0.5, alerte: false, epuise: false });
+  assert.equal(redacteurs(AVEC)[0].famille, 'claude');
+  // Aucune clé dans les sorties.
+  assert.ok(!JSON.stringify([get, recharge.corps]).includes(CLE_CLAUDE));
+  assert.ok(!JSON.stringify(lignes('SELECT * FROM quotas')).includes(CLE_CLAUDE));
+  reinitExt();
+});
+
+// --- Sécurité des comptes : compteurs atomiques, limite par IP, pseudos, clé admin --------------------------------
+
+const cleIp = (ip) => sha256Hex(ip);
+const quotaN = (cle) => { const l = lignes('SELECT n FROM quotas WHERE cle = ?', cle)[0]; return l ? l.n : 0; };
+
+test('sécurité 1 : un essai est compté AVANT la vérification (requêtes en parallèle plafonnées), une réussite remet à zéro', async () => {
+  toutVider();
+  await creerCompte('Cible');
+  const ip = nouvelleIp();
+  const h = await cleIp(ip);
+  // 14 essais en parallèle avec un mauvais mot de passe : pas plus de 10 arrivent jusqu'à la vérification (401), les autres reçoivent 429.
+  const reps = await Promise.all(Array.from({ length: 14 }, () => connexion('cible', 'mauvais mot de passe', { ip })));
+  assert.equal(reps.filter((r) => r.statut === 401).length, 10);
+  assert.equal(reps.filter((r) => r.statut === 429).length, 4);
+  assert.equal(quotaN(`echec:conn:cible:${h}`) >= 10, true);
+  // Même avec le bon mot de passe, le plafond tient.
+  erreurFr(await connexion('cible', MDP, { ip }), 429);
+  // Une autre IP : un échec, puis une réussite remet à zéro le compteur du pseudo (pas celui de l'IP).
+  const ip2 = nouvelleIp();
+  const h2 = await cleIp(ip2);
+  erreurFr(await connexion('cible', 'mauvais mot de passe', { ip: ip2 }), 401);
+  assert.equal(quotaN(`echec:conn:cible:${h2}`), 1);
+  ok200(await connexion('cible', MDP, { ip: ip2 }));
+  assert.equal(quotaN(`echec:conn:cible:${h2}`), 0);
+  assert.equal(quotaN(`echec:conn:ip:${h2}`), 2, 'le compteur de l’IP seule ne se remet pas à zéro');
+  // Mot de passe, code d'ami, invitation : même principe.
+  const a = await creerCompte('Autre');
+  const reps2 = await Promise.all(Array.from({ length: 13 }, () => postCompte({ action: 'mdp', ancien: 'faux faux faux', nouveau: 'un nouveau mot de passe' }, { jeton: a.jeton })));
+  assert.equal(reps2.filter((r) => r.statut === 401).length, 10);
+  assert.equal(reps2.filter((r) => r.statut === 429).length, 3);
+  const reps3 = await Promise.all(Array.from({ length: 13 }, () => postCompte({ action: 'code', code: 'inexistant' }, { jeton: a.jeton })));
+  assert.equal(reps3.filter((r) => r.statut === 404).length, 10);
+  assert.equal(reps3.filter((r) => r.statut === 429).length, 3);
+});
+
+test('sécurité 2 : 50 essais par jour et par IP tous pseudos confondus (connexion et secours), avant tout PBKDF2 ; aucune ligne par pseudo inventé', async () => {
+  toutVider();
+  await creerCompte('Vrai');
+  for (const [action, champs, cleIpBase] of [['connecter', { mdp: 'mauvais mot de passe' }, 'conn'], ['secours', { phrase: 'une phrase', nouveauMdp: 'un nouveau mot de passe' }, 'secours']]) {
+    const ip = nouvelleIp();
+    const h = await cleIp(ip);
+    db.base.prepare("INSERT INTO quotas (cle, n, jour) VALUES (?, 49, ?)").run(`echec:${cleIpBase}:ip:${h}`, aujourdhui());
+    erreurFr(await postCompte({ action, pseudo: 'inventé-1', ...champs }, { ip }), 401); // 50e essai
+    erreurFr(await postCompte({ action, pseudo: 'inventé-2', ...champs }, { ip }), 429); // 51e : refusé
+    erreurFr(await postCompte({ action, pseudo: 'vrai', ...champs }, { ip }), 429, /Trop d’essais/); // même pour un vrai pseudo
+    // Un pseudo inventé ne laisse aucune ligne à son nom (ni seul, ni avec l'IP).
+    assert.equal(lignes("SELECT * FROM quotas WHERE cle LIKE ?", `echec:${cleIpBase}:invent%`).length, 0);
+    // Une autre IP n'est pas touchée.
+    erreurFr(await postCompte({ action, pseudo: 'inventé-3', ...champs }, { ip: nouvelleIp() }), 401);
+  }
+  // La limite par IP passe avant le calcul : un refus par IP ne lance aucun PBKDF2 (le corps invalide n'est même pas examiné).
+  const ip = nouvelleIp();
+  db.base.prepare("INSERT INTO quotas (cle, n, jour) VALUES (?, 50, ?)").run(`echec:conn:ip:${await cleIp(ip)}`, aujourdhui());
+  const debut = Date.now();
+  erreurFr(await connexion('vrai', MDP, { ip }), 429);
+  assert.ok(Date.now() - debut < 50, 'refus immédiat, sans PBKDF2');
+});
+
+test('sécurité 3 : /api/joueur fermé (410) et les créations IA exigent un compte', async () => {
+  toutVider();
+  erreurFr(await appel(joueurPost, { methode: 'POST', corps: { pseudo: 'Greg' }, ip: nouvelleIp() }), 410);
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+  const vieux = await creerAncienProfil('Vieux');
+  const compte = await creerCompte('Nouveau');
+  const lit = await appel(progressionGet, { jeton: vieux.jeton });
+  assert.equal(lit.statut, 200, 'un ancien profil lit toujours');
+  erreurFr(await appel(sujetPost, { env: { DB: db, AI: iaPlan() }, methode: 'POST', jeton: vieux.jeton, corps: { titre: 'La tour Eiffel' } }), 403, /compte/);
+  erreurFr(await appel(sujetPost, { env: { DB: db, AI: iaPlan() }, methode: 'POST', corps: { titre: 'La tour Eiffel' } }), 401);
+  ok200(await appel(sujetPost, { env: { DB: db, AI: iaPlan() }, methode: 'POST', jeton: compte.jeton, corps: { titre: 'La tour Eiffel' } }));
+});
+
+test('sécurité 4 : pseudo en NFKC, alphabet restreint, réservés comparés après normalisation', async () => {
+  toutVider();
+  const essai = (pseudo) => postCompte({ action: 'inscrire', prenom: 'A', nom: 'B', pseudo, mdp: MDP }, { ip: nouvelleIp() });
+  for (const mauvais of ['Greɡ', 'Gr٣g', 'Gréɡ', 'Gr eg', 'Gre😀g', 'Γρηγ', 'ab', 'x'.repeat(21)]) erreurFr(await essai(mauvais), 400);
+  for (const reserve of ['admin', 'ａｄｍｉｎ', 'ＡＤＭＩＮ', 'Admin', 'ad.min', 'ad_min', 'Koîos', 'koios', 'ｋｏｉｏｓ', 'Système', 'Modérateur']) erreurFr(await essai(reserve), 409, /réservé/);
+  const bon = await essai('Grég.O-ry_é');
+  ok200(bon);
+  assert.equal(bon.corps.pseudo, 'Grég.O-ry_é');
+  // Écriture pleine largeur d'un pseudo ordinaire : normalisée en NFKC (donc prise si le pseudo normal existe).
+  const large = await essai('ｇｒｅｇ９９');
+  ok200(large);
+  assert.equal(large.corps.pseudo, 'greg99', 'normalisé en NFKC');
+  erreurFr(await essai('GREG99'), 409, /déjà pris/);
+  ok200(await connexion('ｇｒｅｇ９９', MDP, { ip: nouvelleIp() }));
+});
+
+test('sécurité 5 et 6 : clé admin, IP hachée, essai compté avant la comparaison, plafond global de 100, réussites non comptées', async () => {
+  toutVider();
+  const ip = '203.0.113.9';
+  const h = await cleIp(ip);
+  const bonne = { 'x-admin-cle': CLE_ADMIN };
+  // Réussites : ne comptent pas.
+  for (let i = 0; i < 25; i++) assert.equal((await adminAvec(adminGet, { ip, entetes: bonne })).statut, 200);
+  assert.equal(quotaN(`admin:ip:${h}`), 0);
+  assert.equal(quotaN('admin:total'), 0);
+  // Jamais l'IP brute dans les clés.
+  // 20 mauvais essais en parallèle puis la bonne clé refusée.
+  const reps = await Promise.all(Array.from({ length: 25 }, () => adminAvec(adminGet, { ip, entetes: { 'x-admin-cle': 'mauvaise' } })));
+  assert.ok(reps.every((r) => r.statut === 403));
+  assert.equal(quotaN(`admin:ip:${h}`), 25, 'chaque essai est compté avant la comparaison, même au-delà du plafond');
+  erreurFr(await adminAvec(adminGet, { ip, entetes: bonne }), 403);
+  assert.ok(!JSON.stringify(lignes('SELECT cle FROM quotas')).includes(ip), 'l’IP brute n’est jamais gardée');
+  // Plafond global : 100 mauvais essais depuis des IP différentes, puis même la bonne clé d'une IP neuve est refusée.
+  toutVider();
+  db.base.prepare("INSERT INTO quotas (cle, n, jour) VALUES ('admin:total', 99, ?)").run(aujourdhui());
+  erreurFr(await adminAvec(adminGet, { ip: nouvelleIp(), entetes: { 'x-admin-cle': 'mauvaise' } }), 403); // 100e
+  erreurFr(await adminAvec(adminGet, { ip: nouvelleIp(), entetes: bonne }), 403); // 101e : refusé même avec la bonne clé
+  // Un compte admin (session) n'est pas concerné.
+  const chef = await creerCompte('ChefCle');
+  faireAdmin(chef);
+  assert.equal((await adminAvec(adminGet, { jeton: chef.jeton })).statut, 200);
+});
+
+test('sécurité 7 : supprimer un compte efface ses compteurs echec:% ; un compte bloqué peut le supprimer', async () => {
+  toutVider();
+  const a = await creerCompte('Efface_moi');
+  const b = await creerCompte('Efface_moa');
+  const ip = nouvelleIp();
+  erreurFr(await connexion('efface_moi', 'mauvais mot de passe', { ip }), 401);
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'efface_moi', phrase: 'faux', nouveauMdp: 'un nouveau mot de passe' }, { ip }), 401);
+  erreurFr(await connexion('efface_moa', 'mauvais mot de passe', { ip }), 401);
+  erreurFr(await postCompte({ action: 'mdp', ancien: 'faux faux faux', nouveau: 'un nouveau mot de passe' }, { jeton: a.jeton }), 401);
+  const avant = lignes("SELECT cle FROM quotas WHERE cle LIKE 'echec:%' ORDER BY cle").map((r) => r.cle);
+  assert.ok(avant.some((c) => c.startsWith('echec:conn:efface_moi:')) && avant.includes('echec:conn:efface_moi') && avant.includes('echec:secours:efface_moi') && avant.includes('echec:mdp:' + a.id));
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(a.id);
+  assert.deepEqual((await postCompte({ action: 'supprimer', mdp: MDP }, { jeton: a.jeton })).corps, { ok: true });
+  const apres = lignes("SELECT cle FROM quotas WHERE cle LIKE 'echec:%' ORDER BY cle").map((r) => r.cle);
+  assert.ok(!apres.some((c) => c.includes('efface_moi') || c.includes(a.id)), 'rien du compte supprimé : ' + apres.join(' '));
+  assert.ok(apres.some((c) => c.includes('efface_moa')), 'les compteurs des autres comptes restent (et « _ » n’est pas un joker)');
+  assert.ok(apres.some((c) => c.startsWith('echec:conn:ip:')), 'le compteur par IP reste');
+  assert.equal(lignes('SELECT * FROM joueurs WHERE id = ?', b.id).length, 1);
+});
+
+test('sécurité 8 : changer le mot de passe efface le code temporaire de l’admin', async () => {
+  toutVider();
+  const a = await creerCompte('CodeTemp');
+  db.base.prepare('UPDATE joueurs SET reinit_hash = ?, reinit_fin = ? WHERE id = ?').run('x', new Date(Date.now() + 3600000).toISOString(), a.id);
+  ok200(await postCompte({ action: 'mdp', ancien: MDP, nouveau: 'un nouveau mot de passe' }, { jeton: a.jeton }));
+  const l = ligneJoueur(a.id);
+  assert.deepEqual([l.reinit_hash, l.reinit_fin], [null, null]);
+});
+
 test('admin codes : création validée (bonus, jours, usages), liste, révocation ; 403 hors admin', async () => {
   toutVider();
   const chef = await creerCompte('Chef');
@@ -9557,14 +9747,20 @@ test('limites de création : toutes les routes qui créent avec l’IA passent p
     assert.ok(!/await quota\(env, '[a-z]+:joueur:'/.test(texte), f + ' : un quota par joueur échappe aux codes');
   }
   const a = await creerCompte('Greg');
-  const ligne = { id: a.id, role: 'joueur' };
+  const ligne = { id: a.id, role: 'joueur', compte: true };
   for (let i = 0; i < 3; i++) assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), true);
   assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), false);
   db.base.prepare("INSERT INTO codes (code, bonus, jours, usages_max, usages, cree, revoque) VALUES ('bonus001', 2, 1, 9, 1, '2026-10-20', 0)").run();
   db.base.prepare("INSERT INTO codes_utilises (code, joueur_id, expire) VALUES ('bonus001', ?, ?)").run(a.id, new Date(Date.now() + unJourEnMs).toISOString());
   assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), true); // 5e appel : 5 <= 3 + 2
   assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), false);
-  for (let i = 0; i < 10; i++) assert.equal(await quotaJoueur(env, { id: a.id, role: 'admin' }, 'essai:joueur:y', 1), true);
+  for (let i = 0; i < 10; i++) assert.equal(await quotaJoueur(env, { id: a.id, role: 'admin', compte: true }, 'essai:joueur:y', 1), true);
+  // Les créations avec l'IA exigent un compte connecté : anonyme 401, ancien profil 403.
+  await assert.rejects(() => quotaJoueur(env, null, 'essai:joueur:z', 3), (e) => e.statut === 401);
+  await assert.rejects(() => quotaJoueur(env, { id: a.id, role: 'joueur', compte: false }, 'essai:joueur:z', 3), (e) => e.statut === 403);
+  const vieux = await creerAncienProfil('Vieux');
+  erreurFr(await appel(parcoursPost, { env: { DB: db, AI: {} }, methode: 'POST', jeton: vieux.jeton, corps: { titre: 'Les phares' } }), 403, /compte/);
+  erreurFr(await appel(parcoursPost, { env: { DB: db, AI: {} }, methode: 'POST', corps: { titre: 'Les phares' } }), 401);
 });
 
 // --- Amis : recherche du pseudo exact, demandes, invitations --------------------------------------------------------
@@ -9574,7 +9770,7 @@ const amitie = (x, y) => lignes('SELECT a, b, etat FROM amities WHERE (a = ? AND
 
 test('amis : réservé aux comptes (401 sans session, 403 pour un ancien profil), actions inconnues 400', async () => {
   toutVider();
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   const a = await creerCompte('Greg');
   erreurFr(await appel(amisGet), 401);
   erreurFr(await postAmis({ action: 'inviter' }), 401);
@@ -9613,7 +9809,7 @@ test('amis demander : le pseudo EXACT (sans casse) envoie une demande ; un pseud
   db.base.prepare("UPDATE joueurs SET bloque = 1 WHERE pseudo_cle = 'beatrix'").run();
   erreurFr(await postAmis({ action: 'demander', pseudo: 'beatrix' }, a.jeton), 404);
   // Un ancien profil (sans pseudo de compte) ne se trouve pas non plus par son nom.
-  await creerJoueur('Vieux');
+  await creerAncienProfil('Vieux');
   erreurFr(await postAmis({ action: 'demander', pseudo: 'Vieux' }, a.jeton), 404);
 });
 
@@ -9714,7 +9910,7 @@ test('amis invitation : lien aléatoire de 24 caractères (seule l’empreinte e
   assert.equal((await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, c.jeton)).statut, 200);
   assert.deepEqual(amitie(a, c).map((x) => x.etat), ['ami']);
   // Un ancien profil ne peut pas rejoindre ; sans session non plus.
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   erreurFr(await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, vieux.jeton), 403);
   erreurFr(await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }), 401);
 });
@@ -9762,7 +9958,7 @@ test('cercle : toi et tes amis seulement, par XP ; 401 sans session ; jamais d�
   const b = await creerCompte('Bea');
   const c = await creerCompte('Cyril');
   const etranger = await creerCompte('Etranger');
-  const vieux = await creerJoueur('Vieux');
+  const vieux = await creerAncienProfil('Vieux');
   for (const [j, xp] of [[a, 100], [b, 300], [c, 50], [etranger, 9999], [vieux, 5000]]) {
     ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp, parcours: { p: { fait: [1, 2] } } } } }));
   }

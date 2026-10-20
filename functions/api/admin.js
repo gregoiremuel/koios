@@ -17,10 +17,10 @@
 //   POST /api/admin {action: 'credit', montant} : crédit Claude chargé (dollars), dépense cumulée remise à zéro. GET (état de la file)
 //                                       renvoie `credit` : {charge, depense, restant, seuil, alerte, epuise}.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
-//   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h UTC).
+//   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h 59 UTC).
 //                                       L'état est renvoyé par GET et POST dans `jour`.
 import {
-  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, hacherMdp, json, lireJSON, quota, secretsEgaux,
+  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, hacherMdp, ipHachee, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import { cleDePseudo, normaliserCode } from '../../lib/comptes.js';
 import { chargerCredit, etatCredit } from '../../lib/fournisseurs.js';
@@ -28,19 +28,19 @@ import {
   debloquer, definirJournee, definirPause, etatFile, exporterLecons, reecrire, viderFile,
 } from '../../lib/nuit.js';
 
-// La clé x-admin-cle : 20 mauvais essais par jour et par adresse, au-delà même la bonne clé est refusée. Les accès réussis ne comptent pas.
+// La clé x-admin-cle : chaque essai est compté AVANT la comparaison (atomique) ; 20 essais ratés par jour et par adresse (hachée), 100 en tout
+// par jour, au-delà même la bonne clé est refusée. Un accès réussi rend son essai : il ne compte pas.
+const ESSAIS_CLE_IP = 20;
+const ESSAIS_CLE_TOTAL = 100;
 async function exigerCle(request, env) {
-  const cle = env.DB ? 'admin:ip:' + (request.headers.get('cf-connecting-ip') || 'inconnue') : null;
-  if (cle) {
-    const jour = new Date().toISOString().slice(0, 10);
-    const ligne = await env.DB.prepare('SELECT n FROM quotas WHERE cle = ? AND jour = ?').bind(cle, jour).first();
-    if (ligne && ligne.n >= 20) throw new ErreurHttp(403, 'Accès refusé.');
+  const cles = env.DB ? [['admin:ip:' + (await ipHachee(request)), ESSAIS_CLE_IP], ['admin:total', ESSAIS_CLE_TOTAL]] : [];
+  for (const [cle, plafond] of cles) {
+    if (!(await quota(env, cle, plafond))) throw new ErreurHttp(403, 'Accès refusé.');
   }
   const fournie = request.headers.get('x-admin-cle') || '';
-  if (!(await secretsEgaux(fournie, env.ADMIN_KEY))) {
-    if (cle) await quota(env, cle, 20);
-    throw new ErreurHttp(403, 'Accès refusé.');
-  }
+  if (!(await secretsEgaux(fournie, env.ADMIN_KEY))) throw new ErreurHttp(403, 'Accès refusé.');
+  const jour = new Date().toISOString().slice(0, 10);
+  for (const [cle] of cles) await env.DB.prepare('UPDATE quotas SET n = MAX(n - 1, 0) WHERE cle = ? AND jour = ?').bind(cle, jour).run();
 }
 
 // Session d'un compte admin (sans clé), sinon la clé. Un compte bloqué n'ouvre rien par sa session, mais la clé reste valable.

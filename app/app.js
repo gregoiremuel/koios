@@ -424,12 +424,19 @@
   /* Jeton de navigation : chaque changement de page l'augmente. Une vue qui attend le réseau note le jeton au départ (vivante) et ne touche plus à l'écran si l'utilisateur a changé de page entre-temps. */
   var navigation = 0;
   function vivante() { var n = navigation; return function () { return n === navigation; }; }
+  /* Remonte en haut à chaque changement de vue, aussi après la mise en page (sinon l'accueil peut s'ouvrir déjà défilé, donc blanc). */
+  function enHaut() {
+    try { if ("scrollRestoration" in history) history.scrollRestoration = "manual"; } catch (e) { /* sans effet */ }
+    window.scrollTo(0, 0);
+    if (document.scrollingElement) document.scrollingElement.scrollTop = 0;
+    if (window.requestAnimationFrame) window.requestAnimationFrame(function () { window.scrollTo(0, 0); });
+  }
   function montrer(page, onglet, titre) {
     app.innerHTML = ""; app.appendChild(page);
     document.title = titre ? titre + " · Koîos" : "Koîos";
     nav.hidden = !onglet;
     nav.querySelectorAll("a").forEach(function (a) { if (a.dataset.onglet === onglet) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
-    window.scrollTo(0, 0);
+    enHaut();
     if (window.poserIcones) window.poserIcones(page);
     var h = page.querySelector("h1");
     if (h && montrer.deja) { h.setAttribute("tabindex", "-1"); h.focus({ preventScroll: true }); }
@@ -761,7 +768,7 @@
       ]),
       section("Pas de publicité", ["Koîos n’affiche aucune publicité, ne vend aucune donnée et n’utilise aucun traqueur."]),
       section("Supprimer ton compte", [
-        "Tu peux tout effacer à tout moment, dans le Profil, avec ton mot de passe" + N + ": compte, appareils connectés, progression, amitiés et demandes.",
+        "Tu peux tout effacer à tout moment, dans le Profil, avec ton mot de passe (ou Google)" + N + ": compte, appareils connectés, progression, amitiés et demandes.",
         "Les formations que tu as créées restent, sans nom d’auteur" + N + ": le contenu des formations est public."
       ])
     ]), profil ? "profil" : null, "Confidentialité");
@@ -778,17 +785,19 @@
     if (x.detail) return x.detail;
     if (x.verifie) return "Cours vérifié · " + pluriel(x.paliers, "chapitre", "chapitres");
     var d = [];
-    if (x.paliers) d.push((x.lecons || 0) + "/" + x.paliers + (x.paliers > 1 ? " leçons prêtes" : " leçon prête"));
-    else d.push(x.lecons ? pluriel(x.lecons, "leçon écrite", "leçons écrites") : "Aucune leçon écrite");
+    d.push(x.lecons ? pluriel(x.lecons, "leçon prête", "leçons prêtes") : "Aucune leçon prête");
+    var aOuvrir = (x.modules || 0) - (x.ouverts || 0);
+    if (aOuvrir > 0) d.push(pluriel(aOuvrir, "module à ouvrir", "modules à ouvrir"));
     if (x.niveauAtteint) d.push("niveau " + x.niveauAtteint.numero + " atteint");
-    if (x.modules) d.push(pluriel(x.modules, "module", "modules"));
     return d.join(" · ");
   }
+  /* Seules les formations « novice à expert » (avec un programme) se montrent ; les anciennes formations courtes restent en base, ouvrables par l'historique. */
+  function parNiveauxServeur(x) { return !!(x && Array.isArray(x.niveaux) && x.niveaux.length); }
   function chercherExistantes(q) {
     var mots = motsDe(q);
     var locales = []; // les cours vérifiés à la main sont masqués (leur catalogue ne sert plus qu'aux photos)
     return pretServeur.then(function () { return serveur.base ? api("GET", "parcours?q=" + encodeURIComponent(q)) : { parcours: [] }; })
-      .then(function (j) { return j.parcours || []; }, function () { return []; })
+      .then(function (j) { return (j.parcours || []).filter(parNiveauxServeur); }, function () { return []; })
       .then(function (l) { return locales.concat(l.map(function (x) { return { id: x.id, titre: x.titre, image: imageFixe({ titre: x.titre }) || x.image, verifie: false, lecons: x.lecons, paliers: x.paliers, modules: x.modules, ouverts: x.ouverts, niveauAtteint: x.niveauAtteint, niveaux: x.niveaux }; })); });
   }
   function blocSuggestions(champ) {
@@ -905,8 +914,8 @@
       fait ? el("span", { "class": "fait-tag" }, [icone("juste"), "Faite"]) : lienAvance("#/jeu/jour", "Répondre", "btn second")
     ]);
   }
-  function tuileCompte(href, nomIcone, nombre, singulier, pluriels) {
-    return el("a", { "class": "tb fin", href: href }, [coin(), ronde(nomIcone), el("span", { "class": "tb-bas" }, [el("span", { "class": "gros", text: String(nombre) }), el("span", { "class": "meta", text: nombre > 1 ? pluriels : singulier })])]);
+  function tuileCompte(href, nomIcone, nombre, singulier, pluriels, titre) {
+    return el("a", { "class": "tb fin", href: href }, [coin(), ronde(nomIcone), el("span", { "class": "tb-bas" }, [titre ? el("b", { text: titre }) : null, el("span", { "class": "gros", text: String(nombre) }), el("span", { "class": "meta", text: nombre > 1 ? pluriels : singulier })])]);
   }
   function tuileEclair() {
     return el("a", { "class": "tb fin", href: "#/jeu/melange" }, [coin(), ronde("eclair"), el("span", { "class": "tb-bas" }, [el("b", { text: "Quiz éclair" }), el("span", { "class": "meta", text: "10 questions" })])]);
@@ -960,9 +969,9 @@
     ranger();
     // Tuile Bibliothèque : seulement si le serveur répond avec un nombre réel de formations.
     pretServeur.then(function () { return serveur.base ? api("GET", "parcours") : { parcours: [] }; }).then(function (j) {
-      var n = (j.parcours || []).length;
+      var n = (j.parcours || []).filter(parNiveauxServeur).length;
       if (!n || !bento.isConnected || bibliotheque) return;
-      bibliotheque = tuileCompte("#/bibliotheque", "livres", n, "formation à ouvrir", "formations à ouvrir");
+      bibliotheque = tuileCompte("#/bibliotheque", "livres", n, "formation à ouvrir", "formations à ouvrir", "Bibliothèque");
       bento.insertBefore(bibliotheque, eclair); ranger();
     }, function () {});
     // Rien à réviser aujourd'hui : la tuile Glossaire (termes déjà rencontrés dans la formation en cours) prend la place, si elle a des termes.
@@ -975,7 +984,7 @@
     }
     var rappelCompte = el("div", { hidden: "" });
     pretServeur.then(function () { if (serveur.base && !profil.compte && rappelCompte.isConnected) { rappelCompte.appendChild(rangeeCompte()); rappelCompte.hidden = false; if (window.poserIcones) window.poserIcones(rappelCompte); } });
-    var haut = [entete(), rappelCompte, rech.recherche, bento];
+    var haut = [entete(), zoneCredit(), rappelCompte, rech.recherche, bento];
     if (miens.length > 1) {
       var ul = el("ul", { "class": "liste" });
       miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, imageFixe({ titre: x.s.titre }) || x.s.image, detailSuivi(x.s))); });
@@ -1004,7 +1013,7 @@
     }
     function charger0() {
       var locales = [];
-      pretServeur.then(function () { return serveur.base ? api("GET", "parcours") : { parcours: [] }; }).then(function (j) { return j.parcours || []; }, function () { return []; }).then(function (l) {
+      pretServeur.then(function () { return serveur.base ? api("GET", "parcours") : { parcours: [] }; }).then(function (j) { return (j.parcours || []).filter(parNiveauxServeur); }, function () { return []; }).then(function (l) {
         if (!vive()) return;
         lister(locales.concat(l.map(function (x) { return { id: x.id, titre: x.titre, image: imageFixe({ titre: x.titre }) || x.image, verifie: false, lecons: x.lecons, paliers: x.paliers, modules: x.modules, ouverts: x.ouverts, niveauAtteint: x.niveauAtteint }; })), "");
       });
@@ -1058,7 +1067,7 @@
       api("POST", "admin", { action: "debloquer", parcours: p.id }, 30000).then(function (r) {
         afficherAdminFormation(p, zone, r);
         var n = r.ajoutees || 0, i2 = zone.querySelector(".info-nuit");
-        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent la nuit (0\u00a0h à 6\u00a0h UTC), 2 par 2, et en journée si tu l’autorises dans l’espace admin." : "Tout est déjà en file."; i2.hidden = false; }
+        if (i2) { i2.textContent = n ? pluriel(n, "tâche ajoutée", "tâches ajoutées") + ". Elles s’écrivent la nuit (0\u00a0h à 5\u00a0h\u00a059 UTC), 2 par 2, et en journée si tu l’autorises dans l’espace admin." : "Tout est déjà en file."; i2.hidden = false; }
       }, function (e) { bouton.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
     });
     info.className = "meta info-nuit";
@@ -2114,7 +2123,7 @@
       info.textContent = "Duel prêt. Tes amis auront les mêmes questions.";
       var b = el("button", { "class": "btn", type: "button" }, [icone("epee"), "Envoyer le duel"]);
       var r = el("p", { "class": "meta", role: "status" });
-      b.addEventListener("click", function () { partager("Koîos", profil.pseudo + " te lance un duel sur " + guill(p ? p.titre : "Koîos") + F + ": " + res.justes + "/" + res.n + ". À toi.", url, function (t) { r.textContent = t; }); });
+      b.addEventListener("click", function () { partager("Koîos", profil.pseudo + " te lance un duel sur " + guill(p ? p.titre : "Koîos") + N + ": " + res.justes + "/" + res.n + ". À toi.", url, function (t) { r.textContent = t; }); });
       zone.appendChild(b); zone.appendChild(r); zone.appendChild(lien("#/duel/" + j.id, "Voir le tableau du duel"));
       if (window.poserIcones) window.poserIcones(zone);
     }, function (e) { info.textContent = e.statut === 503 ? "Les duels demandent la connexion en ligne. Réessaie dans un moment." : messageErreur(e); });
@@ -2227,7 +2236,7 @@
   function refsDe(items) { return items.map(function (x) { return { chapitre: x.palier, index: x.index }; }); }
   function urlSalon(id) { return location.origin + location.pathname + "#/salon/" + id; }
   function envoyerSalon(id, titre, n, repli) {
-    partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te défie sur " + guill(titre) + F + ": " + pluriel(n, "question", "questions") + ". Rejoins le salon.", urlSalon(id), repli);
+    partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te défie sur " + guill(titre) + N + ": " + pluriel(n, "question", "questions") + ". Rejoins le salon.", urlSalon(id), repli);
   }
   /* Crée un salon (duel de type salon) avec ces questions ; score = celui du créateur, ou null s'il n'a pas encore joué. */
   function creerSalonApi(items, sujet, score) {
@@ -2386,7 +2395,7 @@
       var retourPartage = el("p", { "class": "meta", role: "status" });
       var partage = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Partager le lien" })]);
       partage.addEventListener("click", function () {
-        partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te propose " + (tournoi ? "le tournoi de la semaine" : "un " + nom) + (d.titre && !tournoi ? " sur " + guill(d.titre) : "") + F + ": " + pluriel(nq, "question", "questions") + ".", urlSalon(d.id), function (t) { retourPartage.textContent = t; });
+        partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te propose " + (tournoi ? "le tournoi de la semaine" : "un " + nom) + (d.titre && !tournoi ? " sur " + guill(d.titre) : "") + N + ": " + pluriel(nq, "question", "questions") + ".", urlSalon(d.id), function (t) { retourPartage.textContent = t; });
       });
       var direct = null, infoDirect = el("p", { "class": "alerte", role: "status", hidden: "" });
       if ((salon || tournoi) && enLigne() && nq >= 5) {
@@ -2693,7 +2702,7 @@
       if ((j.recues || []).length) {
         var ur = el("ul", { "class": "liste" });
         j.recues.forEach(function (d) {
-          var ok = el("button", { "class": "btn petit", type: "button", text: "Accepter" }), non = el("button", { "class": "btn second petit", type: "button", text: "Refuser" });
+          var ok = el("button", { "class": "btn second petit", type: "button", text: "Accepter" }), non = el("button", { "class": "btn second petit", type: "button", text: "Refuser" });
           ok.addEventListener("click", function () { agir({ action: "accepter", pseudo: d.pseudo }, ok, info); });
           non.addEventListener("click", function () { agir({ action: "refuser", pseudo: d.pseudo }, non, info); });
           ur.appendChild(rangeeAmi(d.pseudo, "veut devenir ton ami", [ok, non]));
@@ -3033,7 +3042,7 @@
       var retour = el("p", { "class": "meta", role: "status" });
       var entete = el("div", { "class": "ligne-titre" }, [el("h2", { text: "Joueurs" }), compteSalle]);
       var inviter = el("button", { "class": "btn second", type: "button" }, [icone("invitation"), el("span", { text: "Inviter" })]);
-      inviter.addEventListener("click", function () { partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te lance une partie en direct" + F + ": " + guill(p.titre) + ". Code " + code + ".", urlPartie(code), function (t) { retour.textContent = t; }); });
+      inviter.addEventListener("click", function () { partager("Koîos", (profil ? profil.pseudo : "Un ami") + " te lance une partie en direct" + N + ": " + guill(p.titre) + ". Code " + code + ".", urlPartie(code), function (t) { retour.textContent = t; }); });
       scene.appendChild(el("span", { "class": "sur", text: "Partie en direct" }));
       scene.appendChild(el("h1", { text: p.titre }));
       scene.appendChild(el("p", { "class": "meta", text: "Créée par " + (p.moi.createur ? "toi" : p.createur) + " · " + pluriel(p.total, "question", "questions") + " · " + p.duree / 1000 + N + "s par question" }));
@@ -3207,6 +3216,24 @@
       seg, aide, el("label", { "for": "cle-ia", "class": "sr", text: "Clé IA" }), champ, etatCle, alerte,
       el("div", { "class": "boutons-ligne" }, [tester, retirer])]);
   }
+  /* Crédit Claude : bandeau rouge sous le seuil (ou crédit épuisé). Admin seulement ; un seul appel léger à GET admin, jamais pour les autres joueurs. */
+  function dollars(x) { return String(Math.round((Number(x) || 0) * 100) / 100).replace(".", ",") + N + "$"; }
+  function bandeauCredit(c, avecLien) {
+    if (!c || !c.alerte) return null;
+    return el("div", { "class": "bandeau-credit", role: "alert" }, [
+      el("p", { "class": "alerte", text: "Crédit Claude" + N + ": " + (c.epuise ? "épuisé. " : "il reste environ " + dollars(c.restant) + ". ") + "Recharge sur console.anthropic.com" }),
+      avecLien ? lien("#/admin", "Noter ma recharge", "lien discret") : null]);
+  }
+  function zoneCredit() {
+    var zone = el("div", { "class": "pile serree" });
+    if (!profil || profil.role !== "admin") return zone;
+    var vive = vivante();
+    api("GET", "admin", null, 10000).then(function (j) {
+      var b = vive() ? bandeauCredit(j && j.credit, true) : null;
+      if (b) { zone.appendChild(b); if (window.poserIcones) window.poserIcones(zone); }
+    }, function () { /* pas admin, ou hors ligne : rien à montrer */ });
+    return zone;
+  }
   /* Espace admin : visible seulement pour un compte admin. On le devient une fois, avec la clé ADMIN_KEY (elle n'est pas gardée sur le téléphone). */
   function sectionAdmin() {
     if (!profil || profil.role !== "admin") return null;
@@ -3252,7 +3279,7 @@
           r.disabled = true;
           api("POST", "admin", { action: "reinitialiser", pseudo: c.pseudo }, 20000).then(function (x) {
             r.disabled = false;
-            li.appendChild(el("div", { "class": "pile serree" }, [el("p", { "class": "cle-lecteur", text: x.code }), el("p", { "class": "meta", text: "Valable 24 h. Donne‑le à la personne" + N + ": elle le tape à la place de sa phrase de secours." })]));
+            li.appendChild(el("div", { "class": "pile serree" }, [el("p", { "class": "cle-lecteur", text: x.code }), el("p", { "class": "meta", text: "Valable 24\u00a0h. Donne‑le à la personne" + N + ": elle le tape à la place de sa phrase de secours." })]));
           }, function (e) { r.disabled = false; dire(alerte, erreurCompte(e)); });
         });
         var li = ligneAdmin(c.pseudo + (c.role === "admin" ? " (admin)" : "") + (c.bloque ? " · bloqué" : ""),
@@ -3261,7 +3288,7 @@
       });
       liste.appendChild((j.comptes || []).length ? ul : el("p", { "class": "meta", text: "Aucun compte trouvé." }));
       var total = j.total || 0, pages = Math.max(1, Math.ceil(total / (j.parPage || 50)));
-      var nav = el("div", { "class": "boutons-ligne" });
+      var nav = el("div", { "class": "pages-admin" });
       var prec = el("button", { "class": "btn second petit", type: "button", text: "Précédent" }), suiv = el("button", { "class": "btn second petit", type: "button", text: "Suivant" });
       prec.disabled = page <= 0; suiv.disabled = page + 1 >= pages;
       prec.addEventListener("click", function () { page -= 1; charger(); });
@@ -3326,6 +3353,7 @@
     function remplir(j) {
       var t = j.taches || {};
       corps.textContent = "";
+      majCredit(j.credit);
       corps.appendChild(el("div", { "class": "pile serree" }, [
         el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit (0 h à 6 h UTC)" + (j.jour ? " et en journée" : "") + ", 2 tâches toutes les 5 minutes, 300 par jour au plus." }),
         el("div", { "class": "chiffres-cles" }, [compteur((t.attente || 0) + (t.en_cours || 0), "En attente"), compteur(t.fait || 0, "Faites"), compteur(t.echec || 0, "Échecs")])]));
@@ -3341,6 +3369,23 @@
         el("p", { "class": "meta derniere-erreur", text: d ? "Dernière erreur" + N + ": " + (d.type === "module" ? "module " : "leçon ") + d.numero + " de " + d.parcours + " · " + d.erreur : "Aucune erreur pour l’instant." }),
         el("p", { "class": "meta", text: j.epuises && j.epuises.length ? "Fournisseurs épuisés ou écartés" + N + ": " + j.epuises.join(", ") + "." : "Aucun fournisseur épuisé connu." })]));
     }
+    /* Bloc crédit : construit une fois (le champ garde ce qu'on tape pendant les rafraîchissements), seuls les textes changent. */
+    var creditBandeau = el("div"), creditTexte = el("p", { "class": "meta" });
+    var creditChamp = el("input", { "class": "champ", id: "credit-recharge", type: "number", inputmode: "decimal", min: "0", step: "any", placeholder: "10" });
+    var creditOk = el("button", { "class": "btn second", type: "button", text: "Noter ma recharge" });
+    creditOk.addEventListener("click", function () {
+      var m = parseFloat(String(creditChamp.value).replace(",", "."));
+      if (!(m > 0)) { alerte.textContent = "Indique un montant en dollars."; alerte.hidden = false; return; }
+      creditOk.disabled = true; alerte.hidden = true;
+      api("POST", "admin", { action: "credit", montant: m }, 15000).then(function () { creditChamp.value = ""; creditOk.disabled = false; return charger().then(remplir); }, function (e) { creditOk.disabled = false; alerte.textContent = messageErreur(e); alerte.hidden = false; });
+    });
+    var creditZone = el("div", { "class": "pile serree", hidden: "" }, [creditBandeau, creditTexte, ligneChamp({ label: el("label", { "for": "credit-recharge", text: "J’ai rechargé de … $" }), input: creditChamp }), creditOk]);
+    function majCredit(c) {
+      if (!c) return;
+      creditZone.hidden = false; creditBandeau.textContent = "";
+      var b = bandeauCredit(c, false); if (b) creditBandeau.appendChild(b);
+      creditTexte.textContent = "Dépensé" + N + ": " + dollars(c.depense) + " · Restant" + N + ": " + dollars(c.restant);
+    }
     function charger() { return api("GET", "admin", null, 10000); }
     charger().then(function (j) {
       if (!vive()) return;
@@ -3350,7 +3395,7 @@
         charger().then(function (r) { if (vive() && corps.isConnected) remplir(r); }, function () { /* on réessaie au prochain tour */ });
       }, 15000);
     }, function (e) { if (vive()) { alerte.textContent = erreurCompte(e); alerte.hidden = false; } });
-    return el("div", { "class": "pile" }, [corps, alerte]);
+    return el("div", { "class": "pile" }, [creditZone, corps, alerte]);
   }
   /* Page admin : trois onglets (Génération, Comptes, Codes). Un 403 (compte plus admin) ramène à la saisie de la clé. */
   function vueAdmin() {
@@ -3480,7 +3525,7 @@
       "<svg viewBox='0 0 120 120' focusable='false' aria-hidden='true'><circle class='piste' cx='60' cy='60' r='52' pathLength='100'/><circle class='arc" + (pct ? "" : " zero") + "' cx='60' cy='60' r='52' pathLength='100' style='stroke-dashoffset:" + (100 - pct) + "'/></svg>" +
       "<div class='anneau-centre' aria-hidden='true'><span class='sur'>Niveau</span><strong>" + n.niveau + "</strong></div>" });
     montrer(el("div", { "class": "page bandes" }, [
-      bande([entete(),
+      bande([entete(), zoneCredit(),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Profil" }), el("h1", { text: profil.pseudo })]),
         el("div", { "class": "profil-niveau" }, [anneau, el("p", { "class": "meta", style: "text-align:center", text: (n.suivant - (etat.xp || 0)) + N + "XP avant le niveau " + (n.niveau + 1) + " · " + (etat.xp || 0) + N + "XP au total" })]),
         el("div", { "class": "chiffres-cles" }, [el("div", {}, [el("strong", { text: String(paliers) }), el("span", { "class": "meta", text: paliers > 1 ? "Leçons faites" : "Leçon faite" })]), el("div", {}, [el("strong", { text: String(sujets) }), el("span", { "class": "meta", text: sujets > 1 ? "Sujets suivis" : "Sujet suivi" })]), el("div", {}, [el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: "Jours de suite" })])])], true),
@@ -3647,6 +3692,7 @@
   /* ---------- Routeur ---------- */
   function route() {
     navigation += 1;
+    enHaut();
     var p = location.hash.replace(/^#\/?/, "").split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
     fermerFiche(false);
     if (!profil && p[0] !== "aide" && p[0] !== "confidentialite") { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }

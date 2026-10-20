@@ -134,6 +134,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
           modules: c.modulesTotal,
           ouverts: c.etapes.length,
           niveauAtteint: niveauAtteint(c),
+          niveaux: c.programme ? c.programme.niveaux.map((n) => ({ numero: n.numero, titre: n.titre })) : [],
         });
       } catch {
         // contenu illisible : ce parcours est écarté de la liste

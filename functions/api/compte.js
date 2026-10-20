@@ -14,7 +14,7 @@ import {
   lireJSON, aleatoire, quota, sha256Hex, verifierContreLeurre, verifierMdp,
 } from '../../lib/api.js';
 import {
-  ECHECS_PAR_JOUR, ECHECS_PSEUDO_PAR_JOUR, cleDePseudo, effacerEchecs, exigerPasBloque, motDePasse, noterEchec, nomPropre,
+  ECHECS_IP_PAR_JOUR, ECHECS_PAR_JOUR, ECHECS_PSEUDO_PAR_JOUR, cleDePseudo, compterEssais, effacerEchecs, motDePasse, nomPropre,
   normaliserCode, normaliserPhrase, phraseDeSecours, pseudoCompte, supprimerJoueur,
 } from '../../lib/comptes.js';
 
@@ -88,52 +88,55 @@ async function inscrire(env, request, corps) {
 // --- Connexion, secours ---------------------------------------------------------------------------------
 
 async function connecter(env, request, corps) {
-  const cle = cleDePseudo(corps.pseudo);
   const ip = await ipHachee(request);
-  const limites = [[`echec:conn:${cle}:${ip}`, ECHECS_PAR_JOUR], [`echec:conn:${cle}`, ECHECS_PSEUDO_PAR_JOUR]];
-  await exigerPasBloque(env, limites);
+  // D'abord la limite par IP (tous pseudos confondus), avant tout calcul PBKDF2 ; puis, si le pseudo existe, celles du pseudo. Un pseudo
+  // inconnu ne crée aucune ligne à son nom : il ne compte que par IP (et dans un compteur commun des pseudos inconnus, pour que la réponse
+  // ne révèle pas s'il existe).
+  await compterEssais(env, [[`echec:conn:ip:${ip}`, ECHECS_IP_PAR_JOUR]]);
+  const cle = cleDePseudo(corps.pseudo);
   const ligne = cle
     ? await env.DB.prepare('SELECT id, pseudo, prenom, nom, role, bloque, mdp_hash FROM joueurs WHERE pseudo_cle = ?').bind(cle).first()
     : null;
+  const limites = ligne
+    ? [[`echec:conn:${cle}:${ip}`, ECHECS_PAR_JOUR], [`echec:conn:${cle}`, ECHECS_PSEUDO_PAR_JOUR]]
+    : [[`echec:conn:inconnu:${ip}`, ECHECS_PAR_JOUR]];
+  await compterEssais(env, limites);
   const bon = ligne && ligne.mdp_hash
     ? await verifierMdp(corps.mdp, ligne.mdp_hash)
     : await verifierContreLeurre(corps.mdp); // même durée, que le pseudo existe ou non
-  if (!bon) {
-    await noterEchec(env, limites);
-    throw refusConnexion();
-  }
+  if (!bon) throw refusConnexion();
   if (ligne.bloque) throw new ErreurHttp(403, 'Ce compte est bloqué. Contacte l’administrateur.');
-  await effacerEchecs(env, limites[0][0]);
+  await effacerEchecs(env, limites.map((l) => l[0]));
   await env.DB.prepare('UPDATE joueurs SET vu = ? WHERE id = ?').bind(new Date().toISOString(), ligne.id).run();
   return json(sessionPublique(ligne, await creerSession(env, ligne.id)));
 }
 
 async function secours(env, request, corps) {
   const nouveau = motDePasse(corps.nouveauMdp, 'Nouveau mot de passe');
-  const cle = cleDePseudo(corps.pseudo);
   const ip = await ipHachee(request);
-  const limites = [[`echec:secours:${cle}:${ip}`, ECHECS_PAR_JOUR], [`echec:secours:${cle}`, ECHECS_PSEUDO_PAR_JOUR]];
-  await exigerPasBloque(env, limites);
+  await compterEssais(env, [[`echec:secours:ip:${ip}`, ECHECS_IP_PAR_JOUR]]);
+  const cle = cleDePseudo(corps.pseudo);
   const ligne = cle
     ? await env.DB.prepare('SELECT id, pseudo, prenom, nom, role, bloque, secours_hash, reinit_hash, reinit_fin FROM joueurs WHERE pseudo_cle = ?').bind(cle).first()
     : null;
+  const limites = ligne
+    ? [[`echec:secours:${cle}:${ip}`, ECHECS_PAR_JOUR], [`echec:secours:${cle}`, ECHECS_PSEUDO_PAR_JOUR]]
+    : [[`echec:secours:inconnu:${ip}`, ECHECS_PAR_JOUR]];
+  await compterEssais(env, limites);
   const phrase = normaliserPhrase(corps.phrase);
   // Les deux vérifications sont toujours faites (même durée, quel que soit le cas).
   const parPhrase = ligne && ligne.secours_hash && phrase ? await verifierMdp(phrase, ligne.secours_hash) : await verifierContreLeurre(phrase);
   const reinitActif = !!(ligne && ligne.reinit_hash && Date.parse(ligne.reinit_fin) > Date.now());
   const code = normaliserCode(corps.phrase); // le code temporaire de l'admin (8 caractères) se tape sans soin particulier
   const parCode = reinitActif && code ? await verifierMdp(code, ligne.reinit_hash) : await verifierContreLeurre(code);
-  if (!parPhrase && !parCode) {
-    await noterEchec(env, limites);
-    throw new ErreurHttp(401, 'Pseudo ou phrase de secours incorrect.');
-  }
+  if (!parPhrase && !parCode) throw new ErreurHttp(401, 'Pseudo ou phrase de secours incorrect.');
   if (ligne.bloque) throw new ErreurHttp(403, 'Ce compte est bloqué. Contacte l’administrateur.');
   await env.DB.batch([
     env.DB.prepare('UPDATE joueurs SET mdp_hash = ?, reinit_hash = NULL, reinit_fin = NULL, vu = ? WHERE id = ?')
       .bind(await hacherMdp(nouveau), new Date().toISOString(), ligne.id),
     env.DB.prepare('DELETE FROM sessions WHERE joueur_id = ?').bind(ligne.id),
   ]);
-  await effacerEchecs(env, limites[0][0]);
+  await effacerEchecs(env, limites.map((l) => l[0]));
   return json(sessionPublique(ligne, await creerSession(env, ligne.id)));
 }
 
@@ -145,8 +148,8 @@ async function deconnecter(env, request) {
   return json({ ok: true });
 }
 
-async function joueurConnecte(env, request) {
-  const joueur = await auth(request, env);
+async function joueurConnecte(env, request, options) {
+  const joueur = await auth(request, env, options);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   return joueur;
 }
@@ -155,11 +158,8 @@ async function joueurConnecte(env, request) {
 async function exigerMdpActuel(env, joueur, mdp) {
   const ligne = await env.DB.prepare('SELECT mdp_hash FROM joueurs WHERE id = ?').bind(joueur.id).first();
   const limites = [[`echec:mdp:${joueur.id}`, ECHECS_MDP_PAR_JOUR]];
-  await exigerPasBloque(env, limites);
-  if (!(ligne && ligne.mdp_hash && (await verifierMdp(mdp, ligne.mdp_hash)))) {
-    await noterEchec(env, limites);
-    throw new ErreurHttp(401, 'Mot de passe incorrect.');
-  }
+  await compterEssais(env, limites);
+  if (!(ligne && ligne.mdp_hash && (await verifierMdp(mdp, ligne.mdp_hash)))) throw new ErreurHttp(401, 'Mot de passe incorrect.');
   await effacerEchecs(env, limites[0][0]);
 }
 
@@ -173,14 +173,14 @@ async function changerMdp(env, request, corps) {
   await exigerMdpActuel(env, joueur, corps.ancien);
   const k = cleDeLaRequete(request);
   await env.DB.batch([
-    env.DB.prepare('UPDATE joueurs SET mdp_hash = ? WHERE id = ?').bind(await hacherMdp(nouveau), joueur.id),
+    env.DB.prepare('UPDATE joueurs SET mdp_hash = ?, reinit_hash = NULL, reinit_fin = NULL WHERE id = ?').bind(await hacherMdp(nouveau), joueur.id),
     env.DB.prepare('DELETE FROM sessions WHERE joueur_id = ? AND cle_hash <> ?').bind(joueur.id, await sha256Hex(k.cle)),
   ]);
   return json({ ok: true });
 }
 
 async function supprimer(env, request, corps) {
-  const joueur = await joueurConnecte(env, request);
+  const joueur = await joueurConnecte(env, request, { avecBloques: true }); // un compte bloqué peut supprimer le sien
   const ligne = await env.DB.prepare('SELECT mdp_hash, google_sub FROM joueurs WHERE id = ?').bind(joueur.id).first();
   if (ligne && ligne.mdp_hash) await exigerMdpActuel(env, joueur, corps.mdp);
   else if (ligne && ligne.google_sub) {
@@ -196,24 +196,22 @@ async function utiliserCode(env, request, corps) {
   const joueur = await joueurConnecte(env, request);
   const code = normaliserCode(corps.code);
   const limites = [[`echec:code:${joueur.id}`, ECHECS_CODE_PAR_JOUR]];
-  await exigerPasBloque(env, limites);
+  await compterEssais(env, limites);
   const ligne = code && code.length <= 40 ? await env.DB.prepare('SELECT code, bonus, jours FROM codes WHERE code = ? AND revoque = 0').bind(code).first() : null;
-  const pasValable = async () => {
-    await noterEchec(env, limites);
-    return new ErreurHttp(404, 'Ce code n’est pas valable.');
-  };
-  if (!ligne) throw await pasValable();
+  const pasValable = () => new ErreurHttp(404, 'Ce code n’est pas valable.');
+  if (!ligne) throw pasValable();
   const deja = await env.DB.prepare('SELECT 1 AS ok FROM codes_utilises WHERE code = ? AND joueur_id = ?').bind(ligne.code, joueur.id).first();
   if (deja) throw new ErreurHttp(409, 'Tu as déjà utilisé ce code.');
   // Un seul ordre : le plafond d'usages est vérifié au moment de l'écriture.
   const pris = await env.DB.prepare('UPDATE codes SET usages = usages + 1 WHERE code = ? AND revoque = 0 AND usages < usages_max').bind(ligne.code).run();
-  if (!(pris.meta && pris.meta.changes === 1)) throw await pasValable();
+  if (!(pris.meta && pris.meta.changes === 1)) throw pasValable();
   const expire = new Date(Date.now() + ligne.jours * 86400000).toISOString();
   const ecrit = await env.DB.prepare('INSERT OR IGNORE INTO codes_utilises (code, joueur_id, expire) VALUES (?, ?, ?)').bind(ligne.code, joueur.id, expire).run();
   if (!(ecrit.meta && ecrit.meta.changes === 1)) {
     await env.DB.prepare('UPDATE codes SET usages = usages - 1 WHERE code = ?').bind(ligne.code).run();
     throw new ErreurHttp(409, 'Tu as déjà utilisé ce code.');
   }
+  await effacerEchecs(env, limites[0][0]);
   return json({ ok: true, bonus: ligne.bonus, expire, total: await bonusActif(env, joueur.id) });
 }
 
