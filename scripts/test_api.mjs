@@ -4010,9 +4010,9 @@ test('palier GET : paramètres invalides 400, parcours ou palier hors plan 404, 
   erreurFr(await appel(palierGet, { env: envDe(sc), requete: '?parcours=inconnu&n=1' }), 404, /Parcours/);
   erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=Pas%20Valide&n=1' }), 404, /Parcours/);
   // Une seule étape à la fois : 20 est la dernière ouverte (étape 2), 21 est trop loin.
-  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=21' }), 404, /Palier introuvable/);
-  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=500' }), 404, /Palier introuvable/);
-  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1500' }), 404, /Palier introuvable/, 'plafond relevé à 1 500');
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=21' }), 404, /Leçon introuvable/);
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=500' }), 404, /Leçon introuvable/);
+  erreurFr(await appel(palierGet, { env: envDe(sc), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1500' }), 404, /Leçon introuvable/, 'plafond relevé à 1 500');
   // Pas encore en cache : connexion, puis IA.
   erreurFr(await appel(palierGet, { env: envDe(sc), requete: '?parcours=la-tour-eiffel&n=1' }), 401);
   erreurFr(await appel(palierGet, { env: envDe(sc), jeton: 'abcdefghij12.' + 'a'.repeat(32), requete: '?parcours=la-tour-eiffel&n=1' }), 401);
@@ -4606,8 +4606,8 @@ test('module : trop loin 404, module plus court que la leçon demandée 404 (le 
   insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 2, lecons: 5 });
   const sc = scenario(partiesStandard());
   // Seul le module qui suit peut s'ouvrir : 10 leçons connues, 11 à 20 permis, 21 trop loin.
-  erreurFr(await lirePalier(j, 'prog', 21, sc), 404, /Palier introuvable : lis d’abord les paliers précédents/);
-  erreurFr(await lirePalier(j, 'prog', 500, sc), 404, /Palier introuvable/);
+  erreurFr(await lirePalier(j, 'prog', 21, sc), 404, /Leçon introuvable : lis d’abord les leçons précédentes/);
+  erreurFr(await lirePalier(j, 'prog', 500, sc), 404, /Leçon introuvable/);
   assert.equal(sc.appels.length, 0);
   assert.equal(quotasPalier().length, 0);
   // Liste de leçons invalide, puis en panne : 502, le parcours reste inchangé.
@@ -4629,7 +4629,7 @@ test('module : trop loin 404, module plus court que la leçon demandée 404 (le 
   wiki.panne = null;
   // Le module ouvert compte 6 leçons : la 17 n'existe pas (le module 3 est tout de même enregistré).
   const sc3 = scenario({ ...partiesStandard(), module: [module2Brut()] });
-  erreurFr(await lirePalier(j, 'prog', 17, sc3), 404, /Palier introuvable : lis d’abord les paliers précédents/);
+  erreurFr(await lirePalier(j, 'prog', 17, sc3), 404, /Leçon introuvable : lis d’abord les leçons précédentes/);
   assert.deepEqual(sc3.appels.map((a) => a.etape), ['module']);
   const p = await lireParcours('prog');
   assert.deepEqual([p.etapes.length, p.etapes[2].paliers.map((x) => x.numero)], [3, nombres(11, 16)]);
@@ -4664,7 +4664,7 @@ test('fin de formation : tous les modules ouverts, la leçon suivante répond 40
   ok200(await lirePalier(j, 'prog', 60, sc2));
   // Tant qu'il reste un module à ouvrir, c'est le garde habituel : 10 de plus au plus.
   insererProgramme('autre', { titre: 'Autre', ouverts: 11, lecons: 5 });
-  erreurFr(await lirePalier(j, 'autre', 66, scenario(partiesStandard())), 404, /Palier introuvable : lis d’abord/);
+  erreurFr(await lirePalier(j, 'autre', 66, scenario(partiesStandard())), 404, /Leçon introuvable : lis d’abord/);
 });
 
 test('parcours à programme : GET renvoie programme et modulesTotal ; l’ancien format renvoie programme null et modulesTotal 0', async () => {
@@ -5029,7 +5029,7 @@ test('leçon : la cause de l’échec s’affiche dans le message 502 (délai, r
   // Réponse illisible : A comme B ne rendent pas de JSON.
   const sc1 = scenario({ ...partiesStandard(), lecon: ['Désolé, je ne peux pas.'] });
   const r1 = await lirePalier(j, 'la-tour-eiffel', 1, sc1);
-  erreurFr(r1, 502, /ce palier \(cause : réponse illisible\)\. Réessaie dans un moment\.$/);
+  erreurFr(r1, 502, /cette leçon \(cause : réponse illisible\)\. Réessaie dans un moment\.$/);
   // Contrôle de la 2e IA en panne.
   const sc2 = scenario({ ...partiesStandard(), verif: [new Error('panne')] });
   erreurFr(await lirePalier(j, 'la-tour-eiffel', 1, sc2), 502, /\(cause : contrôle de la 2e IA indisponible\)/);

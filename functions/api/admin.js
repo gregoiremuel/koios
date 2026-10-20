@@ -14,6 +14,8 @@
 //                                       modules restants), dans l'ordre, niveau Bases d'abord.
 //   POST /api/admin {action: 'reecrire', parcours} : met en file la réécriture des leçons faibles (statut « partiel » avec plus de 20 % de
 //                                       retraits, ou marquées « à revoir »). La nouvelle version remplace l'ancienne : seul cas où l'on écrase.
+//   POST /api/admin {action: 'credit', montant} : crédit Claude chargé (dollars), dépense cumulée remise à zéro. GET (état de la file)
+//                                       renvoie `credit` : {charge, depense, restant, seuil, alerte, epuise}.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
 //   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h UTC).
 //                                       L'état est renvoyé par GET et POST dans `jour`.
@@ -21,6 +23,7 @@ import {
   ErreurHttp, aleatoire, auth, enveloppe, exigerBase, hacherMdp, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
 import { cleDePseudo, normaliserCode } from '../../lib/comptes.js';
+import { chargerCredit, etatCredit } from '../../lib/fournisseurs.js';
 import {
   debloquer, definirJournee, definirPause, etatFile, exporterLecons, reecrire, viderFile,
 } from '../../lib/nuit.js';
@@ -110,7 +113,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   if (params.has('codes')) return json(await listerCodes(env));
   if (params.has('export')) return json(await exporterLecons(env, params.get('export')));
   const parcours = params.get('parcours');
-  return json(await etatFile(env, parcours || null));
+  return json({ ...(await etatFile(env, parcours || null)), credit: await etatCredit(env) });
 });
 
 export const onRequestPost = enveloppe(async ({ request, env }) => {
@@ -174,9 +177,14 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     await definirJournee(env, corps.valeur);
     return json({ ok: true, ...(await etatFile(env)) });
   }
+  if (corps.action === 'credit') {
+    const montant = corps.montant;
+    if (typeof montant !== 'number' || !Number.isFinite(montant) || montant <= 0 || montant > 100000) throw new ErreurHttp(400, 'montant : un nombre de dollars entre 0 et 100 000 attendu.');
+    return json({ ok: true, credit: await chargerCredit(env, montant) });
+  }
   if (corps.action === 'vider') {
     const retirees = await viderFile(env);
     return json({ ok: true, retirees, ...(await etatFile(env)) });
   }
-  throw new ErreurHttp(400, 'Action inconnue : promouvoir, bloquer, reinitialiser, creer_code, revoquer_code, debloquer, reecrire, pause, reprendre, jour ou vider.');
+  throw new ErreurHttp(400, 'Action inconnue : promouvoir, bloquer, reinitialiser, creer_code, revoquer_code, debloquer, reecrire, pause, reprendre, jour, credit ou vider.');
 });

@@ -17,9 +17,9 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   const p = new URL(request.url).searchParams;
   const parcoursId = p.get('parcours');
   const brutN = p.get('n');
-  if (!parcoursId || brutN === null) throw new ErreurHttp(400, 'Indique le parcours et le numéro du palier.');
+  if (!parcoursId || brutN === null) throw new ErreurHttp(400, 'Indique le parcours et le numéro de la leçon.');
   if (!/^\d{1,4}$/.test(brutN) || Number(brutN) < 1 || Number(brutN) > PALIER_MAX) {
-    throw new ErreurHttp(400, `Numéro de palier invalide : un entier de 1 à ${PALIER_MAX}.`);
+    throw new ErreurHttp(400, `Numéro de leçon invalide : un entier de 1 à ${PALIER_MAX}.`);
   }
   if (!ID_PARCOURS.test(parcoursId)) throw new ErreurHttp(404, 'Parcours introuvable.');
   const k = Number(brutN);
@@ -40,7 +40,7 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
     throw new ErreurHttp(404, MESSAGE_FIN);
   }
   // Seule l'étape (le module) qui suit le plan peut être écrite : pas de saut de plusieurs étapes.
-  if (k > total + ETAPE_TAILLE) throw new ErreurHttp(404, 'Palier introuvable : lis d’abord les paliers précédents.');
+  if (k > total + ETAPE_TAILLE) throw new ErreurHttp(404, 'Leçon introuvable : lis d’abord les leçons précédentes.');
 
   // Une tâche de nuit écrit déjà cette leçon (depuis moins de 2 minutes) : on ne relance pas une deuxième génération.
   const enCours = await env.DB.prepare(
@@ -53,7 +53,7 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
   if (!(await quotaJoueur(env, joueur, 'palier:joueur:' + joueur.id, 30))) {
-    throw new ErreurHttp(429, 'Tu as déjà lancé 30 paliers aujourd’hui. Reviens demain.');
+    throw new ErreurHttp(429, 'Tu as déjà lancé 30 leçons aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'palier:total', 300))) {
     throw new ErreurHttp(429, 'La bibliothèque est débordée aujourd’hui. Reviens demain.');
@@ -68,7 +68,7 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
     ligne = await ouvrirEtapeSuivante(env, ligne, parcours, horloge);
     parcours = decoderParcours(ligne);
     // Le module compte moins de leçons que prévu : ce palier n'existe pas (le module reste enregistré).
-    if (k > nbPaliers(parcours.etapes)) throw new ErreurHttp(404, 'Palier introuvable : lis d’abord les paliers précédents.');
+    if (k > nbPaliers(parcours.etapes)) throw new ErreurHttp(404, 'Leçon introuvable : lis d’abord les leçons précédentes.');
   }
 
   // Deux lecteurs (ou la génération de nuit) peuvent lancer la même leçon en même temps : la première enregistrée gagne.
