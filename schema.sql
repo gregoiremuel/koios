@@ -2,6 +2,10 @@
 -- (une fois par isolat) par initBase() dans lib/api.js.
 -- Pour créer les tables à la main : npx wrangler d1 execute koios --remote --file=schema.sql
 
+-- Joueurs. Un ancien profil n'a que id, cle_hash (clé de connexion) et pseudo. Un compte (lot 6) a en plus prénom, nom, pseudo_cle (pseudo en
+-- minuscules, unique), mdp_hash (PBKDF2 : pbkdf2$100000$sel$hash), secours_hash (phrase de secours hachée), role (joueur ou admin), bloque (0 ou 1),
+-- google_sub (identifiant Google), vu (dernière activité), reinit_hash et reinit_fin (code temporaire donné par l'admin, valable 24 h).
+-- Une base plus ancienne reçoit ces colonnes par ALTER au démarrage (migrerBase dans lib/api.js), puis les deux index uniques ci-dessous.
 CREATE TABLE IF NOT EXISTS joueurs (
   id TEXT PRIMARY KEY,
   cle_hash TEXT,
@@ -11,7 +15,18 @@ CREATE TABLE IF NOT EXISTS joueurs (
   points INTEGER DEFAULT 0,
   valides INTEGER DEFAULT 0,
   cree TEXT,
-  maj TEXT
+  maj TEXT,
+  prenom TEXT,
+  nom TEXT,
+  pseudo_cle TEXT,
+  mdp_hash TEXT,
+  secours_hash TEXT,
+  role TEXT DEFAULT 'joueur',
+  bloque INTEGER DEFAULT 0,
+  google_sub TEXT,
+  vu TEXT,
+  reinit_hash TEXT,
+  reinit_fin TEXT
 );
 
 CREATE TABLE IF NOT EXISTS brouillons (
@@ -197,3 +212,56 @@ CREATE TABLE IF NOT EXISTS sources_cache (
   contenu TEXT,
   cree TEXT
 );
+
+-- Sessions : une par appareil (clé envoyée par l'app, seule son empreinte est gardée), 180 jours d'inactivité au plus.
+CREATE TABLE IF NOT EXISTS sessions (
+  cle_hash TEXT PRIMARY KEY,
+  joueur_id TEXT,
+  cree TEXT,
+  vu TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_joueur ON sessions(joueur_id);
+
+-- Codes d'amis : un code donne `bonus` créations IA de plus par jour pendant `jours` jours, à `usages_max` personnes au plus.
+CREATE TABLE IF NOT EXISTS codes (
+  code TEXT PRIMARY KEY,
+  bonus INTEGER,
+  jours INTEGER,
+  usages_max INTEGER,
+  usages INTEGER DEFAULT 0,
+  cree TEXT,
+  revoque INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS codes_utilises (
+  code TEXT,
+  joueur_id TEXT,
+  expire TEXT,
+  PRIMARY KEY (code, joueur_id)
+);
+
+-- Amitiés : etat « demande » (a a demandé à b) ou « ami ». Une seule ligne par paire.
+CREATE TABLE IF NOT EXISTS amities (
+  a TEXT,
+  b TEXT,
+  etat TEXT,
+  cree TEXT,
+  PRIMARY KEY (a, b)
+);
+
+CREATE INDEX IF NOT EXISTS idx_amities_b ON amities(b);
+
+-- Liens d'invitation : jeton aléatoire (seule son empreinte est gardée), à usage limité, 7 jours.
+CREATE TABLE IF NOT EXISTS invitations (
+  jeton_hash TEXT PRIMARY KEY,
+  joueur_id TEXT,
+  cree TEXT,
+  expire TEXT,
+  usages_max INTEGER,
+  usages INTEGER DEFAULT 0
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_joueurs_pseudo_cle ON joueurs(pseudo_cle) WHERE pseudo_cle IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_joueurs_google_sub ON joueurs(google_sub) WHERE google_sub IS NOT NULL;

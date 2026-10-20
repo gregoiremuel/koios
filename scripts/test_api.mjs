@@ -53,6 +53,8 @@ import { onRequestPost as variantePost } from '../functions/api/variante.js';
 import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
 import { onRequestPost as joueurPost } from '../functions/api/joueur.js';
+import { onRequestGet as compteGet, onRequestPost as comptePost } from '../functions/api/compte.js';
+import { onRequestGet as amisGet, onRequestPost as amisPost } from '../functions/api/amis.js';
 import { onRequestGet as progressionGet, onRequestPut as progressionPut } from '../functions/api/progression.js';
 import { onRequestGet as cercleGet } from '../functions/api/cercle.js';
 import { onRequestPost as librePost } from '../functions/api/libre.js';
@@ -140,7 +142,7 @@ async function creerJoueur(pseudo = 'Greg') {
 }
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache', 'sessions', 'codes', 'codes_utilises', 'amities', 'invitations']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -195,6 +197,11 @@ test('sans env.DB : /api/etat répond, les autres routes répondent 503 base abs
     [groupePost, { methode: 'POST', jeton, corps: { nom: 'Les phares', parcours: 'phares' } }],
     [partieGet, { requete: '?id=ABCDEF' }],
     [partiePost, { methode: 'POST', jeton, corps: { action: 'rejoindre', id: 'ABCDEF' } }],
+    [compteGet, { jeton }],
+    [comptePost, { methode: 'POST', corps: { action: 'connecter', pseudo: 'greg', mdp: 'x'.repeat(12) } }],
+    [amisGet, { jeton }],
+    [amisPost, { methode: 'POST', jeton, corps: { action: 'inviter' } }],
+    [adminGet, { jeton }],
   ];
   for (const [handler, options] of cas) {
     const rep = await appel(handler, { ...options, env: sansBase });
@@ -217,14 +224,24 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['brouillons', 'chapitres_ia', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'signalements', 'sources_cache', 'sujets', 'variantes']);
+  assert.deepEqual(noms, ['amities', 'brouillons', 'chapitres_ia', 'codes', 'codes_utilises', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'invitations', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'sessions', 'signalements', 'sources_cache', 'sujets', 'variantes']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
+    { name: 'idx_amities_b', tbl_name: 'amities' },
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
+    { name: 'idx_joueurs_google_sub', tbl_name: 'joueurs' },
+    { name: 'idx_joueurs_pseudo_cle', tbl_name: 'joueurs' },
     { name: 'idx_paliers_parcours', tbl_name: 'paliers' },
+    { name: 'idx_sessions_joueur', tbl_name: 'sessions' },
     { name: 'idx_sujets_parent', tbl_name: 'sujets' },
   ]);
   const colonnes = (t) => lignes(`SELECT name FROM pragma_table_info('${t}')`).map((c) => c.name);
+  assert.deepEqual(colonnes('joueurs'), ['id', 'cle_hash', 'pseudo', 'ton', 'etat', 'points', 'valides', 'cree', 'maj', 'prenom', 'nom', 'pseudo_cle', 'mdp_hash', 'secours_hash', 'role', 'bloque', 'google_sub', 'vu', 'reinit_hash', 'reinit_fin']);
+  assert.deepEqual(colonnes('sessions'), ['cle_hash', 'joueur_id', 'cree', 'vu']);
+  assert.deepEqual(colonnes('codes'), ['code', 'bonus', 'jours', 'usages_max', 'usages', 'cree', 'revoque']);
+  assert.deepEqual(colonnes('codes_utilises'), ['code', 'joueur_id', 'expire']);
+  assert.deepEqual(colonnes('amities'), ['a', 'b', 'etat', 'cree']);
+  assert.deepEqual(colonnes('invitations'), ['jeton_hash', 'joueur_id', 'cree', 'expire', 'usages_max', 'usages']);
   assert.deepEqual(colonnes('sujets'), ['id', 'titre', 'parent', 'niveau', 'contenu', 'auteur', 'vues', 'cree']);
   assert.deepEqual(colonnes('chapitres_ia'), ['id', 'sujet', 'numero', 'contenu', 'vues', 'cree']);
   assert.deepEqual(colonnes('duels'), ['id', 'createur', 'questions', 'scores', 'cree']);
@@ -419,26 +436,7 @@ test('progression : corps limité à 64 Ko (413 au-delà)', async () => {
 
 // --- Cercle ----------------------------------------------------------------
 
-test('cercle : 50 premiers par points décroissants, sans id ni clé', async () => {
-  toutVider();
-  const ajout = db.base.prepare('INSERT INTO joueurs (id, cle_hash, pseudo, points, valides, cree) VALUES (?, ?, ?, ?, ?, ?)');
-  for (let i = 0; i < 55; i++) ajout.run(`id${String(i).padStart(10, '0')}`, 'hash-secret-' + i, 'J' + i, i * 3, i % 5, '2026-10-18T10:00:00Z');
-  const r = await appel(cercleGet);
-  assert.equal(r.statut, 200);
-  assert.equal(r.corps.joueurs.length, 50);
-  assert.deepEqual(r.corps.joueurs[0], { pseudo: 'J54', points: 162, valides: 4 });
-  const pts = r.corps.joueurs.map((j) => j.points);
-  assert.deepEqual(pts, [...pts].sort((a, b) => b - a));
-  assert.equal(pts[49], 5 * 3);
-  for (const j of r.corps.joueurs) assert.deepEqual(Object.keys(j).sort(), ['points', 'pseudo', 'valides']);
-  assert.ok(!JSON.stringify(r.corps).includes('hash-secret'));
-  assert.ok(!JSON.stringify(r.corps).includes('id0000'));
-});
-
-test('cercle : liste vide quand personne n’a joué', async () => {
-  toutVider();
-  assert.deepEqual((await appel(cercleGet)).corps, { joueurs: [] });
-});
+// (tests du cercle : voir la section « Lot 6 » en bas de ce fichier)
 
 // --- Signalement -----------------------------------------------------------
 
@@ -6282,7 +6280,7 @@ test('tournoi GET : créé à la première requête de la semaine (10 questions 
   assert.deepEqual([d.type, d.createur, d.titre, d.fin, d.questions.length], ['tournoi', 'Koîos', t.titre, t.fin, 10]);
 });
 
-test('tournoi : classement public (rang, pseudos, scores), ma place, une seule partie par joueur, plus de score après la fin', async () => {
+test('tournoi : classement limité à soi et ses amis (rangs réels), ma place, une seule partie par joueur, plus de score après la fin', async () => {
   toutVoir();
   const lundi = lundiDe(jourUtc());
   pageDeTheme(themeDeLaSemaine(lundi));
@@ -6293,21 +6291,29 @@ test('tournoi : classement public (rang, pseudos, scores), ma place, une seule p
   for (const [i, jr] of joueurs.entries()) {
     ok200(await appel(duelPut, { methode: 'PUT', jeton: jr.jeton, corps: { id: t.id, score: { justes: i % 10, n: 10, points: i * 3 } } }));
   }
+  // Anonyme : le nombre de joueurs, mais aucun pseudo.
   const vu = (await appel(tournoiGet, { env: { DB: db, AI: undefined } })).corps.tournoi;
   assert.equal(vu.joueurs, 14);
-  assert.equal(vu.classement.length, 10, 'les 10 premiers');
-  assert.deepEqual(vu.classement.map((x) => x.rang), nombres(1, 10));
-  assert.deepEqual(vu.classement[0], { rang: 1, pseudo: 'Joueur 13', justes: 3, n: 10, points: 39, date: vu.classement[0].date });
+  assert.deepEqual(vu.classement, []);
   assert.deepEqual([vu.moi, vu.dejaJoue], [null, false]);
   assert.ok(!JSON.stringify(vu).includes(joueurs[0].id));
-  // Ma place quand je suis dans le classement ou hors des 10 premiers.
+  // Un joueur sans ami ne voit que lui, à son vrai rang (hors des 10 premiers ou dedans).
   const hors = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[1].jeton })).corps.tournoi;
   assert.deepEqual(hors.moi, { rang: 13, pseudo: 'Joueur 1', justes: 1, n: 10, points: 3 });
   assert.equal(hors.dejaJoue, true);
-  assert.ok(!hors.classement.some((x) => x.moi));
+  assert.deepEqual(hors.classement.map((x) => [x.rang, x.pseudo, x.moi === true]), [[13, 'Joueur 1', true]], 'seulement moi, à mon rang réel');
   const dedans = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[10].jeton })).corps.tournoi;
   assert.equal(dedans.moi.rang, 4);
-  assert.deepEqual(dedans.classement.filter((x) => x.moi).map((x) => x.rang), [4]);
+  assert.deepEqual(dedans.classement.map((x) => [x.rang, x.pseudo, x.moi === true]), [[4, 'Joueur 10', true]]);
+  // Avec deux amis (les rangs 1 et 2) : eux, puis moi à mon rang réel ; les autres restent cachés.
+  for (const ami of [joueurs[13], joueurs[12]]) db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20T08:00:00Z')").run(joueurs[10].id, ami.id);
+  const avecAmis = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[10].jeton })).corps.tournoi;
+  assert.deepEqual(avecAmis.classement.map((x) => [x.rang, x.pseudo]), [[1, 'Joueur 13'], [2, 'Joueur 12'], [4, 'Joueur 10']]);
+  assert.equal(avecAmis.joueurs, 14);
+  assert.ok(!JSON.stringify(avecAmis).includes('Joueur 11'));
+  // L'amitié est dans les deux sens : l'ami me voit aussi.
+  const reciproque = (await appel(tournoiGet, { env: { DB: db, AI: undefined }, jeton: joueurs[13].jeton })).corps.tournoi;
+  assert.deepEqual(reciproque.classement.map((x) => x.pseudo), ['Joueur 13', 'Joueur 10']);
   // Une seule partie par joueur.
   erreurFr(await appel(duelPut, { methode: 'PUT', jeton: joueurs[0].jeton, corps: { id: t.id, score: { justes: 10, n: 10, points: 999 } } }), 409, /déjà joué/);
   // Après la fin (dimanche 23:59) : plus de nouveau score, le classement reste visible.
@@ -6317,10 +6323,18 @@ test('tournoi : classement public (rang, pseudos, scores), ma place, une seule p
   const fini = (await appel(tournoiGet, { env: { DB: db, AI: undefined } })).corps.tournoi;
   assert.equal(fini.termine, true);
   assert.equal(fini.joueurs, 14);
-  assert.equal(fini.classement.length, 10);
+  assert.equal(fini.classement.length, 0, 'anonyme : aucun pseudo');
   const g = (await appel(duelGet, { requete: '?id=' + t.id })).corps.duel;
   assert.equal(g.termine, true);
-  assert.equal(g.classement.length, 14);
+  assert.deepEqual([g.classement.length, g.scores.length, g.joueurs], [0, 0, 14]);
+  // La route duel applique la même règle que la route tournoi.
+  const gAmis = (await appel(duelGet, { requete: '?id=' + t.id, jeton: joueurs[10].jeton })).corps.duel;
+  assert.deepEqual(gAmis.classement.map((x) => [x.rang, x.pseudo]), [[1, 'Joueur 13'], [2, 'Joueur 12'], [4, 'Joueur 10']]);
+  assert.deepEqual(gAmis.scores.map((x) => x.pseudo), ['Joueur 10', 'Joueur 13', 'Joueur 12'].sort((x, y) => gAmis.scores.map((z) => z.pseudo).indexOf(x) - gAmis.scores.map((z) => z.pseudo).indexOf(y)));
+  assert.equal(gAmis.dejaJoue, true);
+  // Mes duels : un tournoi y montre aussi seulement moi et mes amis.
+  const mes = (await appel(duelsGet, { jeton: joueurs[10].jeton })).corps.duels.find((x) => x.id === t.id);
+  assert.deepEqual(mes.scores.map((x) => x.pseudo).sort(), ['Joueur 10', 'Joueur 12', 'Joueur 13']);
   // On ne crée pas de tournoi par POST /api/duel.
   const a = joueurs[0];
   assert.equal((await appel(duelPost, { methode: 'POST', jeton: a.jeton, corps: { questions: nombres(0, 9).map((index) => ({ chapitre: `qg:tournoi:${lundi}`, index })), type: 'tournoi', score: { justes: 1, n: 10, points: 1 } } })).statut, 400);
@@ -8107,7 +8121,7 @@ test('leçon écrite : objectif et rappel sont conservés par la vérification e
 
 test('une panne de la base donne un JSON français 503, pas une page d’erreur', async () => {
   const cassee = { prepare() { throw new Error('D1 injoignable'); }, batch: async () => [] };
-  const r = await appel(cercleGet, { env: { DB: cassee } });
+  const r = await appel(cercleGet, { env: { DB: cassee }, jeton: 'abcdefghij12.' + 'a'.repeat(32) });
   erreurFr(r, 503, /momentanément indisponible/);
 });
 
@@ -8124,7 +8138,7 @@ test('aucun secret dans le code', async () => {
     '../functions/api/palier.js', '../functions/api/quiz.js', '../functions/api/quiz-direct.js', '../functions/api/glossaire.js',
     '../functions/api/image.js', '../functions/api/quiz-general.js', '../functions/api/jour.js', '../functions/api/tournoi.js',
     '../lib/general.js', '../lib/groupes.js', '../lib/parties.js', '../functions/api/groupe.js', '../functions/api/partie.js', '../scripts/serveur_local.mjs', '../wrangler.toml',
-    '../lib/generation.js', '../lib/sources.js', '../lib/nuit.js', '../functions/api/admin.js', '../functions/api/cle-ia.js', '../functions/api/diagnostic.js'];
+    '../lib/generation.js', '../lib/sources.js', '../lib/nuit.js', '../functions/api/admin.js', '../functions/api/cle-ia.js', '../functions/api/diagnostic.js', '../functions/api/compte.js', '../functions/api/amis.js', '../lib/comptes.js'];
   for (const f of fichiers) {
     const texte = readFileSync(new URL(f, import.meta.url), 'utf8');
     assert.ok(!/(api[_-]?key|secret|token|password|mot de passe)\s*[:=]\s*['"][^'"]{8,}/i.test(texte), f);

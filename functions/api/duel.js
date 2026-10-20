@@ -9,15 +9,16 @@
 // GET  /api/duel?id= (public) -> {duel: {id, createur, questions, scores, dejaJoue, titre, type, fin, termine, joueurs, classement}}
 //   classement : scores triés par points, avec rang.
 // PUT  /api/duel {id, score} (connexion) : ajoute ou remplace le score de ce lecteur. 409 après la fin ; un tournoi ne se joue qu'une fois.
-// Les identifiants des joueurs restent dans la base : on n'expose que les pseudos.
+// Les identifiants des joueurs restent dans la base : on n'expose que les pseudos. Un tournoi (public) ne montre que toi et tes amis.
 import {
-  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer,
+  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, authOptionnelle,
 } from '../../lib/api.js';
 import { EXERCICES_PAR_CHAPITRE, scoresPublics } from '../../lib/questions.js';
 import {
   QUESTIONS_BLOC, classer, lireRefQg,
 } from '../../lib/general.js';
 import { lireIdQuiz, lireIdPalier } from '../../lib/paliers.js';
+import { idsAmis } from '../../lib/comptes.js';
 import { lireIdChapitre } from '../../lib/sujets.js';
 
 const MAX_OCTETS = 4096; // un salon de 50 questions tient dans ce corps (une référence pèse 76 octets au plus)
@@ -198,15 +199,18 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     .first();
   if (!ligne) throw new ErreurHttp(404, 'Duel introuvable.');
   const couples = lireJSONColonne(ligne.questions, []);
-  const lecteur = await auth(request, env).catch(() => null);
+  const lecteur = await authOptionnelle(request, env);
   const brut = lireJSONColonne(ligne.scores, []);
-  const classement = classer(brut, lecteur && lecteur.id);
+  // Le tournoi est public : sa liste ne montre que toi et tes amis (rangs réels). Un duel ou un salon se joue par lien : tous ceux qui l'ont s'y voient.
+  const visibles = ligne.type === 'tournoi' ? new Set(lecteur ? [lecteur.id, ...(await idsAmis(env, lecteur.id))] : []) : null;
+  const classement = classer(brut, lecteur && lecteur.id, visibles);
+  const montres = brut.map((s, i) => ({ s, i })).filter(({ s }) => !visibles || visibles.has(s.joueur));
   return json({
     duel: {
       id: ligne.id,
       createur: ligne.type === 'tournoi' ? 'Koîos' : ligne.createur || 'Un joueur',
       questions: couples, // références {chapitre, index} ; l'app retrouve les questions
-      scores: scoresPublics(brut).map((s, i) => (lecteur && brut[i] && brut[i].joueur === lecteur.id ? { ...s, moi: true } : s)),
+      scores: montres.map(({ s, i }) => { const p = scoresPublics([s])[0]; return lecteur && brut[i] && brut[i].joueur === lecteur.id ? { ...p, moi: true } : p; }),
       // Vrai si le lecteur connecté a déjà joué ce duel (reconnu par son identifiant, jamais exposé).
       dejaJoue: !!(lecteur && brut.some((s) => s.joueur === lecteur.id)),
       titre: ligne.titre || null,

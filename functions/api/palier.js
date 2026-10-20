@@ -3,7 +3,7 @@
 // 2e IA, mise en cache. Si k dépasse le plan, le plan de l'étape suivante est écrit d'abord : 10 paliers (ancien
 // format, sans fin) ou les leçons du module suivant du programme (5 à 10 ; 404 quand le programme est terminé).
 import {
-  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   ETAPE_TAILLE, ID_PARCOURS, MESSAGE_FIN, PALIER_MAX, decoderParcours, demarrerChrono, idPalier, nbPaliers,
@@ -52,7 +52,7 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'palier:joueur:' + joueur.id, 30))) {
+  if (!(await quotaJoueur(env, joueur, 'palier:joueur:' + joueur.id, 30))) {
     throw new ErreurHttp(429, 'Tu as déjà lancé 30 paliers aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'palier:total', 300))) {

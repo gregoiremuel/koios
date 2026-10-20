@@ -9,7 +9,7 @@
 // GET  /api/groupe (connexion) -> {groupes: [{id, nom, parcours, membres}]} : mes groupes (20 au plus).
 // La progression n'est pas copiée : elle est lue dans joueurs.etat, que l'app envoie déjà par PUT /api/progression.
 import {
-  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, aleatoire, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota, authOptionnelle,
 } from '../../lib/api.js';
 import {
   GROUPES_CREES_PAR_JOUR, GROUPES_PAR_JOUEUR, MEMBRES_MAX, NOM_MAX, NOM_MIN, classerMembres, lireSuivi,
@@ -123,7 +123,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
   const id = new URL(request.url).searchParams.get('id');
-  const lecteur = await auth(request, env).catch(() => null);
+  const lecteur = await authOptionnelle(request, env);
 
   if (id === null) { // mes groupes
     if (!lecteur) throw new ErreurHttp(401, 'Connexion requise.');

@@ -2,6 +2,7 @@
 // Chaque entrée : {id, createur, scores, cree} ; un salon ou un tournoi ajoute titre, type et fin.
 import { ErreurHttp, auth, enveloppe, exigerBase, json } from '../../lib/api.js';
 import { scoresPublics } from '../../lib/questions.js';
+import { idsAmis } from '../../lib/comptes.js';
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
@@ -15,6 +16,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   )
     .bind(`%"joueur":"${joueur.id}"%`, joueur.id)
     .all();
+  const amis = await idsAmis(env, joueur.id); // un tournoi (public) ne montre que toi et tes amis
   const duels = [];
   for (const r of results || []) {
     let scores;
@@ -27,7 +29,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     duels.push({
       id: r.id,
       createur: r.type === 'tournoi' ? 'Koîos' : r.createur || 'Un joueur',
-      scores: scoresPublics(scores),
+      scores: scoresPublics(r.type === 'tournoi' ? scores.filter((s) => s && (s.joueur === joueur.id || amis.has(s.joueur))) : scores),
       cree: r.cree,
       ...(r.type ? { titre: r.titre || null, type: r.type, fin: r.fin || null } : {}), // salons et tournois seulement
     });

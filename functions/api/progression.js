@@ -39,7 +39,7 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
   const corps = await lireJSON(request, MAX_OCTETS);
 
   let pseudo = joueur.pseudo;
-  if (corps.pseudo !== undefined) {
+  if (corps.pseudo !== undefined && !joueur.compte) { // le pseudo d'un compte est unique et ne change pas ici
     pseudo = pseudoValide(corps.pseudo);
     if (pseudo === null) throw new ErreurHttp(400, 'Pseudo de 1 à 24 caractères attendu.');
   }

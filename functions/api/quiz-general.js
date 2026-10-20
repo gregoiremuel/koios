@@ -9,7 +9,7 @@
 // Questions au format de GET quiz : {palier: "qg:<slug>:<k>", titre, index, question}.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota, quotaJoueur,
 } from '../../lib/api.js';
 import { genererBlocQuiz, demarrerChrono, pagesFrEn, MAX_PAGES } from '../../lib/paliers.js';
 import {
@@ -63,7 +63,7 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
     const pages = (await pagesFrEn(sujet)).slice(0, MAX_PAGES);
     if (!pages.length) throw new ErreurHttp(422, MESSAGE_SANS_SOURCE);
     // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-    if (!(await quota(env, 'quizgeneral:joueur:' + joueur.id, LIMITE_BLOCS_LECTEUR))) {
+    if (!(await quotaJoueur(env, joueur, 'quizgeneral:joueur:' + joueur.id, LIMITE_BLOCS_LECTEUR))) {
       throw new ErreurHttp(429, `Tu as déjà fait écrire ${LIMITE_BLOCS_LECTEUR} blocs de questions aujourd’hui. Reviens demain.`);
     }
     if (!(await quota(env, 'quizgeneral:total', LIMITE_BLOCS_TOTAL))) {

@@ -1,6 +1,6 @@
 // POST /api/libre {sujet} : le Rival écrit un chapitre-brouillon (Workers AI), non vérifié.
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota, quotaJoueur,
 } from '../../lib/api.js';
 import { genererChapitre } from '../../lib/libre.js';
 
@@ -17,7 +17,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
   }
 
   // Par joueur d'abord : un joueur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'libre:joueur:' + joueur.id, 5))) {
+  if (!(await quotaJoueur(env, joueur, 'libre:joueur:' + joueur.id, 5))) {
     throw new ErreurHttp(429, 'Tu as déjà écrit 5 sujets libres aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'libre:total', 60))) {

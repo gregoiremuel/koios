@@ -1,16 +1,17 @@
 // GET /api/tournoi (public) -> {tournoi}
 // Le tournoi de la semaine : 10 questions sur le thème de la semaine, créé à la première requête de la semaine
 // (lundi 00:00 UTC à dimanche 23:59 UTC) et partagé par tous. C'est un duel de type « tournoi » (table salons) :
-// on le joue avec GET/PUT /api/duel?id=. Même génération et même plafond global que /api/jour (5 tentatives par jour).
+// on le joue avec GET/PUT /api/duel?id=. Le classement ne liste que toi et tes amis (rangs réels), `joueurs` compte tous les participants. Même génération et même plafond global que /api/jour (5 tentatives par jour).
 // tournoi = {id, titre, theme, debut, fin, termine, questions, joueurs, classement (10 premiers), moi, dejaJoue}
 //   classement : [{rang, pseudo, justes, n, points, moi?}] ; moi : mon rang et mon score, ou null.
 // Si le tournoi ne peut pas être écrit (plus d'IA, plafond atteint) : {tournoi: null}.
 import {
-  auth, enveloppe, exigerBase, json, quota, sha256Hex,
+  enveloppe, exigerBase, json, quota, sha256Hex, authOptionnelle,
 } from '../../lib/api.js';
 import {
   LIMITE_TENTATIVES_TOURNOI, classer, ecrireBloc, finDeSemaine, genererBlocTheme, jourUtc, lireBloc, lundiDe, themeDeLaSemaine,
 } from '../../lib/general.js';
+import { idsAmis } from '../../lib/comptes.js';
 
 const lire = (texte) => {
   try {
@@ -63,9 +64,11 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     if (!ligne) return json({ tournoi: null });
   }
 
-  const lecteur = await auth(request, env).catch(() => null);
+  const lecteur = await authOptionnelle(request, env);
   const scores = lire(ligne.scores);
-  const classement = classer(scores, lecteur && lecteur.id);
+  // Le classement ne montre que toi et tes amis (les rangs restent ceux de tous les joueurs).
+  const visibles = lecteur ? new Set([lecteur.id, ...(await idsAmis(env, lecteur.id))]) : new Set();
+  const classement = classer(scores, lecteur && lecteur.id, visibles);
   const moi = classement.find((x) => x.moi) || null;
   return json({
     tournoi: {
@@ -76,7 +79,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
       fin: ligne.fin,
       termine: Date.now() > Date.parse(ligne.fin),
       questions: lire(ligne.questions).length,
-      joueurs: classement.length,
+      joueurs: scores.length,
       classement: classement.slice(0, 10).map(({ moi: _m, ...x }) => (moi && x.rang === moi.rang ? { ...x, moi: true } : x)),
       moi: moi ? { rang: moi.rang, pseudo: moi.pseudo, justes: moi.justes, n: moi.n, points: moi.points } : null,
       dejaJoue: !!moi,

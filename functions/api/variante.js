@@ -6,7 +6,7 @@
 // Réponse : {variante: {id, parcours, n, mode, sections: {enBref, comment, pourquoi, ouQuand}, verification}}.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, MODES_VARIANTE, PALIER_MAX, demarrerChrono, genererVariante,
@@ -44,7 +44,7 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
 
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'variante:joueur:' + joueur.id, 15))) {
+  if (!(await quotaJoueur(env, joueur, 'variante:joueur:' + joueur.id, 15))) {
     throw new ErreurHttp(429, 'Tu as déjà demandé 15 versions réécrites aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'variante:total', 150))) {

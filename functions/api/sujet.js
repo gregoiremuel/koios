@@ -1,7 +1,7 @@
 // GET /api/sujet?id=<id> : un sujet (public, compte une vue).
 // POST /api/sujet {titre, parent?} : crée un sujet (l'IA écrit le plan, une seule fois, pour tous les lecteurs).
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   ID_MAX, contenuSujet, decoderSujet, genererPlan, idSujetValide, pageDuSujet, slug,
@@ -54,7 +54,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
 
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'sujet:joueur:' + joueur.id, 10))) {
+  if (!(await quotaJoueur(env, joueur, 'sujet:joueur:' + joueur.id, 10))) {
     throw new ErreurHttp(429, 'Tu as déjà lancé 10 sujets aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'sujet:total', 80))) {

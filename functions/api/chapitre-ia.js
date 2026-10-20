@@ -1,7 +1,7 @@
 // GET /api/chapitre-ia?sujet=<id>&n=<k> (ou ?id=ia:<sujet>:<k>) : un chapitre IA.
 // En cache : public, aucun quota. Sinon : connexion, quota, génération ancrée sur Wikipédia, mise en cache.
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, quota,
+  ErreurHttp, auth, enveloppe, exigerBase, json, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   assemblerChapitre, decoderSujet, genererContenuChapitre, idChapitre, lireIdChapitre, pagesDuChapitre,
@@ -44,7 +44,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'chapitre:joueur:' + joueur.id, 15))) {
+  if (!(await quotaJoueur(env, joueur, 'chapitre:joueur:' + joueur.id, 15))) {
     throw new ErreurHttp(429, 'Tu as déjà lancé 15 chapitres aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'chapitre:total', 100))) {

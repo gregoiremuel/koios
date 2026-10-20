@@ -8,7 +8,7 @@
 // la formation va dans la même table, partagée par tous.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, longueur, nettoyer, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, decoderParcours, demarrerChrono, genererParcours, genererProlongement, nbModules, nbPaliers,
@@ -97,7 +97,7 @@ async function prolonger(env, joueur, id) {
   }
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'prolonger:joueur:' + joueur.id, 5))) {
+  if (!(await quotaJoueur(env, joueur, 'prolonger:joueur:' + joueur.id, 5))) {
     throw new ErreurHttp(429, 'Tu as déjà prolongé 5 formations aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'prolonger:total', 40))) {
@@ -174,7 +174,7 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
 
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
   // Par lecteur d'abord : un lecteur qui insiste ne doit pas vider le quota des autres.
-  if (!(await quota(env, 'parcours:joueur:' + joueur.id, 10))) {
+  if (!(await quotaJoueur(env, joueur, 'parcours:joueur:' + joueur.id, 10))) {
     throw new ErreurHttp(429, 'Tu as déjà lancé 10 parcours aujourd’hui. Reviens demain.');
   }
   if (!(await quota(env, 'parcours:total', 80))) {

@@ -12,7 +12,7 @@
 //   duree (ms de la question), joueurs, moi, question?}. Avant le résultat, `question` ne contient ni la bonne réponse ni l'explication.
 //   Les joueurs sont des pseudos : jamais d'identifiant. Les points apparaissent au résultat et à la fin.
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota,
+  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, longueur, nettoyer, quota, authOptionnelle,
 } from '../../lib/api.js';
 import {
   DUREE_QUESTION, DUREE_VIE_MS, JOUEURS_MAX, PARTIES_PAR_JOUR, SQL_POINTS, avancer, chargerQuestion, classerJoueurs, codePartie,
@@ -194,7 +194,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
   const id = codeValide(new URL(request.url).searchParams.get('id'));
   const t = maintenant(env);
-  const lecteur = await auth(request, env).catch(() => null);
+  const lecteur = await authOptionnelle(request, env);
   const { partie, vue, refs } = await etatCourant(env, id, t);
 
   const { results } = await env.DB.prepare(

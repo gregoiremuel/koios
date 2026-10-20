@@ -3,7 +3,7 @@
 // Réponse : {questions: [{palier: "<parcours>:quiz", titre, index, question}]}, comme GET /api/quiz.
 import { typographier } from '../../lib/typo.js';
 import {
-  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, quota,
+  ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, quota, quotaJoueur,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, decoderParcours, demarrerChrono, genererQuizDirect, questionsDuQuiz,
@@ -27,7 +27,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
   if (cache) return json({ questions: questionsDuQuiz(parcours, JSON.parse(cache.contenu).questions) });
 
   if (!env.AI) throw new ErreurHttp(503, 'IA absente');
-  if (!(await quota(env, 'quizdirect:joueur:' + joueur.id, 10))) {
+  if (!(await quotaJoueur(env, joueur, 'quizdirect:joueur:' + joueur.id, 10))) {
     throw new ErreurHttp(429, 'Tu as déjà lancé 10 quiz aujourd’hui. Reviens demain.');
   }
 
