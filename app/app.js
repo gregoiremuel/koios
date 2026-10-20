@@ -3367,6 +3367,7 @@
       var d = j.derniereErreur;
       corps.appendChild(el("div", { "class": "pile serree" }, [
         el("p", { "class": "meta derniere-erreur", text: d ? "Dernière erreur" + N + ": " + (d.type === "module" ? "module " : "leçon ") + d.numero + " de " + d.parcours + " · " + d.erreur : "Aucune erreur pour l’instant." }),
+        el("p", { "class": "meta", text: (j.recentes || []).map(function (r) { return r.type + " " + r.numero + " " + r.etat + (r.essais ? " (" + r.essais + " essai" + (r.essais > 1 ? "s" : "") + ")" : "") + (r.erreur ? " · " + r.erreur : ""); }).join(" — ") }),
         el("p", { "class": "meta", text: j.epuises && j.epuises.length ? "Fournisseurs épuisés ou écartés" + N + ": " + j.epuises.join(", ") + "." : "Aucun fournisseur épuisé connu." })]));
     }
     /* Bloc crédit : construit une fois (le champ garde ce qu'on tape pendant les rafraîchissements), seuls les textes changent. */
