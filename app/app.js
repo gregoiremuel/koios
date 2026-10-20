@@ -14,6 +14,7 @@
     ecrire: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* mémoire seule */ } }
   };
   var profil = S.lire("koios.profil", null);
+  try { localStorage.removeItem("koios.admin"); } catch (e) { /* mémoire seule */ } // la clé admin ne reste plus sur le téléphone : le rôle admin est porté par le compte
   var etat = S.lire("koios.etat", null);
   var toutNeuf = !etat; // première visite : les premiers badges sont annoncés
   if (!etat || etat.version !== 2) etat = { version: 2, xp: 0, parcours: {}, erreurs: [], jours: (etat && etat.jours) || {}, maj: 0 };
@@ -178,8 +179,6 @@
     if (c) h.Authorization = "Bearer " + c;
     var perso = cleIA();
     if (perso && ((methode === "POST" && /^(parcours|variante|quiz-general)(\?|$)/.test(chemin)) || (methode === "GET" && /^palier\?/.test(chemin)))) h["x-cle-ia"] = perso.f + ":" + perso.c;
-    var admin = S.lire("koios.admin", "");
-    if (admin && typeof admin === "string" && /^admin(\?|$)/.test(chemin)) h["x-admin-cle"] = admin;
     if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
     return fetch("/api/" + chemin, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined, signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { clearTimeout(t); if (!r.ok) { var e = new Error(j.erreur || ("Erreur " + r.status)); e.statut = r.status; throw e; } return j; }); },
@@ -251,16 +250,13 @@
     r.badges = L.fusionnerBadges(a.badges, b.badges);
     return r;
   }
-  var creation = null;
-  function creerJoueur() {
-    if (!serveur.base || !profil || profil.id) return Promise.resolve();
-    if (!creation) creation = api("POST", "joueur", { pseudo: profil.pseudo }).then(function (j) { profil.id = j.id; profil.cle = j.cle; S.ecrire("koios.profil", profil); pousser(); }, function () { creation = null; });
-    return creation;
-  }
+  /* Plus de profil anonyme créé en silence : on entre par un compte (voir « Comptes »). Gardé pour les appels qui attendent le serveur. */
+  function creerJoueur() { return Promise.resolve(); }
   function synchroniser() {
-    if (!profil) return Promise.resolve();
-    if (!profil.id) return creerJoueur();
-    return api("GET", "progression").then(function (j) { etat = fusion(etat, j.etat); S.ecrire("koios.etat", etat); pousser(); }, function () {});
+    if (!profil || !profil.id) return Promise.resolve();
+    return api("GET", "compte").then(function (c) { majProfilCompte(c); return api("GET", "progression"); })
+      .then(function (j) { etat = fusion(etat, j.etat); S.ecrire("koios.etat", etat); pousser(); },
+        function (e) { if (e.statut === 401) perdreSession(); else if (e.statut === 403) toast(e.message); });
   }
   var pretServeur = api("GET", "etat", null, 5000).then(function (j) { serveur.base = !!j.base; serveur.ia = !!j.ia; }, function () {});
   function pretCompte() { return pretServeur.then(function () { return creerJoueur(); }); }
@@ -486,30 +482,289 @@
     return m;
   }
 
-  /* ---------- Première visite ---------- */
-  function vueAccueil() {
-    var credits = blocCredits();
+  /* ---------- Comptes : créer, se connecter, phrase de secours, Google ---------- */
+  /* Message d'une erreur du serveur : ses phrases sont déjà claires, sauf quand il ne répond pas ou n'est pas branché. */
+  function erreurCompte(e) { return e.statut === 0 || e.statut === 503 ? messageErreur(e) : (e.message || "Une erreur est survenue."); }
+  /* Une session refusée (401) : on revient à l'écran de connexion, la progression reste sur ce téléphone. */
+  function perdreSession() {
+    profil = null;
+    try { localStorage.removeItem("koios.profil"); } catch (e) { /* mémoire seule */ }
+    toast("Ta session a expiré. Reconnecte-toi.");
+    route();
+  }
+  /* Quitte ce compte sur ce téléphone : profil et progression locale partent (la progression reste sur le serveur). */
+  function oublierCompteLocal() {
+    ["koios.profil", "koios.etat", "koios.admin"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* mémoire seule */ } });
+    location.hash = "#/";
+    location.reload();
+  }
+  function majProfilCompte(c) {
+    if (!profil || !c) return;
+    profil.compte = !!c.compte;
+    profil.role = c.role || "joueur";
+    profil.prenom = c.prenom || null;
+    profil.nom = c.nom || null;
+    profil.google = !!c.google;
+    profil.mdp = c.motDePasse !== false;
+    profil.bonus = c.bonus || 0;
+    if (c.pseudo) profil.pseudo = c.pseudo;
+    S.ecrire("koios.profil", profil);
+  }
+  /* Une session ouverte (inscription, connexion, secours ou Google) : on la garde, puis on fusionne la progression du serveur. */
+  function ouvrirSession(rep) {
+    profil = { id: rep.id, cle: rep.cle, pseudo: rep.pseudo, prenom: rep.prenom || null, nom: rep.nom || null, role: rep.role || "joueur", compte: true };
+    S.ecrire("koios.profil", profil);
+    return synchroniser();
+  }
+  function suiteConnexion() {
+    var cible = apresAccueil && apresAccueil !== "#/accueil" ? apresAccueil : "#/";
+    apresAccueil = null;
+    if (location.hash === cible) route(); else location.hash = cible;
+  }
+  function champTexte(id, libelle, attrs) {
+    var a = { "class": "champ", id: id, type: "text" };
+    Object.keys(attrs || {}).forEach(function (k) { a[k] = attrs[k]; });
+    return { label: el("label", { "for": id, "class": "sur", text: libelle }), input: el("input", a) };
+  }
+  function ligneChamp(c, aide) { return el("div", { "class": "pile serree" }, [c.label, c.input, aide ? el("p", { "class": "meta", text: aide }) : null]); }
+  function alerteVide() { return el("p", { "class": "alerte", hidden: "", role: "status" }); }
+  function dire(al, texte) { al.textContent = texte; al.hidden = !texte; }
+  function boutonAvance(texte) { return el("button", { "class": "btn", type: "button" }, [el("span", { text: texte }), icone("fleche")]); }
+
+  /* Écran affiché une seule fois après l'inscription : les 12 mots, copier, et une case à cocher avant de continuer. */
+  function vuePhrase(phrase, suite) {
+    var mots = String(phrase || "").split(" ");
+    var liste = el("ol", { "class": "phrase" }, mots.map(function (m) { return el("li", { text: m }); }));
+    var info = el("p", { "class": "meta", role: "status" });
+    var copier = el("button", { "class": "btn second", type: "button" }, [icone("lien"), el("span", { text: "Copier la phrase" })]);
+    copier.addEventListener("click", function () {
+      var fait = function () { info.textContent = "Phrase copiée. Colle‑la dans une note à l’abri."; };
+      var echec = function () { info.textContent = "Copie impossible ici. Recopie les mots à la main."; };
+      try { navigator.clipboard.writeText(phrase).then(fait, echec); } catch (e) { echec(); }
+    });
+    var case1 = el("input", { type: "checkbox", id: "phrase-notee" });
+    var go = boutonAvance("Continuer");
+    go.disabled = true;
+    case1.addEventListener("change", function () { go.disabled = !case1.checked; });
+    go.addEventListener("click", function () { if (case1.checked) suite(); });
+    montrer(el("div", { "class": "page plein" }, [
+      el("header", { "class": "haut" }, [marque(true)]),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Compte créé" }), el("h1", { text: "Note ta phrase de secours" })]),
+      el("p", { style: "font-size:17px", text: "Si tu oublies ton mot de passe, ces 12 mots te redonnent accès à ton compte. Ils ne s’affichent qu’une seule fois." }),
+      el("div", { "class": "phrase-bloc" }, [liste]),
+      copier, info,
+      el("label", { "class": "cocher", "for": "phrase-notee" }, [case1, el("span", { text: "Je l’ai notée" })]),
+      go
+    ]), null, "Phrase de secours");
+  }
+
+  /* Google : le bouton n'existe que si le serveur annonce un identifiant client. Le jeton reçu est vérifié par le serveur. */
+  function boutonGoogle(zone, surJeton) {
+    api("GET", "compte?config=1", null, 5000).then(function (c) {
+      if (!c || !c.google || !zone.isConnected) return;
+      var s = el("script", { src: "https://accounts.google.com/gsi/client", async: "", defer: "" });
+      s.addEventListener("load", function () {
+        if (!window.google || !window.google.accounts || !zone.isConnected) return;
+        window.google.accounts.id.initialize({ client_id: c.google, callback: function (r) { if (r && r.credential) surJeton(r.credential); } });
+        var bloc = el("div", { "class": "google-bouton" });
+        zone.appendChild(bloc);
+        window.google.accounts.id.renderButton(bloc, { type: "standard", theme: "outline", size: "large", text: "continue_with", locale: "fr", width: 280 });
+      });
+      document.head.appendChild(s);
+    }, function () { /* pas de Google : le reste fonctionne */ });
+  }
+  /* Premier passage avec Google : le serveur demande un pseudo, un prénom et un nom. */
+  function completerGoogle(jeton, suite) {
+    var pseudo = champTexte("g-pseudo", "Pseudo", { maxlength: "20", autocomplete: "username", autocapitalize: "off", spellcheck: "false" });
+    var prenom = champTexte("g-prenom", "Prénom", { maxlength: "40", autocomplete: "given-name" });
+    var nom = champTexte("g-nom", "Nom", { maxlength: "40", autocomplete: "family-name" });
+    var al = alerteVide(), go = boutonAvance("Créer mon compte");
+    go.addEventListener("click", function () {
+      dire(al, ""); go.disabled = true;
+      api("POST", "compte", { action: "google", jeton: jeton, pseudo: pseudo.input.value, prenom: prenom.input.value, nom: nom.input.value }, 20000)
+        .then(ouvrirSession)
+        .then(function () { suite(); }, function (e) { go.disabled = false; dire(al, erreurCompte(e)); });
+    });
+    montrer(el("div", { "class": "page plein" }, [
+      el("header", { "class": "haut" }, [marque(true)]),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Google" }), el("h1", { text: "Choisis ton pseudo" })]),
+      el("p", { "class": "meta", style: "font-size:16px", text: "Ton pseudo est le nom que tes amis voient. Ton prénom et ton nom restent privés." }),
+      el("div", { "class": "pile" }, [ligneChamp(pseudo, "3 à 20 caractères" + N + ": lettres, chiffres, _ . -"), ligneChamp(prenom), ligneChamp(nom), go, al])
+    ]), null, "Choisir un pseudo");
+  }
+  function connexionGoogle(jeton, suite, al) {
+    return api("POST", "compte", { action: "google", jeton: jeton }, 20000).then(function (rep) {
+      if (rep.aCompleter) { completerGoogle(jeton, suite); return; }
+      return ouvrirSession(rep).then(suite);
+    }, function (e) { dire(al, erreurCompte(e)); });
+  }
+
+  function formCreer(suite) {
+    var prenom = champTexte("c-prenom", "Prénom", { maxlength: "40", autocomplete: "given-name" });
+    var nom = champTexte("c-nom", "Nom", { maxlength: "40", autocomplete: "family-name" });
+    var pseudo = champTexte("c-pseudo", "Pseudo", { maxlength: "20", autocomplete: "username", autocapitalize: "off", spellcheck: "false" });
+    var mdp = champTexte("c-mdp", "Mot de passe", { type: "password", autocomplete: "new-password" });
+    var al = alerteVide(), go = boutonAvance("Créer mon compte");
+    go.addEventListener("click", function () {
+      dire(al, "");
+      if (!prenom.input.value.trim() || !nom.input.value.trim() || !pseudo.input.value.trim()) { dire(al, "Remplis ton prénom, ton nom et ton pseudo."); return; }
+      if (mdp.input.value.length < 10) { dire(al, "Ton mot de passe doit avoir 10 caractères au moins."); mdp.input.focus(); return; }
+      go.disabled = true;
+      api("POST", "compte", { action: "inscrire", prenom: prenom.input.value, nom: nom.input.value, pseudo: pseudo.input.value, mdp: mdp.input.value }, 25000).then(function (rep) {
+        return ouvrirSession(rep).then(function () { vuePhrase(rep.phrase, suite); });
+      }, function (e) { go.disabled = false; dire(al, erreurCompte(e)); });
+    });
+    return el("div", { "class": "pile" }, [ligneChamp(prenom), ligneChamp(nom), ligneChamp(pseudo, "3 à 20 caractères" + N + ": lettres, chiffres, _ . -"), ligneChamp(mdp, "10 caractères au moins."), go, al]);
+  }
+  function formConnecter(suite, versSecours) {
+    var pseudo = champTexte("s-pseudo", "Pseudo", { maxlength: "20", autocomplete: "username", autocapitalize: "off", spellcheck: "false" });
+    var mdp = champTexte("s-mdp", "Mot de passe", { type: "password", autocomplete: "current-password" });
+    var al = alerteVide(), go = boutonAvance("Se connecter");
+    var oubli = el("button", { "class": "lien", type: "button", text: "Mot de passe oublié" });
+    oubli.addEventListener("click", versSecours);
+    go.addEventListener("click", function () {
+      dire(al, "");
+      if (!pseudo.input.value.trim() || !mdp.input.value) { dire(al, "Écris ton pseudo et ton mot de passe."); return; }
+      go.disabled = true;
+      api("POST", "compte", { action: "connecter", pseudo: pseudo.input.value, mdp: mdp.input.value }, 25000).then(function (rep) {
+        return ouvrirSession(rep).then(suite);
+      }, function (e) { go.disabled = false; dire(al, erreurCompte(e)); });
+    });
+    mdp.input.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
+    return el("div", { "class": "pile" }, [ligneChamp(pseudo), ligneChamp(mdp), go, al, oubli]);
+  }
+  function formSecours(suite, retour) {
+    var pseudo = champTexte("r-pseudo", "Pseudo", { maxlength: "20", autocomplete: "username", autocapitalize: "off", spellcheck: "false" });
+    var phrase = el("textarea", { "class": "champ zone", id: "r-phrase", rows: "3", autocomplete: "off", autocapitalize: "off", spellcheck: "false" });
+    var nouveau = champTexte("r-mdp", "Nouveau mot de passe", { type: "password", autocomplete: "new-password" });
+    var al = alerteVide(), go = boutonAvance("Changer mon mot de passe");
+    var retourBtn = el("button", { "class": "lien", type: "button", text: "Retour à la connexion" });
+    retourBtn.addEventListener("click", retour);
+    go.addEventListener("click", function () {
+      dire(al, "");
+      if (!pseudo.input.value.trim() || !phrase.value.trim()) { dire(al, "Écris ton pseudo et ta phrase de secours."); return; }
+      if (nouveau.input.value.length < 10) { dire(al, "Ton nouveau mot de passe doit avoir 10 caractères au moins."); return; }
+      go.disabled = true;
+      api("POST", "compte", { action: "secours", pseudo: pseudo.input.value, phrase: phrase.value, nouveauMdp: nouveau.input.value }, 25000).then(function (rep) {
+        return ouvrirSession(rep).then(function () { toast("Mot de passe changé."); suite(); });
+      }, function (e) { go.disabled = false; dire(al, erreurCompte(e)); });
+    });
+    return el("div", { "class": "pile" }, [
+      el("p", { "class": "meta", style: "font-size:16px", text: "Tape les 12 mots de ta phrase de secours (ou le code reçu de l’admin), puis choisis un nouveau mot de passe." }),
+      ligneChamp(pseudo),
+      el("div", { "class": "pile serree" }, [el("label", { "for": "r-phrase", "class": "sur", text: "Phrase de secours" }), phrase]),
+      ligneChamp(nouveau, "10 caractères au moins."), go, al, retourBtn
+    ]);
+  }
+  /* Onglets « Créer un compte » et « Se connecter », avec « Mot de passe oublié » et le bouton Google s'il est configuré. */
+  function blocConnexion(suite, depart) {
+    var corps = el("div", { "class": "pile" }), onglets = el("div", { "class": "onglets", role: "tablist", "aria-label": "Compte" }), boutons = {};
+    var google = el("div", { "class": "pile google-zone" }), alGoogle = alerteVide();
+    function afficher(mode) {
+      Object.keys(boutons).forEach(function (k) { boutons[k].setAttribute("aria-selected", k === mode ? "true" : "false"); });
+      onglets.hidden = mode === "secours";
+      corps.textContent = "";
+      corps.appendChild(mode === "creer" ? formCreer(suite) : mode === "connecter" ? formConnecter(suite, function () { afficher("secours"); }) : formSecours(suite, function () { afficher("connecter"); }));
+      google.hidden = mode === "secours";
+    }
+    [["creer", "Créer un compte"], ["connecter", "Se connecter"]].forEach(function (m) {
+      var b = el("button", { type: "button", role: "tab", "aria-selected": "false", text: m[1] });
+      b.addEventListener("click", function () { afficher(m[0]); });
+      boutons[m[0]] = b; onglets.appendChild(b);
+    });
+    google.appendChild(alGoogle);
+    boutonGoogle(google, function (jeton) { connexionGoogle(jeton, suite, alGoogle); });
+    afficher(depart || "creer");
+    return el("div", { "class": "pile" }, [onglets, corps, google]);
+  }
+  /* Sans serveur : l'app marche sur ce téléphone seulement, avec un simple nom. */
+  function formLocal() {
     var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", autocomplete: "nickname", placeholder: "Ton prénom ou un pseudo" });
     var alerte = el("p", { "class": "alerte", hidden: "" });
-    var go = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Commencer" }), icone("fleche")]);
+    var go = boutonAvance("Commencer");
     go.addEventListener("click", function () {
       var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24);
       if (!p) { alerte.textContent = "Écris d’abord ton prénom ou un pseudo."; alerte.hidden = false; champ.focus(); return; }
       profil = { pseudo: p }; S.ecrire("koios.profil", profil);
-      pretServeur.then(creerJoueur);
-      var cible = apresAccueil && apresAccueil !== "#/accueil" ? apresAccueil : "#/";
-      apresAccueil = null;
-      if (location.hash === cible) route(); else location.hash = cible;
+      suiteConnexion();
     });
     champ.addEventListener("keydown", function (e) { if (e.key === "Enter") go.click(); });
+    return el("div", { "class": "pile" }, [el("p", { "class": "meta", text: "Le serveur ne répond pas" + N + ": tu peux commencer sur ce téléphone, sans compte." }), el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte]);
+  }
+
+  /* ---------- Première visite ---------- */
+  function vueAccueil() {
+    var credits = blocCredits();
+    var formulaire = el("div", { "class": "pile" }, [el("p", { "class": "attente", role: "status", text: "Chargement…" })]);
+    pretServeur.then(function () {
+      if (!formulaire.isConnected) return;
+      formulaire.textContent = "";
+      formulaire.appendChild(serveur.base ? blocConnexion(suiteConnexion, "creer") : formLocal());
+    });
     montrer(el("div", { "class": "page plein" }, [
       el("header", { "class": "haut" }, [marque(true)]),
       mosaique(credits),
       el("div", { "class": "pile" }, [el("h1", { text: "Apprends n’importe quel sujet, leçon par leçon." }),
         el("p", { "class": "meta", style: "font-size:17px", text: "Des leçons courtes et sourcées, des définitions, des frises et des chiffres. Toutes les 5 leçons, un quiz ; ensuite des mini‑jeux et des duels entre amis." })]),
-      el("div", { "class": "pile" }, [el("label", { "for": "pseudo", "class": "sur", text: "Ton nom" }), champ, go, alerte, lien("#/aide", "Comment ça marche", "lien discret")]),
+      formulaire,
+      el("div", { "class": "pile serree" }, [lien("#/aide", "Comment ça marche", "lien discret"), lien("#/confidentialite", "Confidentialité", "lien discret")]),
       credits.noeud
     ]), null, "Commencer");
+  }
+  /* Page pour qui a déjà un profil sans compte (ou qui est resté sur ce téléphone) : créer le compte garde la progression. */
+  function vueCompte() {
+    if (profil && profil.compte) { location.hash = "#/profil"; return; }
+    var formulaire = el("div", { "class": "pile" }, [el("p", { "class": "attente", role: "status", text: "Chargement…" })]);
+    pretServeur.then(function () {
+      if (!formulaire.isConnected) return;
+      formulaire.textContent = "";
+      formulaire.appendChild(serveur.base ? blocConnexion(suiteConnexion, "creer") : etatVide("profil", "Le serveur ne répond pas. Réessaie dans un instant.", lien("#/", "Retour à l’accueil", "btn second petit")));
+    });
+    montrer(el("div", { "class": "page" }, [
+      el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Compte" }), el("h1", { text: "Protège ta progression" })]),
+      el("p", { style: "font-size:17px", text: "Crée ton compte" + N + ": tu gardes tout ce que tu as fait, et tu le retrouves sur tous tes appareils." }),
+      formulaire
+    ]), "profil", "Créer mon compte");
+  }
+  /* Lien d'invitation reçu (par exemple par WhatsApp) : on devient ami de celui qui l'a envoyé. */
+  function vueInvitation(jeton) {
+    if (!profil.compte) {
+      apresAccueil = location.hash;
+      montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Invitation d’un ami" }),
+        etatVide("invitation", "Crée ton compte pour devenir ami. Tu reviendras ici ensuite.", lienAvance("#/compte", "Créer mon compte", "btn"))]), "amis", "Invitation");
+      return;
+    }
+    var vive = vivante();
+    montrer(attente("Ouverture de l’invitation…"), "amis", "Invitation");
+    api("POST", "amis", { action: "rejoindre", jeton: jeton }, 15000).then(function (r) {
+      if (!vive()) return;
+      toast(r.dejaAmis ? "Vous êtes déjà amis." : "Tu es maintenant ami avec " + r.pseudo + ".");
+      location.hash = "#/amis";
+    }, function (e) { if (vive()) montrer(erreurPage(erreurCompte(e), "Invitation indisponible"), "amis"); });
+  }
+  /* Ce qui est gardé, ce qui est visible, comment tout effacer. */
+  function vueConfidentialite() {
+    function section(titre, textes) { return el("section", { "class": "pile serree" }, [el("h2", { text: titre })].concat(textes.map(function (t) { return el("p", { text: t }); }))); }
+    montrer(el("div", { "class": "page" }, [
+      profil ? el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()])
+        : el("div", { "class": "pile serree" }, [el("header", { "class": "haut" }, [marque(true)]), el("a", { "class": "retour-texte", href: "#/accueil" }, [icone("retour"), "Retour"])]),
+      el("h1", { text: "Confidentialité" }),
+      section("Ce que Koîos garde", [
+        "Ton prénom, ton nom, ton pseudo et ta progression (XP, leçons faites, révisions, badges).",
+        "Ton mot de passe et ta phrase de secours ne sont jamais gardés tels quels" + N + ": seule une empreinte est enregistrée, impossible à relire. Si tu te connectes avec Google, seul l’identifiant Google est gardé, pas ton adresse e‑mail.",
+        "Ton adresse IP n’est jamais gardée en clair" + N + ": son empreinte sert seulement à limiter les abus."
+      ]),
+      section("Ce qui est visible", [
+        "Tes amis voient ton pseudo et tes points. Personne d’autre ne peut lister les joueurs" + N + ": on ne trouve quelqu’un que par son pseudo exact ou par un lien d’invitation.",
+        "Un salon, un groupe ou une partie ouverts par un lien ou un code montrent ton pseudo à ceux qui y participent. Ton prénom et ton nom ne sont jamais montrés aux autres joueurs."
+      ]),
+      section("Pas de publicité", ["Koîos n’affiche aucune publicité, ne vend aucune donnée et n’utilise aucun traqueur."]),
+      section("Supprimer ton compte", [
+        "Tu peux tout effacer à tout moment, dans le Profil, avec ton mot de passe" + N + ": compte, appareils connectés, progression, amitiés et demandes.",
+        "Les formations que tu as créées restent, sans nom d’auteur" + N + ": le contenu des formations est public."
+      ])
+    ]), profil ? "profil" : null, "Confidentialité");
   }
 
   /* ---------- Maison ---------- */
@@ -718,7 +973,9 @@
         ranger();
       }, function () {});
     }
-    var haut = [entete(), rech.recherche, bento];
+    var rappelCompte = el("div", { hidden: "" });
+    pretServeur.then(function () { if (serveur.base && !profil.compte && rappelCompte.isConnected) { rappelCompte.appendChild(rangeeCompte()); rappelCompte.hidden = false; if (window.poserIcones) window.poserIcones(rappelCompte); } });
+    var haut = [entete(), rappelCompte, rech.recherche, bento];
     if (miens.length > 1) {
       var ul = el("ul", { "class": "liste" });
       miens.slice(1, 8).forEach(function (x) { ul.appendChild(rangeeParcours(x.id, x.s.titre, imageFixe({ titre: x.s.titre }) || x.s.image, detailSuivi(x.s))); });
@@ -859,7 +1116,7 @@
       var zoneGroupe = el("div", { "class": "pile serree" });
       boutonGroupe(p, zoneGroupe, vive);
       var zoneAdmin = el("div", { "class": "pile serree" });
-      if (S.lire("koios.admin", "") && parProgramme(p) && !p.verifie) {
+      if (profil && profil.role === "admin" && parProgramme(p) && !p.verifie) {
         api("GET", "admin?parcours=" + encodeURIComponent(p.id), null, 10000).then(function (j) { if (vive()) afficherAdminFormation(p, zoneAdmin, j); }, function () { /* pas de clé valable, ou hors ligne : rien à montrer */ });
       }
       var zoneProfondeur = null;
@@ -2397,14 +2654,81 @@
     return carte;
   }
   /* Amis : salons, tournoi de la semaine, duels, classement du cercle. */
+  /* Amis : inviter par un lien (WhatsApp), chercher un pseudo exact, répondre aux demandes, retirer un ami. */
+  function urlInvitation(jeton) { return location.origin + location.pathname + "#/invitation/" + jeton; }
+  function inviterParLien(info) {
+    return api("POST", "amis", { action: "inviter" }, 10000).then(function (r) {
+      var url = urlInvitation(r.jeton), texte = (profil ? profil.pseudo : "Un ami") + " t’invite sur Koîos" + F + ": apprends n’importe quel sujet et défie‑moi. Ce lien marche 7 jours.";
+      if (navigator.share) { navigator.share({ title: "Koîos", text: texte, url: url }).catch(function () {}); return; }
+      var ouvert = window.open("https://wa.me/?text=" + encodeURIComponent(texte + " " + url), "_blank", "noopener");
+      if (!ouvert) partager("Koîos", texte, url, function (t) { info.textContent = t; });
+    }, function (e) { info.textContent = erreurCompte(e); });
+  }
+  function rangeeAmi(pseudo, details, actions) {
+    return el("li", {}, [el("div", { "class": "ligne-ami" }, [el("span", { "class": "pile serree" }, [el("b", { text: pseudo }), details ? el("span", { "class": "meta", text: details }) : null]), el("span", { "class": "actions" }, actions)])]);
+  }
+  function sectionAmisCompte(apres) {
+    var zone = el("div", { "class": "pile" }, [el("p", { "class": "attente", role: "status", text: "Chargement…" })]);
+    function agir(corps, bouton, info) {
+      if (bouton) bouton.disabled = true;
+      return api("POST", "amis", corps, 10000).then(function () { charger(); if (apres) apres(); }, function (e) { if (bouton) bouton.disabled = false; info.textContent = erreurCompte(e); });
+    }
+    function rendre(j) {
+      zone.textContent = "";
+      var info = el("p", { "class": "meta", role: "status" });
+      var inviter = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Inviter par WhatsApp" })]);
+      inviter.addEventListener("click", function () { inviter.disabled = true; inviterParLien(info).then(function () { inviter.disabled = false; }); });
+      var pseudo = champTexte("ami-pseudo", "Ajouter par pseudo", { maxlength: "20", autocapitalize: "off", autocomplete: "off", spellcheck: "false", placeholder: "Pseudo exact" });
+      var envoyer = el("button", { "class": "btn second", type: "button", text: "Envoyer la demande" });
+      envoyer.addEventListener("click", function () {
+        var p = pseudo.input.value.trim();
+        if (!p) { info.textContent = "Écris le pseudo exact de ton ami."; return; }
+        envoyer.disabled = true;
+        api("POST", "amis", { action: "demander", pseudo: p }, 10000).then(function (r) {
+          toast(r.etat === "ami" ? "Vous êtes maintenant amis." : "Demande envoyée à " + r.pseudo + ".");
+          charger(); if (apres) apres();
+        }, function (e) { envoyer.disabled = false; info.textContent = erreurCompte(e); });
+      });
+      zone.appendChild(el("div", { "class": "pile" }, [inviter, el("div", { "class": "pile serree" }, [pseudo.label, pseudo.input]), envoyer, info]));
+      if ((j.recues || []).length) {
+        var ur = el("ul", { "class": "liste" });
+        j.recues.forEach(function (d) {
+          var ok = el("button", { "class": "btn petit", type: "button", text: "Accepter" }), non = el("button", { "class": "btn second petit", type: "button", text: "Refuser" });
+          ok.addEventListener("click", function () { agir({ action: "accepter", pseudo: d.pseudo }, ok, info); });
+          non.addEventListener("click", function () { agir({ action: "refuser", pseudo: d.pseudo }, non, info); });
+          ur.appendChild(rangeeAmi(d.pseudo, "veut devenir ton ami", [ok, non]));
+        });
+        zone.appendChild(el("section", { "class": "pile serree" }, [el("h2", { text: "Demandes reçues" }), ur]));
+      }
+      if ((j.envoyees || []).length) {
+        var ue = el("ul", { "class": "liste" });
+        j.envoyees.forEach(function (d) {
+          var annuler = el("button", { "class": "btn second petit", type: "button", text: "Annuler" });
+          annuler.addEventListener("click", function () { agir({ action: "retirer", pseudo: d.pseudo }, annuler, info); });
+          ue.appendChild(rangeeAmi(d.pseudo, "en attente de réponse", [annuler]));
+        });
+        zone.appendChild(el("section", { "class": "pile serree" }, [el("h2", { text: "Demandes envoyées" }), ue]));
+      }
+      var ua = el("ul", { "class": "liste" });
+      (j.amis || []).forEach(function (a) {
+        var retirer = el("button", { "class": "btn second petit", type: "button", text: "Retirer" });
+        retirer.addEventListener("click", function () { if (window.confirm("Retirer " + a.pseudo + " de tes amis" + F + "?")) agir({ action: "retirer", pseudo: a.pseudo }, retirer, info); });
+        ua.appendChild(rangeeAmi(a.pseudo, a.points + N + "XP", [retirer]));
+      });
+      zone.appendChild(el("section", { "class": "pile serree" }, [el("h2", { text: "Mes amis" }), (j.amis || []).length ? ua : el("p", { "class": "meta", text: "Pas encore d’ami. Envoie un lien par WhatsApp, ou cherche un pseudo exact." })]));
+      if (window.poserIcones) window.poserIcones(zone);
+    }
+    function charger() { return api("GET", "amis", null, 10000).then(rendre, function (e) { zone.textContent = ""; zone.appendChild(el("p", { "class": "meta", text: erreurCompte(e) })); }); }
+    charger();
+    return zone;
+  }
   function vueAmis() {
     var classement = el("div", { "class": "pile" }, [el("p", { "class": "attente", text: "Chargement…" })]);
     var duels = el("div", { "class": "pile serree" });
     var salons = el("div", { "class": "pile serree" });
     var groupes = el("div", { "class": "pile serree" }, [el("p", { "class": "attente", text: "Chargement…" })]);
     var info = el("p", { "class": "meta", role: "status" });
-    var inviter = el("button", { "class": "btn", type: "button" }, [icone("invitation"), el("span", { text: "Inviter un ami" })]);
-    inviter.addEventListener("click", function () { partager("Koîos", "Apprends n’importe quel sujet, leçon par leçon, et défie‑moi.", location.origin + "/", function (t) { info.textContent = t; }); });
+    var zoneAmis = el("div", { "class": "pile serree" });
     var pasDeDuel = function (texte) { duels.innerHTML = ""; duels.appendChild(etatVide("epee", texte, lien("#/", "Choisir une formation", "btn second petit"))); };
     var pasDeSalon = function (texte) { salons.innerHTML = ""; salons.appendChild(el("p", { "class": "meta", text: texte })); };
     var creer = el("details", { "class": "plier creer-salon" }, [
@@ -2415,24 +2739,28 @@
       ])
     ]);
     montrer(el("div", { "class": "page" }, [entete(), el("h1", { text: "Amis" }),
-      el("section", { "class": "pile serree" }, [el("p", { "class": "meta", style: "font-size:16px", text: "Envoie un lien" + N + ": ton ami rejoint Koîos et peut jouer tes salons et relever tes duels." }), inviter, info]),
+      el("section", { "class": "pile serree" }, [el("h2", { text: "Mes amis" }), el("p", { "class": "meta", style: "font-size:16px", text: "Tu ne vois que toi et tes amis. On devient ami par un lien d’invitation ou par un pseudo exact." }), zoneAmis, info]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Salons" }), salons, creer]),
       carteTournoi(),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Mes groupes" }), groupes]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Rejoindre une partie" }), el("p", { "class": "meta", text: "Jusqu’à 12 joueurs répondent en même temps. Entre le code de ton ami. Pour en lancer une, ouvre un salon et touche " + guill("Jouer en direct") + "." }), formulaireCode()]),
       el("section", { "class": "pile serree" }, [el("h2", { text: "Duels" }), duels]),
-      el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement])
+      el("section", { "class": "pile serree" }, [el("div", { "class": "ligne-titre" }, [el("h2", { text: "Classement entre amis" }), el("span", { "class": "meta", text: "XP cumulés" })]), classement])
     ]), "amis", "Amis");
     if (window.poserIcones) window.poserIcones(creer);
     pretServeur.then(function () {
       if (!serveur.base) { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Le classement s’affiche dès que le serveur répond." })); pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Les salons demandent la connexion en ligne."); groupes.innerHTML = ""; groupes.appendChild(el("p", { "class": "meta", text: "Les groupes demandent la connexion en ligne." })); return; }
       remplirGroupes(groupes);
-      api("GET", "cercle").then(function (j) {
+      if (profil.compte) zoneAmis.appendChild(sectionAmisCompte(chargerClassement));
+      else zoneAmis.appendChild(etatVide("invitation", "Crée ton compte pour ajouter des amis et voir leur classement.", lienAvance("#/compte", "Créer mon compte", "btn second petit")));
+      if (window.poserIcones) window.poserIcones(zoneAmis);
+      chargerClassement();
+      function chargerClassement() { api("GET", "cercle").then(function (j) {
         classement.innerHTML = "";
         var ol = el("ol", { "class": "liste" });
         (j.joueurs || []).forEach(function (x, k) { ol.appendChild(el("li", {}, [el("div", { "class": "rangee rang" }, [el("b", { text: String(k + 1) }), el("b", { text: x.pseudo + (x.moi ? " (toi)" : "") }), el("span", { "class": "meta", text: x.points + N + "XP" })])])); });
-        classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Personne n’a encore d’XP." }));
-      }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); });
+        classement.appendChild((j.joueurs || []).length ? ol : el("p", { "class": "meta", text: "Ton classement et celui de tes amis s’affichent ici." }));
+      }, function () { classement.innerHTML = ""; classement.appendChild(el("p", { "class": "meta", text: "Classement indisponible pour l’instant." })); }); }
       if (!enLigne()) { pasDeDuel("Les duels demandent la connexion en ligne."); pasDeSalon("Connecte‑toi pour retrouver tes salons."); return; }
       api("GET", "duels").then(function (j) {
         var tous = j.duels || [];
@@ -2879,14 +3207,11 @@
       seg, aide, el("label", { "for": "cle-ia", "class": "sr", text: "Clé IA" }), champ, etatCle, alerte,
       el("div", { "class": "boutons-ligne" }, [tester, retirer])]);
   }
-  /* Espace admin : rien n'est visible dans le Profil tant que la clé n'est pas enregistrée sur ce téléphone (elle se saisit sur #/admin). */
+  /* Espace admin : visible seulement pour un compte admin. On le devient une fois, avec la clé ADMIN_KEY (elle n'est pas gardée sur le téléphone). */
   function sectionAdmin() {
-    if (!S.lire("koios.admin", "")) return null;
-    var sortir = el("button", { "class": "btn second", type: "button", text: "Oublier la clé admin" });
-    sortir.addEventListener("click", function () { try { localStorage.removeItem("koios.admin"); } catch (e) { /* mémoire seule */ } route(); });
-    return el("section", { "class": "pile" }, [el("h2", { text: "Espace admin" }), lienAvance("#/admin", "Ouvrir l’espace admin", "btn second"), sortir]);
+    if (!profil || profil.role !== "admin") return null;
+    return el("section", { "class": "pile" }, [el("h2", { text: "Espace admin" }), lienAvance("#/admin", "Ouvrir l’espace admin", "btn second")]);
   }
-  /* Petit écran de saisie de la clé admin. Une clé refusée (403) est effacée. */
   function ecranCleAdmin() {
     var champ = el("input", { "class": "champ", type: "password", autocomplete: "off", autocapitalize: "off", spellcheck: "false", "aria-label": "Clé admin", placeholder: "Clé admin" });
     var al = el("p", { "class": "alerte", hidden: "", role: "status" });
@@ -2895,21 +3220,101 @@
       var c = champ.value.trim(); al.hidden = true;
       if (!c) return;
       entrer.disabled = true;
-      S.ecrire("koios.admin", c);
-      pretCompte().then(function () { return api("GET", "admin", null, 10000); }).then(function () { route(); }, function (e) {
-        if (e.statut === 403) { try { localStorage.removeItem("koios.admin"); } catch (x) { /* mémoire seule */ } }
-        entrer.disabled = false; al.textContent = e.statut === 403 ? "Clé non reconnue." : messageErreur(e); al.hidden = false;
-      });
+      var entetes = {}; entetes["x-admin-cle"] = c;
+      api("POST", "admin", { action: "promouvoir" }, 10000, null, entetes).then(function () {
+        champ.value = ""; profil.role = "admin"; S.ecrire("koios.profil", profil); route();
+      }, function (e) { entrer.disabled = false; al.textContent = e.statut === 403 ? "Clé non reconnue." : erreurCompte(e); al.hidden = false; });
     });
     montrer(el("div", { "class": "page" }, [
       el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
-      el("div", { "class": "pile" }, [el("h1", { text: "Clé admin" }), champ, entrer, al])]), "profil", "Clé admin");
+      el("div", { "class": "pile" }, [el("h1", { text: "Clé admin" }), el("p", { "class": "meta", style: "font-size:16px", text: "Une seule fois" + N + ": ce compte devient admin. La clé n’est pas gardée sur ce téléphone." }), champ, entrer, al])]), "profil", "Clé admin");
   }
-  /* Génération de nuit : compteurs, pause et reprise. La page se rafraîchit toutes les 15 secondes tant qu'elle est ouverte. */
-  function vueAdmin() {
-    if (!S.lire("koios.admin", "")) return ecranCleAdmin();
-    var vive = vivante();
-    montrer(attente("Ouverture de l’espace admin…"), "profil", "Espace admin");
+  function ligneAdmin(titre, details, actions) {
+    return el("li", {}, [el("div", { "class": "ligne-ami" }, [el("span", { "class": "pile serree" }, [el("b", { text: titre }), details ? el("span", { "class": "meta", text: details }) : null]), el("span", { "class": "actions" }, actions)])]);
+  }
+  /* Onglet Comptes : recherche, 50 par page, bloquer ou débloquer, code temporaire de réinitialisation. */
+  function panneauComptes(vive) {
+    var zone = el("div", { "class": "pile" }), liste = el("div", { "class": "pile serree" }), alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
+    var q = el("input", { "class": "champ", type: "search", autocomplete: "off", autocapitalize: "off", spellcheck: "false", placeholder: "Pseudo, prénom ou nom", "aria-label": "Chercher un compte" });
+    var chercher = el("button", { "class": "btn second", type: "button", text: "Chercher" }), page = 0;
+    function depuis2(iso) { return iso ? depuis(iso) : "jamais"; }
+    function rendre(j) {
+      liste.textContent = "";
+      var ul = el("ul", { "class": "liste" });
+      (j.comptes || []).forEach(function (c) {
+        var b = el("button", { "class": "btn second petit", type: "button", text: c.bloque ? "Débloquer" : "Bloquer" });
+        b.addEventListener("click", function () {
+          b.disabled = true;
+          api("POST", "admin", { action: c.bloque ? "debloquer" : "bloquer", pseudo: c.pseudo }, 10000).then(function () { charger(); }, function (e) { b.disabled = false; dire(alerte, erreurCompte(e)); });
+        });
+        var r = el("button", { "class": "btn second petit", type: "button", text: "Code temporaire" });
+        r.addEventListener("click", function () {
+          r.disabled = true;
+          api("POST", "admin", { action: "reinitialiser", pseudo: c.pseudo }, 20000).then(function (x) {
+            r.disabled = false;
+            li.appendChild(el("div", { "class": "pile serree" }, [el("p", { "class": "cle-lecteur", text: x.code }), el("p", { "class": "meta", text: "Valable 24 h. Donne‑le à la personne" + N + ": elle le tape à la place de sa phrase de secours." })]));
+          }, function (e) { r.disabled = false; dire(alerte, erreurCompte(e)); });
+        });
+        var li = ligneAdmin(c.pseudo + (c.role === "admin" ? " (admin)" : "") + (c.bloque ? " · bloqué" : ""),
+          [c.prenom, c.nom].filter(Boolean).join(" ") + " · " + c.xp + N + "XP · " + pluriel(c.lecons, "leçon", "leçons") + " · vu " + depuis2(c.vu), [b, r]);
+        ul.appendChild(li);
+      });
+      liste.appendChild((j.comptes || []).length ? ul : el("p", { "class": "meta", text: "Aucun compte trouvé." }));
+      var total = j.total || 0, pages = Math.max(1, Math.ceil(total / (j.parPage || 50)));
+      var nav = el("div", { "class": "boutons-ligne" });
+      var prec = el("button", { "class": "btn second petit", type: "button", text: "Précédent" }), suiv = el("button", { "class": "btn second petit", type: "button", text: "Suivant" });
+      prec.disabled = page <= 0; suiv.disabled = page + 1 >= pages;
+      prec.addEventListener("click", function () { page -= 1; charger(); });
+      suiv.addEventListener("click", function () { page += 1; charger(); });
+      nav.appendChild(prec); nav.appendChild(el("span", { "class": "meta", text: pluriel(total, "compte", "comptes") + " · page " + (page + 1) + "/" + pages })); nav.appendChild(suiv);
+      liste.appendChild(nav);
+    }
+    function charger() {
+      dire(alerte, "");
+      api("GET", "admin?comptes=1&page=" + page + (q.value.trim() ? "&q=" + enc(q.value.trim()) : ""), null, 10000).then(function (j) { if (vive()) rendre(j); }, function (e) { if (vive()) dire(alerte, erreurCompte(e)); });
+    }
+    chercher.addEventListener("click", function () { page = 0; charger(); });
+    q.addEventListener("keydown", function (e) { if (e.key === "Enter") chercher.click(); });
+    zone.appendChild(el("div", { "class": "pile serree" }, [q, chercher])); zone.appendChild(alerte); zone.appendChild(liste);
+    charger();
+    return zone;
+  }
+  /* Onglet Codes : créer un code d'ami (bonus par jour, durée, nombre de personnes), le révoquer. */
+  function panneauCodes(vive) {
+    var zone = el("div", { "class": "pile" }), liste = el("div", { "class": "pile serree" }), alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
+    var bonus = champTexte("code-bonus", "Créations de plus par jour", { type: "number", inputmode: "numeric", min: "1", max: "500", value: "5" });
+    var jours = champTexte("code-jours", "Durée en jours", { type: "number", inputmode: "numeric", min: "1", max: "365", value: "30" });
+    var usages = champTexte("code-usages", "Nombre de personnes", { type: "number", inputmode: "numeric", min: "1", max: "1000", value: "10" });
+    var creer = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Créer le code" }), icone("fleche")]), resultat = el("div", { "class": "pile serree" });
+    creer.addEventListener("click", function () {
+      dire(alerte, ""); creer.disabled = true;
+      api("POST", "admin", { action: "creer_code", bonus: parseInt(bonus.input.value, 10), jours: parseInt(jours.input.value, 10), usages: parseInt(usages.input.value, 10) }, 10000).then(function (x) {
+        creer.disabled = false; resultat.textContent = "";
+        resultat.appendChild(el("p", { "class": "cle-lecteur", text: x.code }));
+        resultat.appendChild(el("p", { "class": "meta", text: "+" + x.bonus + " par jour pendant " + pluriel(x.jours, "jour", "jours") + ", pour " + pluriel(x.usages, "personne", "personnes") + "." }));
+        charger();
+      }, function (e) { creer.disabled = false; dire(alerte, erreurCompte(e)); });
+    });
+    function charger() {
+      api("GET", "admin?codes=1", null, 10000).then(function (j) {
+        if (!vive()) return;
+        liste.textContent = "";
+        var ul = el("ul", { "class": "liste" });
+        (j.codes || []).forEach(function (c) {
+          var rev = el("button", { "class": "btn second petit", type: "button", text: "Révoquer" });
+          rev.addEventListener("click", function () { rev.disabled = true; api("POST", "admin", { action: "revoquer_code", code: c.code }, 10000).then(function () { charger(); }, function (e) { rev.disabled = false; dire(alerte, erreurCompte(e)); }); });
+          ul.appendChild(ligneAdmin(c.code + (c.revoque ? " · révoqué" : ""), "+" + c.bonus + " par jour · " + pluriel(c.jours, "jour", "jours") + " · " + c.usages + "/" + c.usagesMax + " utilisé" + (c.usages > 1 ? "s" : ""), c.revoque ? [] : [rev]));
+        });
+        liste.appendChild(el("h2", { text: "Codes créés" }));
+        liste.appendChild((j.codes || []).length ? ul : el("p", { "class": "meta", text: "Aucun code pour l’instant." }));
+      }, function (e) { if (vive()) dire(alerte, erreurCompte(e)); });
+    }
+    zone.appendChild(el("div", { "class": "pile" }, [ligneChamp(bonus), ligneChamp(jours), ligneChamp(usages), creer, resultat, alerte])); zone.appendChild(liste);
+    charger();
+    return zone;
+  }
+  /* Onglet Génération : compteurs, pause et reprise. Rafraîchi toutes les 15 secondes tant que l'onglet est ouvert. */
+  function panneauGeneration(vive) {
     var corps = el("div", { "class": "pile ecart" }), alerte = el("p", { "class": "alerte", hidden: "", role: "status" });
     function compteur(valeur, libelle) { return el("div", {}, [el("strong", { text: String(valeur) }), el("span", { "class": "meta", text: libelle })]); }
     function agir(action, valeur) {
@@ -2922,11 +3327,11 @@
       var t = j.taches || {};
       corps.textContent = "";
       corps.appendChild(el("div", { "class": "pile serree" }, [
-        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit (0\u00a0h à 6\u00a0h UTC)" + (j.jour ? " et en journée" : "") + ", 2 tâches toutes les 5 minutes, 300 par jour au plus." }),
+        el("p", { "class": "meta", role: "status", text: j.pause ? "La file est en pause" + N + ": rien n’est écrit." : "La file est active" + N + ": elle tourne la nuit (0 h à 6 h UTC)" + (j.jour ? " et en journée" : "") + ", 2 tâches toutes les 5 minutes, 300 par jour au plus." }),
         el("div", { "class": "chiffres-cles" }, [compteur((t.attente || 0) + (t.en_cours || 0), "En attente"), compteur(t.fait || 0, "Faites"), compteur(t.echec || 0, "Échecs")])]));
       var pause = el("button", { "class": j.pause ? "btn" : "btn second", type: "button", text: j.pause ? "Reprendre" : "Pause" });
       pause.addEventListener("click", function () { pause.disabled = true; agir(j.pause ? "reprendre" : "pause"); });
-      var jour = el("button", { "class": "btn second", type: "button", text: "Travailler aussi en journée\u00a0: " + (j.jour ? "oui" : "non") });
+      var jour = el("button", { "class": "btn second", type: "button", text: "Travailler aussi en journée : " + (j.jour ? "oui" : "non") });
       jour.addEventListener("click", function () { jour.disabled = true; agir("jour", !j.jour); });
       var vider = el("button", { "class": "btn second", type: "button", text: "Vider la file d’attente" });
       vider.addEventListener("click", function () { if (window.confirm("Retirer les tâches en attente ou en échec" + F + "?")) agir("vider"); });
@@ -2939,27 +3344,114 @@
     function charger() { return api("GET", "admin", null, 10000); }
     charger().then(function (j) {
       if (!vive()) return;
-      montrer(el("div", { "class": "page" }, [
-        el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
-        el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Admin" }), el("h1", { text: "Génération de nuit" })]),
-        corps, alerte]), "profil", "Espace admin");
       remplir(j);
       var minuterie = setInterval(function () {
         if (!vive() || !corps.isConnected) { clearInterval(minuterie); return; }
         charger().then(function (r) { if (vive() && corps.isConnected) remplir(r); }, function () { /* on réessaie au prochain tour */ });
       }, 15000);
-    }, function (e) {
-      if (!vive()) return;
-      if (e.statut === 403) { try { localStorage.removeItem("koios.admin"); } catch (x) { /* mémoire seule */ } }
-      montrer(erreurPage(e.statut === 403 ? "La clé admin n’est pas reconnue. Saisis-la de nouveau dans le Profil." : messageErreur(e), "Espace admin indisponible"), "profil");
+    }, function (e) { if (vive()) { alerte.textContent = erreurCompte(e); alerte.hidden = false; } });
+    return el("div", { "class": "pile" }, [corps, alerte]);
+  }
+  /* Page admin : trois onglets (Génération, Comptes, Codes). Un 403 (compte plus admin) ramène à la saisie de la clé. */
+  function vueAdmin() {
+    if (!profil.compte) { montrer(erreurPage("Connecte‑toi à ton compte pour ouvrir l’espace admin.", "Espace admin"), "profil"); return; }
+    if (profil.role !== "admin") return ecranCleAdmin();
+    var vive = vivante(), choix = 0;
+    var zone = el("div", { "class": "pile" }), onglets = el("div", { "class": "onglets", role: "tablist", "aria-label": "Espace admin" });
+    var boutons = [["Génération", panneauGeneration], ["Comptes", panneauComptes], ["Codes", panneauCodes]].map(function (o, k) {
+      var b = el("button", { type: "button", role: "tab", "aria-selected": k === 0 ? "true" : "false", text: o[0] });
+      b.addEventListener("click", function () { afficher(k); });
+      onglets.appendChild(b);
+      return b;
     });
+    function afficher(k) {
+      choix += 1; var mien = choix;
+      boutons.forEach(function (b, i) { b.setAttribute("aria-selected", i === k ? "true" : "false"); });
+      zone.textContent = "";
+      zone.appendChild([panneauGeneration, panneauComptes, panneauCodes][k](function () { return vive() && mien === choix; }));
+    }
+    montrer(el("div", { "class": "page" }, [
+      el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
+      el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Admin" }), el("h1", { text: "Espace admin" })]),
+      onglets, zone]), "profil", "Espace admin");
+    afficher(0);
+  }
+
+  /* Compte dans le Profil : mot de passe, déconnexion, code d'ami, suppression. */
+  function sectionCompte() {
+    var nomComplet = [profil.prenom, profil.nom].filter(Boolean).join(" ");
+    var zone = el("section", { "class": "pile" }, [
+      el("h2", { text: "Mon compte" }),
+      el("p", { style: "font-size:16px", text: "Pseudo" + N + ": " + profil.pseudo + (nomComplet ? " · " + nomComplet : "") }),
+      el("p", { "class": "meta", text: profil.google && profil.mdp === false ? "Tu te connectes avec Google." : "Progression enregistrée en ligne." })
+    ]);
+    if (profil.mdp !== false) {
+      var ancien = champTexte("mdp-ancien", "Mot de passe actuel", { type: "password", autocomplete: "current-password" });
+      var neuf = champTexte("mdp-neuf", "Nouveau mot de passe", { type: "password", autocomplete: "new-password" });
+      var alM = alerteVide(), changer = el("button", { "class": "btn second", type: "button", text: "Changer le mot de passe" });
+      changer.addEventListener("click", function () {
+        dire(alM, "");
+        if (neuf.input.value.length < 10) { dire(alM, "Le nouveau mot de passe doit avoir 10 caractères au moins."); return; }
+        changer.disabled = true;
+        api("POST", "compte", { action: "mdp", ancien: ancien.input.value, nouveau: neuf.input.value }, 25000).then(function () {
+          ancien.input.value = ""; neuf.input.value = ""; changer.disabled = false; toast("Mot de passe changé. Tes autres appareils sont déconnectés.");
+        }, function (e) { changer.disabled = false; dire(alM, erreurCompte(e)); });
+      });
+      zone.appendChild(el("details", { "class": "plier" }, [el("summary", { text: "Changer mon mot de passe" }), el("div", { "class": "pile" }, [ligneChamp(ancien), ligneChamp(neuf, "10 caractères au moins."), changer, alM])]));
+    }
+    // Code d'ami : des créations de plus par jour, pour un temps.
+    var code = champTexte("code-ami", "Code d’ami", { autocapitalize: "off", autocomplete: "off", spellcheck: "false", maxlength: "40" });
+    var alC = alerteVide(), utiliser = el("button", { "class": "btn second", type: "button", text: "Utiliser le code" });
+    utiliser.addEventListener("click", function () {
+      dire(alC, ""); if (!code.input.value.trim()) return;
+      utiliser.disabled = true;
+      api("POST", "compte", { action: "code", code: code.input.value }, 10000).then(function (r) {
+        code.input.value = ""; utiliser.disabled = false; profil.bonus = r.total; S.ecrire("koios.profil", profil);
+        toast("Code accepté" + N + ": +" + r.bonus + " créations par jour.");
+        vueProfil();
+      }, function (e) { utiliser.disabled = false; dire(alC, erreurCompte(e)); });
+    });
+    zone.appendChild(el("details", { "class": "plier" }, [el("summary", { text: "J’ai un code d’ami" }), el("div", { "class": "pile" }, [ligneChamp(code, profil.bonus ? "Bonus actif" + N + ": +" + profil.bonus + " créations par jour." : "Il donne quelques créations de plus par jour, pour un temps."), utiliser, alC])]));
+    // Déconnexion.
+    var sortir = el("button", { "class": "btn second", type: "button", text: "Me déconnecter" });
+    sortir.addEventListener("click", function () { sortir.disabled = true; api("POST", "compte", { action: "deconnecter" }, 8000).then(oublierCompteLocal, oublierCompteLocal); });
+    zone.appendChild(sortir);
+    // Suppression : mot de passe (ou connexion Google) pour confirmer.
+    var supprimer = el("div", { "class": "pile" }, [el("p", { "class": "meta", style: "font-size:16px", text: "Cela efface ton compte, ta progression, tes amitiés et tes demandes. Les formations que tu as créées restent, sans ton nom. C’est définitif." })]);
+    var alS = alerteVide();
+    function effacer(corps, bouton) {
+      dire(alS, ""); if (bouton) bouton.disabled = true;
+      api("POST", "compte", corps, 25000).then(oublierCompteLocal, function (e) { if (bouton) bouton.disabled = false; dire(alS, erreurCompte(e)); });
+    }
+    if (profil.mdp !== false) {
+      var mdpS = champTexte("mdp-suppr", "Ton mot de passe", { type: "password", autocomplete: "current-password" });
+      var effacerBtn = el("button", { "class": "btn second", type: "button", text: "Supprimer mon compte" });
+      effacerBtn.addEventListener("click", function () { if (!mdpS.input.value) { dire(alS, "Écris ton mot de passe pour confirmer."); return; } if (window.confirm("Supprimer définitivement ton compte" + F + "?")) effacer({ action: "supprimer", mdp: mdpS.input.value }, effacerBtn); });
+      supprimer.appendChild(ligneChamp(mdpS)); supprimer.appendChild(effacerBtn);
+    } else {
+      var zoneG = el("div", { "class": "pile google-zone" });
+      supprimer.appendChild(el("p", { "class": "meta", text: "Confirme avec Google pour supprimer." })); supprimer.appendChild(zoneG);
+      boutonGoogle(zoneG, function (jeton) { if (window.confirm("Supprimer définitivement ton compte" + F + "?")) effacer({ action: "supprimer", jeton: jeton }); });
+    }
+    supprimer.appendChild(alS);
+    zone.appendChild(el("details", { "class": "plier" }, [el("summary", { text: "Supprimer mon compte" }), supprimer]));
+    return zone;
+  }
+  /* Profil sans compte : un bandeau mène à la création du compte, qui garde la progression (seulement si le serveur répond). */
+  function rangeeCompteSiServeur() {
+    var slot = el("div", { hidden: "" });
+    pretServeur.then(function () { if (serveur.base) { slot.appendChild(rangeeCompte()); slot.hidden = false; if (window.poserIcones) window.poserIcones(slot); } });
+    return slot;
+  }
+  function rangeeCompte() {
+    return el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/compte" }, [tuile("profil"), el("span", {}, [el("b", { text: "Protège ta progression" }), el("span", { "class": "meta", text: "Crée ton compte" + N + ": tu gardes tout, sur tous tes appareils." })]), icone("chevron")])])]);
   }
 
   function vueProfil() {
     var n = niveau(etat.xp || 0);
     var paliers = Object.keys(etat.parcours).reduce(function (s, id) { return s + (etat.parcours[id].fait || 0); }, 0);
     var sujets = Object.keys(etat.parcours).filter(function (id) { return etat.parcours[id].fait > 0; }).length;
-    var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", value: profil.pseudo });
+    var champ = el("input", { "class": "champ", id: "pseudo", type: "text", maxlength: "24", value: profil.pseudo || "" });
     champ.addEventListener("change", function () { var p = champ.value.replace(/[\u0000-\u001f]/g, "").trim().slice(0, 24); if (!p) { champ.value = profil.pseudo; return; } profil.pseudo = p; S.ecrire("koios.profil", profil); pousser(); toast("Nom enregistré."); });
     var sync = el("p", { "class": "meta" }), cleZone = el("div", { "class": "pile" });
     function majSync() {
@@ -2994,14 +3486,15 @@
         el("div", { "class": "chiffres-cles" }, [el("div", {}, [el("strong", { text: String(paliers) }), el("span", { "class": "meta", text: paliers > 1 ? "Leçons faites" : "Leçon faite" })]), el("div", {}, [el("strong", { text: String(sujets) }), el("span", { "class": "meta", text: sujets > 1 ? "Sujets suivis" : "Sujet suivi" })]), el("div", {}, [el("strong", { text: String(serieJours()) }), el("span", { "class": "meta", text: "Jours de suite" })])])], true),
       bande([
         etat.erreurs.length ? lienAvance("#/jeu/erreurs", "Revoir mes erreurs (" + etat.erreurs.length + ")", "btn") : etatVide("juste", "Aucune erreur à revoir pour l’instant.", lien("#/jeu/melange", "Faire un quiz mélangé", "btn second petit")),
-        el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/badges" }, [tuile("medaille"), el("span", {}, [el("b", { text: "Badges" }), el("span", { "class": "meta", text: L.calculerBadges(etat, aujourdhui()).filter(function (b) { return b.obtenu; }).length + " sur " + L.BADGES.length + " obtenus" })]), icone("chevron")])]), el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [tuile("aide"), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("chevron")])])]),
-        el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
+        el("ul", { "class": "liste" }, [el("li", {}, [el("a", { "class": "rangee", href: "#/badges" }, [tuile("medaille"), el("span", {}, [el("b", { text: "Badges" }), el("span", { "class": "meta", text: L.calculerBadges(etat, aujourdhui()).filter(function (b) { return b.obtenu; }).length + " sur " + L.BADGES.length + " obtenus" })]), icone("chevron")])]), el("li", {}, [el("a", { "class": "rangee", href: "#/aide" }, [tuile("aide"), el("span", {}, [el("b", { text: "Comment ça marche" }), el("span", { "class": "meta", text: "Leçons, quiz, XP, sources et limites" })]), icone("chevron")])]), el("li", {}, [el("a", { "class": "rangee", href: "#/confidentialite" }, [tuile("verifie"), el("span", {}, [el("b", { text: "Confidentialité" }), el("span", { "class": "meta", text: "Ce qui est gardé et comment tout effacer" })]), icone("chevron")])])]),
+        profil.compte ? sectionCompte() : el("section", { "class": "pile" }, [el("h2", { text: "Réglages" }), el("label", { "for": "pseudo", "class": "sur", text: "Nom affiché" }), champ, sync, cleZone]),
+        profil.compte ? null : rangeeCompteSiServeur(),
         sectionCleIA(),
         sectionAdmin(),
         el("p", { "class": "credit", text: "Koîos · leçons vérifiées par la rédaction ou recoupées par deux IA à partir de sources ouvertes · photos Wikimédia Commons et Unsplash · icônes Phosphor (MIT)" })
       ], false)
     ]), "profil", "Profil");
-    majSync(); pretServeur.then(majSync);
+    if (!profil.compte) { majSync(); pretServeur.then(majSync); }
   }
 
   /* ---------- Comment ça marche ---------- */
@@ -3087,6 +3580,16 @@
         el("p", { text: "Il n’y a pas de relecture humaine pour ces formations. Garde un œil critique et consulte les sources en bas de chaque leçon." }),
         el("p", { text: "Les photos viennent de Wikimédia Commons ou d’Unsplash, avec leur crédit et leur licence." })
       ]),
+      rubriqueAide("verifie", "Ton compte", [
+        el("p", { text: "Un compte (pseudo et mot de passe) garde ta progression et te permet de te reconnecter sur un autre appareil. Le mot de passe compte 10 caractères au moins." }),
+        listeAide([
+          ["Phrase de secours" + N + ": 12 mots, montrés une seule fois à la création. Note‑les" + N + ": ils servent si tu oublies ton mot de passe."],
+          ["Mot de passe oublié sans phrase" + N + ": un administrateur peut te donner un code temporaire de 24" + N + "heures."],
+          ["Code d’ami" + N + ": un code reçu d’un administrateur augmente ta limite quotidienne de créations pendant quelques jours. Entre‑le dans ton Profil."],
+          ["Tu peux changer ton mot de passe, te déconnecter ou supprimer ton compte à tout moment, depuis le Profil."]
+        ]),
+        el("p", { text: "Le détail de ce qui est gardé est dans la page " + guill("Confidentialité") + " du Profil." })
+      ]),
       rubriqueAide("cercle", "Avec tes amis", [
         el("p", { text: "L’onglet Amis réunit ce qui se fait à plusieurs. L’onglet Jouer garde le quiz de culture générale, la question du jour, le quiz mélangé et les mini‑jeux." }),
         listeAide([
@@ -3095,8 +3598,8 @@
           ["Salon" + N + ": un quiz de culture générale que tes amis jouent par un simple lien, sans limite de joueurs. Crée‑le depuis l’onglet Amis, ou touche " + guill("Défier des amis") + " à la fin d’un quiz. Le classement du salon compte " + XP.quiz + N + "points par bonne réponse."],
           ["Tournoi de la semaine" + N + ": 10 questions sur un thème qui change chaque semaine, une seule partie par joueur, du lundi 00" + N + "h au dimanche 23" + N + "h 59 (heure UTC). Ensuite le classement reste visible, mais les scores ne changent plus."],
           ["Duel" + N + ": lance‑le depuis l’onglet Défis d’un sujet ou depuis le quiz mélangé. Envoie le lien à un ami" + N + ": il a les mêmes questions que toi, et le tableau du duel compare vos scores."],
-          ["Classement" + N + ": les joueurs, classés selon leurs XP cumulés, dans l’onglet Amis."],
-          ["Inviter" + N + ": un lien à partager pour faire venir un ami dans Koîos."]
+          ["Classement" + N + ": toi et tes amis, classés selon vos XP cumulés, dans l’onglet Amis."],
+          ["Ajouter un ami" + N + ": par un lien d’invitation (WhatsApp), valable 7 jours, ou par son pseudo exact. L’autre accepte ou refuse. Il faut un compte."]
         ]),
         el("p", { text: "Les salons, les duels et le tournoi demandent la connexion en ligne." })
       ]),
@@ -3146,7 +3649,7 @@
     navigation += 1;
     var p = location.hash.replace(/^#\/?/, "").split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
     fermerFiche(false);
-    if (!profil && p[0] !== "aide") { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }
+    if (!profil && p[0] !== "aide" && p[0] !== "confidentialite") { if (p[0] !== "accueil") apresAccueil = location.hash || "#/"; return vueAccueil(); }
     switch (p[0]) {
       case "": case "accueil": return vueMaison();
       case "p":
@@ -3170,6 +3673,9 @@
       case "bibliotheque": return vueBibliotheque();
       case "profil": return vueProfil();
       case "admin": return vueAdmin();
+      case "compte": return vueCompte();
+      case "confidentialite": return vueConfidentialite();
+      case "invitation": return p[1] ? vueInvitation(p[1]) : vueAmis();
       case "aide": return vueAide();
       default: location.hash = "#/";
     }

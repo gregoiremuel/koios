@@ -599,3 +599,16 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
 .objectif-phrase { margin: 0; font-size: 17px; font-weight: 600; line-height: 1.4; }
 .boutons-ligne { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 12px; }
 .derniere-erreur { overflow-wrap: anywhere; }
+
+/* Lot 6 : comptes et amis */
+.phrase-bloc { padding: 16px; border: 1px solid var(--ligne-forte); border-radius: 12px; background: var(--surface); }
+.phrase { list-style: none; counter-reset: mot; display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 16px; margin: 0; padding: 0; }
+.phrase li { counter-increment: mot; font-size: 17px; font-weight: 600; min-height: 32px; display: flex; align-items: center; gap: 8px; }
+.phrase li::before { content: counter(mot); min-width: 22px; color: var(--encre-2); font-weight: 400; font-size: 14px; }
+.cocher { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 16px; cursor: pointer; }
+.cocher input { width: 24px; height: 24px; accent-color: var(--encre); flex: none; }
+.google-zone, .google-bouton { display: flex; justify-content: center; min-height: 44px; }
+textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; line-height: 1.4; font-family: inherit; }
+.ligne-ami { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 8px 0; }
+.ligne-ami > .pile { min-width: 0; overflow-wrap: anywhere; }
+.ligne-ami .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: none; }
