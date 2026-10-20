@@ -7,9 +7,13 @@
 // indisponible) ; les modèles écartés ne sont pas appelés. Un fournisseur dont la clé est refusée (401, 403) est « cle-invalide », ignoré 1 heure.
 // Protégé par le secret DIAG_KEY (aucune clé n'est affichée, ni dans les adresses, ni dans les erreurs).
 import { ErreurHttp, enveloppe, json, secretsEgaux } from '../../lib/api.js';
+import { extraireObjet } from '../../lib/libre.js';
+import {
+  MAX_TOKENS_VERIF, PROMPT_VERIFICATION, messageVerification, validerVerdicts,
+} from '../../lib/paliers.js';
 import {
   LLAMA, MISTRAL, cleCerebras, cleClaude, cleGLM, cleGemini, cleGrok, cleGroq, cleMistral, etatModelesCompat, etatModelesGemini, nomsEpuises, nomsIgnores,
-  tousLesFournisseurs,
+  tousLesFournisseurs, verificateurs,
 } from '../../lib/fournisseurs.js';
 
 async function essai(f, secrets) {
@@ -43,6 +47,27 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   const cle = request.headers.get('x-diag-cle') || new URL(request.url).searchParams.get('cle') || '';
   if (!(await secretsEgaux(cle, env.DIAG_KEY))) throw new ErreurHttp(404, 'Introuvable.');
   const secrets = [env.CLAUDE_API_KEY, env.GEMINI_API_KEY, env.CEREBRAS_API_KEY, env.GROQ_API_KEY, env.MISTRAL_API_KEY, env.GLM_API_KEY, env.GROK_API_KEY].map((c) => (typeof c === 'string' ? c.trim() : ''));
+  // ?verif=1 : essai réel de la vérification (le même prompt et la même validation que pour une leçon) sur chaque vérificateur d'un rédacteur Claude.
+  if (new URL(request.url).searchParams.get('verif') === '1') {
+    const pages = [{ langue: 'fr', titre: 'Gemmologie', texte: 'La gemmologie est la science qui étudie les gemmes. Le diamant est du carbone cristallisé. Le rubis et le saphir sont des variétés de corindon. L\u2019émeraude est une variété de béryl.' }];
+    const textes = ['La gemmologie étudie les gemmes.', 'Le diamant est du carbone cristallisé.', 'Le rubis est une variété de béryl.', 'Le saphir est une variété de corindon.', 'Toutes les pierres précieuses se jugent selon les 4 C.'];
+    const demande = [{ role: 'system', content: PROMPT_VERIFICATION }, { role: 'user', content: messageVerification(pages, textes) }];
+    const sorties = [];
+    for (const f of verificateurs(env, { famille: 'claude', modele: 'claude-haiku-5-5' })) {
+      const debut = Date.now();
+      const brut = { nom: f.nom, famille: f.famille };
+      try {
+        const rep = await f.appeler(demande, { maxTokens: MAX_TOKENS_VERIF, temperature: 0, delaiMs: 30000 });
+        const obj = extraireObjet(rep);
+        const val = obj ? validerVerdicts(obj, textes.length) : null;
+        Object.assign(brut, { etat: val && val.valeur !== undefined ? 'ok' : 'illisible', ms: Date.now() - debut, verdicts: val && val.valeur, raison: val && val.raison, extrait: JSON.stringify(rep).slice(0, 400) });
+      } catch (e) {
+        Object.assign(brut, { etat: 'echec', ms: Date.now() - debut, erreur: String((e && e.message) || e).slice(0, 200) });
+      }
+      sorties.push(brut);
+    }
+    return json({ verification: sorties });
+  }
   const resultats = [];
   for (const f of tousLesFournisseurs(env, { complet: true })) resultats.push(await essai(f, secrets));
   return json({
