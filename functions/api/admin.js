@@ -16,6 +16,9 @@
 //                                       retraits, ou marquées « à revoir »). La nouvelle version remplace l'ancienne : seul cas où l'on écrase.
 //   POST /api/admin {action: 'credit', montant} : crédit Claude chargé (dollars), dépense cumulée remise à zéro. GET (état de la file)
 //                                       renvoie `credit` : {charge, depense, restant, seuil, alerte, epuise}.
+//   GET  /api/admin?signalements=1 : leçons signalées par des lecteurs (parcours, numéro, titres, nombre de joueurs, motifs, messages, `enFile` si
+//                                       une réécriture est en file), les plus signalées d'abord. POST {action: 'ignorer_signalements', parcours, numero} :
+//                                       efface les signalements de cette leçon (pas de réécriture).
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
 //   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h 59 UTC).
 //                                       L'état est renvoyé par GET et POST dans `jour`.
@@ -24,6 +27,7 @@ import {
 } from '../../lib/api.js';
 import { cleDePseudo, normaliserCode } from '../../lib/comptes.js';
 import { chargerCredit, etatCredit } from '../../lib/fournisseurs.js';
+import { ID_PARCOURS, PALIER_MAX } from '../../lib/paliers.js';
 import {
   debloquer, definirJournee, definirPause, etatFile, exporterLecons, reecrire, viderFile,
 } from '../../lib/nuit.js';
@@ -84,6 +88,41 @@ async function listerComptes(env, params) {
   };
 }
 
+// Signalements de leçons regroupés par leçon (au plus 100 leçons). Le message est « <motif>|<texte> ».
+async function listerSignalements(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT chapitre, exercice, COUNT(DISTINCT joueur) AS joueurs, MAX(cree) AS dernier FROM signalements
+     WHERE chapitre LIKE 'lecon:%' GROUP BY chapitre, exercice ORDER BY joueurs DESC, dernier DESC LIMIT 100`,
+  ).all();
+  const lecons = [];
+  for (const r of results || []) {
+    const parcours = r.chapitre.slice('lecon:'.length);
+    const { results: lignes } = await env.DB.prepare('SELECT message, cree FROM signalements WHERE chapitre = ? AND exercice = ? ORDER BY id LIMIT 20').bind(r.chapitre, r.exercice).all();
+    const motifs = { fait: 0, pas_clair: 0, autre: 0 };
+    const messages = [];
+    for (const l of lignes || []) {
+      const [motif, ...reste] = String(l.message).split('|');
+      if (Object.hasOwn(motifs, motif)) motifs[motif] += 1;
+      const texte = reste.join('|').trim();
+      if (texte) messages.push(texte.slice(0, 300));
+    }
+    let titre = null;
+    const palier = await env.DB.prepare('SELECT contenu FROM paliers WHERE parcours = ? AND numero = ?').bind(parcours, r.exercice).first();
+    try {
+      titre = palier ? JSON.parse(palier.contenu).titre || null : null;
+    } catch {
+      titre = null;
+    }
+    const formation = await env.DB.prepare('SELECT titre FROM parcours WHERE id = ?').bind(parcours).first();
+    const tache = await env.DB.prepare(`SELECT etat FROM file_attente WHERE parcours = ? AND type = 'reecriture' AND numero = ?`).bind(parcours, r.exercice).first();
+    lecons.push({
+      parcours, numero: r.exercice, titre, formation: formation ? formation.titre : null, joueurs: r.joueurs, motifs, messages: messages.slice(0, 5),
+      dernier: r.dernier, enFile: !!tache && (tache.etat === 'attente' || tache.etat === 'en_cours'),
+    });
+  }
+  return { lecons };
+}
+
 async function listerCodes(env) {
   const { results } = await env.DB.prepare('SELECT code, bonus, jours, usages_max, usages, cree, revoque FROM codes ORDER BY cree DESC, code LIMIT 200').all();
   return {
@@ -111,6 +150,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   const params = new URL(request.url).searchParams;
   if (params.has('comptes')) return json(await listerComptes(env, params));
   if (params.has('codes')) return json(await listerCodes(env));
+  if (params.has('signalements')) return json(await listerSignalements(env));
   if (params.has('export')) return json(await exporterLecons(env, params.get('export')));
   const parcours = params.get('parcours');
   return json({ ...(await etatFile(env, parcours || null)), credit: await etatCredit(env) });
@@ -168,6 +208,12 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     const { ajoutees, faibles } = await reecrire(env, corps.parcours);
     return json({ ok: true, ajoutees, faibles, ...(await etatFile(env, corps.parcours)) });
   }
+  if (corps.action === 'ignorer_signalements') {
+    if (typeof corps.parcours !== 'string' || !ID_PARCOURS.test(corps.parcours)) throw new ErreurHttp(400, 'Indique la formation.');
+    entier(corps.numero, 1, PALIER_MAX, 'numero');
+    const r = await env.DB.prepare('DELETE FROM signalements WHERE chapitre = ? AND exercice = ?').bind('lecon:' + corps.parcours, corps.numero).run();
+    return json({ ok: true, retires: r.meta ? r.meta.changes : 0, ...(await listerSignalements(env)) });
+  }
   if (corps.action === 'pause' || corps.action === 'reprendre') {
     await definirPause(env, corps.action === 'pause');
     return json({ ok: true, ...(await etatFile(env)) });
@@ -186,5 +232,5 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     const retirees = await viderFile(env);
     return json({ ok: true, retirees, ...(await etatFile(env)) });
   }
-  throw new ErreurHttp(400, 'Action inconnue : promouvoir, bloquer, reinitialiser, creer_code, revoquer_code, debloquer, reecrire, pause, reprendre, jour, credit ou vider.');
+  throw new ErreurHttp(400, 'Action inconnue : promouvoir, bloquer, reinitialiser, creer_code, revoquer_code, debloquer, reecrire, ignorer_signalements, pause, reprendre, jour, credit ou vider.');
 });

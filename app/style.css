@@ -618,3 +618,44 @@ textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; li
 
 .pages-admin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 @media (max-width: 480px) { .ligne-ami .actions { flex-basis: 100%; justify-content: flex-start; } }
+
+/* Lot 7 : signalement, voix, test de niveau, certificat, dossier de voyage, hors ligne */
+.onglets.trois button { font-size: 14px; padding: 0 2px; }
+.onglets.quatre { grid-auto-flow: row; grid-template-columns: repeat(4, auto); justify-content: space-between; }
+.onglets.quatre button { font-size: 14px; padding: 0 8px; }
+.signal { padding-top: 8px; border-top: 1px solid var(--ligne); }
+.voix-boutons { display: flex; flex-wrap: wrap; gap: 8px; }
+.test-niveau { padding: 16px; border: 1px solid var(--bord); border-radius: 12px; background: var(--pale); }
+.test-niveau h3 { display: flex; align-items: center; gap: 8px; }
+.test-niveau h3 .ic { color: var(--acc); }
+.hors-ligne { position: sticky; top: 0; z-index: 6; padding: 8px 16px; background: var(--surface); border-bottom: 1px solid var(--ligne); font-size: 14px; text-align: center; color: var(--encre-2); }
+.certificat { padding: 32px 20px; border: 1px solid var(--ligne-forte); border-radius: 16px; background: var(--fond); text-align: center; justify-items: center; gap: 12px; }
+.certificat h1 { font-size: 30px; overflow-wrap: anywhere; }
+.certificat-texte { font-size: 17px; line-height: 1.6; }
+.certificat-formation { font-size: 24px; font-weight: 700; color: var(--acc); overflow-wrap: anywhere; }
+.certificat-score { display: grid; gap: 2px; justify-items: center; padding: 12px 0; }
+.certificat-score strong { font-size: 48px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.certificat-mention { width: 100%; padding-top: 16px; border-top: 1px solid var(--ligne); font-size: 16px; font-weight: 600; }
+.certificat-marque { display: flex; justify-content: center; }
+.dossier { gap: 20px; }
+.dossier-niveau { margin-top: 8px; }
+.dossier-module { padding-top: 12px; border-top: 1px solid var(--ligne); }
+.dossier-lecon h3 { font-size: 17px; }
+.dossier-lecon h4 { margin: 0; font-size: 14px; font-weight: 600; color: var(--encre-2); }
+.dossier-lecon .retenir { padding: 12px 16px; }
+.dossier-defs { margin: 0; display: grid; gap: 6px; }
+.dossier-defs dt { font-weight: 700; color: var(--acc); }
+.dossier-defs dd { margin: 0; }
+.dossier-cartes { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.dossier-cartes li { display: grid; gap: 2px; padding-bottom: 6px; border-bottom: 1px solid var(--ligne); }
+@media print {
+  @page { margin: 16mm; }
+  body { padding-top: 0; font-size: 11pt; }
+  .nav, .toast, .toasts-badges, .hors-ligne, .no-print, .barre-haut { display: none !important; }
+  .page { max-width: none; padding: 0; gap: 14px; }
+  .retenir, .certificat, .exemple { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .certificat { border-color: #999; margin-top: 24mm; }
+  .dossier-lecon, .dossier-cartes li { break-inside: avoid; }
+  .dossier-module, .dossier-lecon h3, .dossier-lecon h4 { break-after: avoid; }
+  a { text-decoration: none; }
+}

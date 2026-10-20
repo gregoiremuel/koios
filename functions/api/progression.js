@@ -3,6 +3,7 @@ import {
   ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, pseudoValide,
 } from '../../lib/api.js';
 import { compterFaits } from '../../lib/groupes.js';
+import { plafonnerParJour, plafondsPaliers, xpPlausible } from '../../lib/xp.js';
 
 const TONS = ['taquin', 'sobre'];
 const MAX_OCTETS = 64 * 1024;
@@ -16,7 +17,7 @@ async function joueurConnecte(request, env) {
   return joueur;
 }
 
-// Points du classement : l'XP du joueur, entier de 0 à 1 000 000.
+// XP envoyée par le téléphone : entier de 0 à 1 000 000. Le serveur la ramène ensuite à la valeur plausible (lib/xp.js).
 function bornerXp(valeur) {
   if (typeof valeur !== 'number' || !Number.isFinite(valeur)) return 0;
   return Math.min(XP_MAX, Math.max(0, Math.floor(valeur)));
@@ -53,11 +54,25 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
     throw new ErreurHttp(400, 'État de jeu attendu : un objet.');
   }
 
-  // Le classement compte l'XP (`etat.xp`) et le nombre de paliers terminés (`etat.parcours[*].fait`).
-  const points = bornerXp(etat.xp);
+  // Anti-triche : l'XP n'est pas crue sur parole. Elle est ramenée à ce que l'état prouve (leçons réellement écrites et faites, questions
+  // réussies, jeux, révisions), puis au plafond de gain du jour. L'état gardé porte l'XP acceptée.
+  const parcoursEnvoyes = etat.parcours && typeof etat.parcours === 'object' && !Array.isArray(etat.parcours) ? etat.parcours : null;
+  const plafonds = await plafondsPaliers(env, parcoursEnvoyes ? Object.keys(parcoursEnvoyes) : []);
+  const avant = await env.DB.prepare('SELECT points FROM joueurs WHERE id = ?').bind(joueur.id).first();
+  const demande = Math.min(bornerXp(etat.xp), xpPlausible(etat, plafonds));
+  const points = await plafonnerParJour(env, joueur.id, avant && avant.points ? avant.points : 0, demande);
+  const propre = Object.hasOwn(etat, 'xp') ? { ...etat, xp: points } : { ...etat };
+  if (parcoursEnvoyes) {
+    propre.parcours = {};
+    for (const [id, suivi] of Object.entries(parcoursEnvoyes)) {
+      propre.parcours[id] = suivi && typeof suivi === 'object' && typeof suivi.xp === 'number' ? { ...suivi, xp: Math.min(Math.max(0, suivi.xp), points) } : suivi;
+    }
+  }
+
+  // Le classement compte l'XP acceptée (`etat.xp`) et le nombre de paliers terminés (`etat.parcours[*].fait`).
   let valides = 0;
-  if (etat.parcours && typeof etat.parcours === 'object' && !Array.isArray(etat.parcours)) {
-    for (const parcours of Object.values(etat.parcours)) {
+  if (parcoursEnvoyes) {
+    for (const parcours of Object.values(parcoursEnvoyes)) {
       if (parcours && typeof parcours === 'object') valides += compterFaits(parcours.fait);
     }
   }
@@ -66,7 +81,7 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
   await env.DB.prepare(
     'UPDATE joueurs SET pseudo = ?, ton = ?, etat = ?, points = ?, valides = ?, maj = ? WHERE id = ?',
   )
-    .bind(pseudo, ton, JSON.stringify(etat), points, valides, new Date().toISOString(), joueur.id)
+    .bind(pseudo, ton, JSON.stringify(propre), points, valides, new Date().toISOString(), joueur.id)
     .run();
-  return json({ ok: true });
+  return json({ ok: true, xp: points });
 });

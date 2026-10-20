@@ -5,7 +5,7 @@
   var F = " ", N = " ";
   var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
   var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
-  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40, variantes: 15, variantesTotal: 150 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js, quiz-general.js (un bloc = 10 questions) et variante.js
+  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40, variantes: 15, variantesTotal: 150, signalements: 5 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js, quiz-general.js (un bloc = 10 questions) et variante.js
   var L = window.Logique; // règles pures : révision espacée, jours actifs, badges, cours vérifiés (app/logique.js)
 
   /* ---------- Mémoire locale ---------- */
@@ -197,7 +197,14 @@
     if (!enLigne()) return;
     clearTimeout(minuterieSync);
     minuterieSync = setTimeout(function () {
-      api("PUT", "progression", { pseudo: profil.pseudo, ton: "sobre", etat: etat }).catch(function (e) { if (e.statut === 413 && !pousser.prevenu) { pousser.prevenu = true; toast("Synchronisation impossible" + N + ": progression trop volumineuse. Elle reste sur cet appareil."); } });
+      var envoye = etat.xp || 0;
+      api("PUT", "progression", { pseudo: profil.pseudo, ton: "sobre", etat: etat }).then(function (j) {
+        /* Anti-triche : le serveur ramène l'XP à ce que l'état prouve (et à un plafond par jour). On s'aligne sur sa valeur. */
+        if (j && typeof j.xp === "number" && j.xp < envoye) {
+          etat.xp = Math.max(0, (etat.xp || 0) - (envoye - j.xp)); S.ecrire("koios.etat", etat);
+          Array.prototype.forEach.call(document.querySelectorAll(".xp"), majPuce);
+        }
+      }, function (e) { if (e.statut === 413 && !pousser.prevenu) { pousser.prevenu = true; toast("Synchronisation impossible" + N + ": progression trop volumineuse. Elle reste sur cet appareil."); } });
     }, 700);
   }
   /* Cartes de révision : { "<formation>:<leçon>:<k>": { vu: instant, ok: vrai | faux | null } }. Les plus anciennes partent au-delà de 1 000, pour que l'état reste sous la limite de synchronisation. */
@@ -233,7 +240,7 @@
       var x = a.parcours[id], y = (b.parcours || {})[id];
       if (!x || !y) { r.parcours[id] = x || y; return; }
       var q = {}; [x.quiz || {}, y.quiz || {}].forEach(function (o) { Object.keys(o).forEach(function (k) { q[k] = Math.max(q[k] || 0, o[k]); }); });
-      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, jeux: Object.assign({}, x.jeux || {}, y.jeux || {}), total: x.total || y.total, date: (x.date || "") > (y.date || "") ? x.date : y.date, mods: Math.max(x.mods || 0, y.mods || 0), bases: Math.max(x.bases || 0, y.bases || 0) };
+      r.parcours[id] = { titre: x.titre || y.titre, image: x.image || y.image, fait: Math.max(x.fait || 0, y.fait || 0), xp: Math.max(x.xp || 0, y.xp || 0), quiz: q, jeux: Object.assign({}, x.jeux || {}, y.jeux || {}), total: x.total || y.total, date: (x.date || "") > (y.date || "") ? x.date : y.date, mods: Math.max(x.mods || 0, y.mods || 0), bases: Math.max(x.bases || 0, y.bases || 0), tests: L.fusionnerTests(x.tests, y.tests) };
     });
     var vus = {};
     (a.erreurs || []).concat(b.erreurs || []).forEach(function (e) { var k = e.palier + "#" + e.index; if (!vus[k]) { vus[k] = 1; r.erreurs.push(e); } });
@@ -501,6 +508,7 @@
   }
   /* Quitte ce compte sur ce téléphone : profil et progression locale partent (la progression reste sur le serveur). */
   function oublierCompteLocal() {
+    viderCacheHorsLigne(); // les leçons gardées pour le hors ligne ne restent pas sur un téléphone prêté
     ["koios.profil", "koios.etat", "koios.admin"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* mémoire seule */ } });
     location.hash = "#/";
     location.reload();
@@ -1163,6 +1171,7 @@
         zoneAdmin,
         zoneGroupe,
         zoneProfondeur,
+        s.fait >= 1 && !p.verifie ? el("div", { "class": "pile serree" }, [lien("#/dossier/" + encodeURIComponent(p.id), "Dossier de voyage à imprimer", "lien")]) : null,
         tabs, zone
       ]), "accueil", p.titre);
       remplir(onglet || "parcours");
@@ -1254,7 +1263,8 @@
           el("div", {}, [el("span", { "class": "sur", text: "Niveau " + niv.numero }), el("h2", { text: niv.titre })]),
           el("span", { "class": "meta", text: faits + "/" + total + (total > 1 ? " modules" : " module") })]),
         el("div", { "class": "progres", "aria-hidden": "true" }, [el("i", { style: "width:" + Math.round(faits / Math.max(total, 1) * 100) + "%" })]),
-        ul]));
+        ul,
+        !p.verifie && L.niveauFini(p, niv, s.fait) ? blocTestNiveau(p, s, niv) : null]));
     });
     if (!formationComplete(p)) bloc.appendChild(el("p", { "class": "meta", text: "Les leçons d’un module sont rédigées quand tu l’ouvres, dès que tu as fini le module précédent." }));
     else if (!p.verifie && !ess) bloc.appendChild(boutonProlonger(p, function () { route(); }));
@@ -1851,14 +1861,17 @@
       function poserPhoto(img) { var f = photo(img, "lecon-img", l.titre); if (f) { emplacement.appendChild(f); emplacement.hidden = false; } }
       var termesLecon = null; // mots déjà définis (glossaire des leçons précédentes), pour souligner aussi le texte réécrit
       var lecture = selecteurLecture(p, n, secEls, originales, article, function () { if (termesLecon) lierTermes(article, termesLecon, p.id); });
+      /* Voix : les sections et « À retenir » tels qu'ils sont affichés à l'instant (version normale, simple ou experte). Absente si le navigateur ne sait pas lire. */
+      var voix = lecteurVoix(function () { return [secEls.enBref, article.querySelector(".retenir"), secEls.comment, article.querySelector(".exemple"), secEls.pourquoi, secEls.ouQuand].filter(Boolean); });
       montrer(el("div", { "class": "page plein " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer la leçon" }, [icone("fermer")]), points, puceXP()]),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre }), filAriane(l, p.id), el("h1", { text: l.titre }),
           el("div", { "class": "meta-lecon" }, [badge(v), el("span", { "class": "meta", text: "Leçon " + n }), minutes ? el("span", { "class": "meta", text: "≈" + N + minutes + N + "min" }) : null]),
-          lecture ? lecture.noeud : null]),
+          lecture ? lecture.noeud : null, voix]),
         emplacement,
         article,
-        verifBloc, finir, rangeeNav
+        verifBloc, finir, rangeeNav,
+        p.verifie ? null : blocSignalement(p, n)
       ]), null, l.titre);
       if (imageOk(l.image)) poserPhoto(l.image);
       else trouverImage(String(l.titre || "").slice(0, 50).trim() + " " + requetePhoto(p), "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
@@ -1980,7 +1993,7 @@
       scene.appendChild(rendreQuestion(it.question, function (juste) {
         points.children[k].className = juste ? "ok" : "ko";
         details[k] = juste ? 1 : 0;
-        if (juste) { justes += 1; if (premiereReussite(it)) gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
+        if (juste) { justes += 1; if (!opt.sansXp && premiereReussite(it)) gagne += opt.xp; if (opt.erreurs) oublierErreur(it); }
         else { rates.push(it); if (!opt.sansErreurs) noterErreur(it); }
         suite.hidden = false; setTimeout(function () { suite.focus({ preventScroll: true }); suite.scrollIntoView({ block: "nearest" }); }, 0);
       }));
@@ -2004,8 +2017,8 @@
         revoir.appendChild(el("details", { "class": "plier ligne" }, [el("summary", {}, [el("span", {}, [el("b", { text: it.titre || "Question" }), el("span", { "class": "meta", text: (q.enonce || q.affirmation || "").slice(0, 90) })]), icone("chevron")]), el("p", { "class": "meta", text: q.type === "qcm" ? "Réponse" + N + ": " + q.reponses[q.bonne] : q.type === "vraifaux" ? "Réponse" + N + ": " + (q.vrai ? "vrai" : "faux") : "Ordre" + N + ": " + q.ordre.join(" → ") }), q.explication ? el("p", { text: q.explication }) : null]));
       });
       scene.appendChild(el("span", { "class": "sur", text: opt.titre + " · résultat" }));
-      scene.appendChild(el("h1", { text: pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
-      scene.appendChild(el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), el("span", { "class": "meta gain", text: "+" + gagne + N + "XP" })]));
+      scene.appendChild(el("h1", { text: opt.verdict ? opt.verdict(pct) : pct === 100 ? "Sans faute" : pct >= 60 ? "Bien joué" : "À retravailler" }));
+      scene.appendChild(el("div", { "class": "score" }, [el("strong", { text: justes + "/" + n }), opt.sansXp ? null : el("span", { "class": "meta gain", text: "+" + gagne + N + "XP" })]));
       if (flux && flux.erreur) scene.appendChild(el("p", { "class": "alerte", role: "status", text: "Le quiz s’arrête à " + pluriel(n, "question", "questions") + " sur " + flux.total + N + ": " + flux.erreur }));
       if (rates.length) { scene.appendChild(el("h2", { text: "À revoir" })); scene.appendChild(revoir); }
       var suite = el("div", { "class": "pile" });
@@ -3398,13 +3411,13 @@
     }, function (e) { if (vive()) { alerte.textContent = erreurCompte(e); alerte.hidden = false; } });
     return el("div", { "class": "pile" }, [creditZone, corps, alerte]);
   }
-  /* Page admin : trois onglets (Génération, Comptes, Codes). Un 403 (compte plus admin) ramène à la saisie de la clé. */
+  /* Page admin : quatre onglets (Génération, Comptes, Codes, Signalements). Un 403 (compte plus admin) ramène à la saisie de la clé. */
   function vueAdmin() {
     if (!profil.compte) { montrer(erreurPage("Connecte‑toi à ton compte pour ouvrir l’espace admin.", "Espace admin"), "profil"); return; }
     if (profil.role !== "admin") return ecranCleAdmin();
     var vive = vivante(), choix = 0;
-    var zone = el("div", { "class": "pile" }), onglets = el("div", { "class": "onglets", role: "tablist", "aria-label": "Espace admin" });
-    var boutons = [["Génération", panneauGeneration], ["Comptes", panneauComptes], ["Codes", panneauCodes]].map(function (o, k) {
+    var zone = el("div", { "class": "pile" }), onglets = el("div", { "class": "onglets quatre", role: "tablist", "aria-label": "Espace admin" });
+    var boutons = [["Génération", panneauGeneration], ["Comptes", panneauComptes], ["Codes", panneauCodes], ["Signalements", panneauSignalements]].map(function (o, k) {
       var b = el("button", { type: "button", role: "tab", "aria-selected": k === 0 ? "true" : "false", text: o[0] });
       b.addEventListener("click", function () { afficher(k); });
       onglets.appendChild(b);
@@ -3414,7 +3427,7 @@
       choix += 1; var mien = choix;
       boutons.forEach(function (b, i) { b.setAttribute("aria-selected", i === k ? "true" : "false"); });
       zone.textContent = "";
-      zone.appendChild([panneauGeneration, panneauComptes, panneauCodes][k](function () { return vive() && mien === choix; }));
+      zone.appendChild([panneauGeneration, panneauComptes, panneauCodes, panneauSignalements][k](function () { return vive() && mien === choix; }));
     }
     montrer(el("div", { "class": "page" }, [
       el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
@@ -3691,8 +3704,310 @@
   }
 
   /* ---------- Routeur ---------- */
+  /* ---------- Lot 7 : signalement, test et certificat de fin de niveau, voix, dossier de voyage, hors ligne ---------- */
+
+  /* Signaler une erreur dans une leçon : lien discret en bas de la leçon, qui déplie un motif et un champ court. 5 par jour et par compte ;
+     trois joueurs différents sur la même leçon la mettent en file de réécriture (côté serveur). */
+  function blocSignalement(p, n) {
+    var motif = "fait";
+    var declencheur = el("button", { "class": "lien discret", type: "button", "aria-expanded": "false", "aria-controls": "signal-panneau" }, [icone("aide"), "Signaler une erreur dans cette leçon"]);
+    var panneau = el("div", { "class": "pile", id: "signal-panneau", hidden: "" });
+    var seg = el("div", { "class": "onglets trois", role: "radiogroup", "aria-label": "Motif du signalement" });
+    [["fait", "Erreur de fait"], ["pas_clair", "Pas clair"], ["autre", "Autre"]].forEach(function (c) {
+      var b = el("button", { type: "button", role: "radio", "aria-checked": c[0] === motif ? "true" : "false", text: c[1] });
+      b.addEventListener("click", function () { motif = c[0]; seg.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-checked", x === b ? "true" : "false"); }); });
+      seg.appendChild(b);
+    });
+    var champ = el("textarea", { "class": "champ", id: "signal-message", maxlength: "300", rows: "3", placeholder: "Dis en quelques mots ce qui ne va pas.", "aria-label": "Message du signalement (300 caractères au plus)" });
+    var envoyer = el("button", { "class": "btn second", type: "button" }, [el("span", { text: "Envoyer le signalement" })]);
+    var alerte = alerteVide(), merci = el("p", { "class": "meta", role: "status", hidden: "" });
+    declencheur.addEventListener("click", function () {
+      var ouvre = panneau.hidden;
+      panneau.hidden = !ouvre; declencheur.setAttribute("aria-expanded", ouvre ? "true" : "false");
+      if (ouvre) champ.focus();
+    });
+    envoyer.addEventListener("click", function () {
+      var texte = champ.value.trim();
+      if (motif === "autre" && texte.length < 3) { dire(alerte, "Dis en quelques mots ce qui ne va pas."); return; }
+      dire(alerte, ""); envoyer.disabled = true;
+      api("POST", "signalement", { type: "lecon", parcours: p.id, numero: n, motif: motif, message: texte }, 15000).then(function () {
+        panneau.hidden = true; declencheur.hidden = true;
+        merci.textContent = "Merci. Ta remarque est transmise."; merci.hidden = false;
+      }, function (e) {
+        envoyer.disabled = false;
+        if (e.statut === 409) { panneau.hidden = true; declencheur.hidden = true; merci.textContent = "Tu as déjà signalé cette leçon. Merci."; merci.hidden = false; return; }
+        dire(alerte, e.statut === 429 ? "Tu as fait " + pluriel(LIMITES.signalements, "signalement", "signalements") + " aujourd’hui. Réessaie demain." : messageErreur(e));
+      });
+    });
+    panneau.appendChild(el("p", { "class": "meta", text: "Qu’est-ce qui ne va pas" + N + "?" }));
+    [seg, champ, envoyer, alerte].forEach(function (x) { panneau.appendChild(x); });
+    return el("section", { "class": "signal pile serree" }, [declencheur, panneau, merci]);
+  }
+
+  /* Lecture à voix haute (speechSynthesis) : sections et « À retenir » de la leçon, voix française si le navigateur en a une. Rien ne part vers un
+     serveur. La pause arrête la lecture au morceau en cours et la reprend de là (plus fiable que pause/resume selon les navigateurs). */
+  var arretVoix = null;
+  function voixFrancaise() {
+    var v = window.speechSynthesis.getVoices() || [], i;
+    for (i = 0; i < v.length; i++) if (/^fr[-_]FR/i.test(v[i].lang)) return v[i];
+    for (i = 0; i < v.length; i++) if (/^fr/i.test(v[i].lang)) return v[i];
+    return null;
+  }
+  /* sources : fonction qui rend les noeuds à lire, dans l'ordre (sections visibles et « À retenir »). */
+  function lecteurVoix(sources) {
+    var synth = window.speechSynthesis;
+    if (!synth || typeof window.SpeechSynthesisUtterance !== "function") return null;
+    var segments = [], courant = 0, mode = "arret", jeton = 0;
+    var statut = el("p", { "class": "meta", role: "status", hidden: "" });
+    var lire = el("button", { "class": "btn second petit", type: "button", text: "Écouter la leçon" });
+    var pause = el("button", { "class": "btn second petit", type: "button", text: "Pause", hidden: "" });
+    var arret = el("button", { "class": "btn second petit", type: "button", text: "Arrêter", hidden: "" });
+    function afficher() {
+      lire.hidden = mode !== "arret"; pause.hidden = mode === "arret"; arret.hidden = mode === "arret";
+      pause.textContent = mode === "pause" ? "Reprendre" : "Pause";
+      statut.hidden = mode === "arret";
+      statut.textContent = mode === "pause" ? "En pause" : "Lecture en cours";
+    }
+    function dire1(k) {
+      if (k >= segments.length) { mode = "arret"; courant = 0; afficher(); return; }
+      courant = k;
+      var mien = jeton, u = new window.SpeechSynthesisUtterance(segments[k]);
+      u.lang = "fr-FR";
+      var v = voixFrancaise(); if (v) u.voice = v;
+      u.onend = function () { if (mode === "lecture" && mien === jeton) dire1(k + 1); };
+      u.onerror = function (e) { if (mien === jeton && e && e.error !== "canceled" && e.error !== "interrupted") { mode = "arret"; afficher(); } };
+      synth.speak(u);
+    }
+    function demarrer(k) { jeton += 1; synth.cancel(); mode = "lecture"; afficher(); setTimeout(function () { dire1(k); }, 60); }
+    function arreter() { jeton += 1; mode = "arret"; courant = 0; try { synth.cancel(); } catch (e) { /* rien à arrêter */ } afficher(); }
+    lire.addEventListener("click", function () {
+      var parties = [];
+      sources().forEach(function (noeud) {
+        var h = noeud.querySelector("h2"), morceaux = [];
+        Array.prototype.forEach.call(noeud.querySelectorAll("p, li"), function (x) { morceaux.push(x.textContent.replace(/\s+/g, " ").trim()); });
+        parties.push({ titre: h ? h.textContent : "", texte: morceaux.filter(Boolean).join(" ") });
+      });
+      segments = L.segmentsVoix(parties, 200);
+      if (!segments.length) { statut.hidden = false; statut.textContent = "Rien à lire pour l’instant."; return; }
+      demarrer(0);
+    });
+    pause.addEventListener("click", function () {
+      if (mode === "lecture") { jeton += 1; mode = "pause"; synth.cancel(); afficher(); } else if (mode === "pause") demarrer(courant);
+    });
+    arret.addEventListener("click", arreter);
+    if (arretVoix) arretVoix();
+    arretVoix = arreter;
+    return el("div", { "class": "voix pile serree", role: "group", "aria-label": "Lecture à voix haute" }, [el("div", { "class": "voix-boutons" }, [lire, pause, arret]), statut]);
+  }
+
+  /* Charge des leçons déjà écrites (aucune IA), quatre à la fois. Renvoie { lecons (dans l'ordre), manquantes }. */
+  function chargerLecons(id, numeros, progres) {
+    var res = new Array(numeros.length), suivant = 0, fini = 0;
+    return new Promise(function (resolu) {
+      if (!numeros.length) { resolu({ lecons: [], manquantes: 0 }); return; }
+      function un() {
+        if (suivant >= numeros.length) return;
+        var i = suivant++;
+        chargerPalier(id, numeros[i]).then(function (l) { res[i] = l || null; }, function () { res[i] = null; }).then(function () {
+          fini += 1; if (progres) progres(fini, numeros.length);
+          if (fini === numeros.length) { var bonnes = res.filter(Boolean); resolu({ lecons: bonnes, manquantes: numeros.length - bonnes.length }); } else un();
+        });
+      }
+      for (var k = 0; k < Math.min(4, numeros.length); k++) un();
+    });
+  }
+  function niveauDe(p, num) { return parProgramme(p) && !p.verifie ? p.programme.niveaux.filter(function (x) { return x.numero === num; })[0] || null : null; }
+  function enteteRetour(href, libelle) { return el("div", { "class": "barre-haut no-print", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: href }, [icone("retour"), libelle]), el("span"), puceXP()]); }
+
+  /* Bloc « Test de fin de niveau » sous les modules d'un niveau fini : passer ou refaire le test, et le certificat une fois le test réussi. */
+  function blocTestNiveau(p, s, niv) {
+    var t = (s.tests || {})[niv.numero], reussi = L.testReussi(s, niv.numero), base = "#/p/" + encodeURIComponent(p.id);
+    var phrase = reussi ? "Réussi" + N + ": " + t.justes + " sur " + t.n + " (" + t.pct + F + "%)." : t ? "Pas encore réussi. Meilleur score" + N + ": " + t.pct + F + "%." : L.TEST_QUESTIONS + " questions tirées de tes leçons, sans IA. Réussite à " + L.TEST_SEUIL + F + "%. Le niveau suivant reste ouvert.";
+    return el("div", { "class": "test-niveau pile serree" }, [
+      el("h3", {}, [icone("diplome"), "Test de fin de niveau"]),
+      el("p", { "class": "meta", text: phrase }),
+      lienAvance(base + "/test/" + niv.numero, reussi ? "Refaire le test" : "Passer le test", reussi ? "btn second" : "btn"),
+      reussi ? lien("#/certificat/" + encodeURIComponent(p.id) + "/" + niv.numero, "Voir mon certificat", "lien") : null]);
+  }
+
+  /* Test de fin de niveau : 15 questions tirées par programme des questions déjà écrites dans les leçons du niveau. Réussite à 70 %. Ni XP ni IA. */
+  function vueTestNiveau(id, num) {
+    var vive = vivante();
+    montrer(attente("Préparation du test…", true), null, "Test de niveau");
+    chargerParcours(id).then(function (p) {
+      if (!vive()) return null;
+      var niv = niveauDe(p, num), base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id);
+      if (!niv) { montrer(erreurPage("Ce niveau n’existe pas dans cette formation.", "Test indisponible"), "accueil"); return null; }
+      if (!L.niveauFini(p, niv, s.fait)) {
+        montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [el("p", { "class": "verrou" }, [icone("cadenas"), "Le test s’ouvre quand tu as fini toutes les leçons du niveau " + num + "."]), lien(base, "Retour à la formation", "btn")])]), "accueil", "Test de niveau");
+        return null;
+      }
+      return chargerLecons(p.id, L.leconsDuNiveau(p, niv)).then(function (r) {
+        if (!vive()) return;
+        var items = L.tirerTest(r.lecons, L.TEST_QUESTIONS);
+        if (items.length < L.TEST_MIN) { montrer(erreurPage("Pas assez de questions dans les leçons de ce niveau pour un test. Réessaie plus tard.", "Test indisponible"), "accueil"); return; }
+        var titre = "Test · " + niv.titre;
+        montrer(quiz(items, {
+          titre: titre, retour: base, xp: 0, sansXp: true, parcours: p.id,
+          verdict: function (pct) { return pct >= L.TEST_SEUIL ? "Test réussi" : "Pas encore"; },
+          fin: function (res, zone) {
+            var r2 = L.resultatTest(res.justes, res.n), s2 = suivi(p.id);
+            s2.tests = s2.tests || {};
+            s2.tests[num] = L.majTest(s2.tests[num], r2, aujourdhui());
+            etat.parcours[p.id] = s2; sauver();
+            zone.appendChild(el("p", { "class": "verrou" }, [icone(r2.ok ? "diplome" : "liste"), r2.ok ? "Réussi" + N + ": " + r2.justes + " sur " + r2.n + " (" + r2.pct + F + "%). Ton certificat est prêt." : "Il faut " + L.TEST_SEUIL + F + "% pour réussir. Tu as " + r2.pct + F + "%. Revois les leçons, puis refais le test."]));
+            if (r2.ok) zone.appendChild(lienAvance("#/certificat/" + encodeURIComponent(p.id) + "/" + num, "Voir mon certificat", "btn"));
+            else {
+              var encore = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Refaire le test" }), icone("fleche")]);
+              encore.addEventListener("click", function () { vueTestNiveau(id, num); });
+              zone.appendChild(encore);
+            }
+            zone.appendChild(lien(base, "Retour à la formation"));
+            if (window.poserIcones) window.poserIcones(zone);
+          }
+        }), null, titre);
+      });
+    }).then(null, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Cette formation n’existe pas encore." : messageErreur(e), "Test indisponible"), "accueil"); });
+  }
+
+  /* Certificat de fin de niveau : page imprimable (window.print, CSS @media print). Exige le test réussi. Pas un diplôme, et la page le dit. */
+  function vueCertificat(id, num) {
+    var vive = vivante();
+    montrer(attente("Ouverture du certificat…"), null, "Certificat");
+    chargerParcours(id).then(function (p) {
+      if (!vive()) return;
+      var niv = niveauDe(p, num), base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id);
+      if (!niv) { montrer(erreurPage("Ce niveau n’existe pas dans cette formation.", "Certificat indisponible"), "accueil"); return; }
+      if (!L.testReussi(s, num)) {
+        var pret = L.niveauFini(p, niv, s.fait);
+        montrer(el("div", { "class": "page" }, [entete(), el("div", { "class": "pile" }, [
+          el("p", { "class": "verrou" }, [icone("cadenas"), "Le certificat s’obtient en réussissant le test de fin de niveau (" + L.TEST_SEUIL + F + "% au moins)."]),
+          pret ? lienAvance(base + "/test/" + num, "Passer le test", "btn") : lien(base, "Retour à la formation", "btn")])]), "accueil", "Certificat");
+        return;
+      }
+      var t = s.tests[num], nom = [profil.prenom, profil.nom].filter(Boolean).join(" ") || profil.pseudo;
+      var imprimer = el("button", { "class": "btn no-print", type: "button" }, [icone("liste"), el("span", { text: "Imprimer / Enregistrer en PDF" })]);
+      imprimer.addEventListener("click", function () { window.print(); });
+      montrer(el("div", { "class": "page certificat-page " + teinteSujet(p.titre) }, [
+        enteteRetour(base, "Formation"),
+        el("article", { "class": "certificat pile", "aria-label": "Attestation de suivi" }, [
+          el("div", { "class": "certificat-marque" }, [marque(true)]),
+          el("span", { "class": "sur", text: "Attestation de suivi" }),
+          el("h1", { text: nom }),
+          el("p", { "class": "certificat-texte", text: "a terminé le niveau " + niv.numero + N + ": " + niv.titre + ", de la formation" }),
+          el("h2", { "class": "certificat-formation", text: p.titre }),
+          el("div", { "class": "certificat-score" }, [el("strong", { text: t.pct + F + "%" }), el("span", { "class": "meta", text: "Test de fin de niveau" + N + ": " + t.justes + " bonnes réponses sur " + t.n })]),
+          el("p", { "class": "certificat-date", text: L.dateLongue(t.date) ? "Le " + L.dateLongue(t.date) : "" }),
+          el("p", { "class": "certificat-mention", text: "Attestation de suivi Koîos, pas un diplôme." }),
+          el("p", { "class": "meta", text: "Elle est établie d’après tes réponses au test, sans vérification d’identité." })]),
+        imprimer
+      ]), null, "Certificat · " + niv.titre);
+    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Cette formation n’existe pas encore." : messageErreur(e), "Certificat indisponible"), "accueil"); });
+  }
+
+  /* Dossier de voyage : toutes les leçons lues d'une formation (titres, « À retenir », définitions, cartes) en un document imprimable. */
+  function vueDossier(id) {
+    var vive = vivante();
+    montrer(attente("Rassemblement des leçons…"), null, "Dossier de voyage");
+    chargerParcours(id).then(function (p) {
+      if (!vive()) return;
+      var base = "#/p/" + encodeURIComponent(p.id), s = suivi(p.id), faites = [], k;
+      for (k = 1; k <= (s.fait || 0); k++) faites.push(k);
+      if (p.verifie || !faites.length) {
+        montrer(el("div", { "class": "page" }, [enteteRetour(base, "Formation"), etatVide("carnet", "Le dossier se remplit avec les leçons que tu as lues. Fais une première leçon.", lienAvance(base + "/" + ((s.fait || 0) + 1), "Commencer", "btn second petit"))]), null, "Dossier de voyage");
+        return;
+      }
+      var etatChargement = el("p", { "class": "attente", role: "status", text: "Rassemblement des leçons… 0 sur " + faites.length });
+      montrer(el("div", { "class": "page" }, [enteteRetour(base, "Formation"), etatChargement]), null, "Dossier de voyage");
+      chargerLecons(p.id, faites, function (a, b) { if (etatChargement.isConnected) etatChargement.textContent = "Rassemblement des leçons… " + a + " sur " + b; }).then(function (r) {
+        if (!vive()) return;
+        var doc = el("div", { "class": "dossier pile" }), niveauCourant = null, moduleCourant = null;
+        r.lecons.forEach(function (l) {
+          if (l.niveau && l.niveau.numero !== niveauCourant) { niveauCourant = l.niveau.numero; moduleCourant = null; doc.appendChild(el("p", { "class": "sur dossier-niveau", text: "Niveau " + l.niveau.numero + " · " + l.niveau.titre })); }
+          if (l.module && l.module.numero !== moduleCourant) { moduleCourant = l.module.numero; doc.appendChild(el("h2", { "class": "dossier-module", text: "Module " + l.module.numero + " · " + l.module.titre })); }
+          var bloc = el("section", { "class": "dossier-lecon pile serree" }, [el("h3", { text: "Leçon " + l.numero + " · " + l.titre })]);
+          var retenir = (l.aRetenir || []).filter(function (t) { return typeof t === "string" && t; });
+          if (retenir.length) bloc.appendChild(el("div", { "class": "retenir pile serree" }, [titreSection("À retenir", "epingle"), listeRetenir(retenir)]));
+          var defs = (l.definitions || []).filter(function (d) { return d && d.terme && d.definition; });
+          if (defs.length) {
+            var dl = el("dl", { "class": "dossier-defs" });
+            defs.forEach(function (d) { dl.appendChild(el("div", {}, [el("dt", { text: d.terme }), el("dd", { text: d.definition })])); });
+            bloc.appendChild(el("div", { "class": "pile serree" }, [el("h4", { text: "Définitions" }), dl]));
+          }
+          var cartes = (l.cartes || []).filter(function (c) { return c && typeof c.recto === "string" && typeof c.verso === "string"; });
+          if (cartes.length) {
+            var ul = el("ul", { "class": "dossier-cartes" });
+            cartes.forEach(function (c) { ul.appendChild(el("li", {}, [el("b", { text: c.recto }), el("span", { text: c.verso })])); });
+            bloc.appendChild(el("div", { "class": "pile serree" }, [el("h4", { text: "Cartes" }), ul]));
+          }
+          doc.appendChild(bloc);
+        });
+        var imprimer = el("button", { "class": "btn no-print", type: "button" }, [icone("liste"), el("span", { text: "Imprimer / Enregistrer en PDF" })]);
+        imprimer.addEventListener("click", function () { window.print(); });
+        var date = L.dateLongue(aujourdhui());
+        montrer(el("div", { "class": "page dossier-page " + teinteSujet(p.titre) }, [
+          enteteRetour(base, "Formation"),
+          el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Dossier de voyage" }), el("h1", { text: p.titre }),
+            el("p", { "class": "meta", text: pluriel(r.lecons.length, "leçon lue", "leçons lues") + (date ? " · " + date : "") })]),
+          r.manquantes ? el("p", { "class": "alerte no-print", role: "status", text: pluriel(r.manquantes, "leçon n’a pas pu être chargée", "leçons n’ont pas pu être chargées") + " (hors ligne" + N + "?). Ouvre-la une fois en ligne." }) : null,
+          imprimer, doc
+        ]), null, "Dossier · " + p.titre);
+      });
+    }, function (e) { if (vive()) montrer(erreurPage(e.statut === 404 ? "Cette formation n’existe pas encore." : messageErreur(e), "Dossier indisponible"), "accueil"); });
+  }
+
+  /* Admin, onglet « Signalements » : leçons signalées par des lecteurs (les plus signalées d'abord), avec « Ignorer ». */
+  function panneauSignalements(vive) {
+    var zone = el("div", { "class": "pile" }), liste = el("div", { "class": "pile serree" }), alerte = alerteVide();
+    function rendre(j) {
+      liste.textContent = "";
+      var ul = el("ul", { "class": "liste" });
+      (j.lecons || []).forEach(function (x) {
+        var motifs = [];
+        if (x.motifs.fait) motifs.push(pluriel(x.motifs.fait, "erreur de fait", "erreurs de fait"));
+        if (x.motifs.pas_clair) motifs.push(x.motifs.pas_clair + N + "pas clair");
+        if (x.motifs.autre) motifs.push(x.motifs.autre + N + "autre");
+        var ign = el("button", { "class": "btn second petit", type: "button", text: "Ignorer" });
+        ign.addEventListener("click", function () {
+          ign.disabled = true;
+          api("POST", "admin", { action: "ignorer_signalements", parcours: x.parcours, numero: x.numero }, 10000).then(function (j2) { if (vive()) rendre(j2); }, function (e) { ign.disabled = false; dire(alerte, erreurCompte(e)); });
+        });
+        var li = ligneAdmin((x.titre || "Leçon " + x.numero) + " · leçon " + x.numero,
+          (x.formation ? x.formation + " · " : "") + pluriel(x.joueurs, "joueur", "joueurs") + " · " + motifs.join(", ") + (x.enFile ? " · réécriture en file" : ""), [ign]);
+        (x.messages || []).forEach(function (m) { li.appendChild(el("p", { "class": "meta", text: guill(m) })); });
+        ul.appendChild(li);
+      });
+      liste.appendChild(el("h2", { text: "Leçons signalées" }));
+      liste.appendChild((j.lecons || []).length ? ul : el("p", { "class": "meta", text: "Aucun signalement pour l’instant." }));
+      liste.appendChild(el("p", { "class": "meta", text: "Trois joueurs différents sur la même leçon la mettent en file de réécriture." }));
+    }
+    api("GET", "admin?signalements=1", null, 10000).then(function (j) { if (vive()) rendre(j); }, function (e) { if (vive()) dire(alerte, erreurCompte(e)); });
+    zone.appendChild(alerte); zone.appendChild(liste);
+    return zone;
+  }
+
+  /* ---------- Hors ligne ---------- */
+  /* Service worker (app/sw.js) : coquille de l'app et leçons déjà lues. Le bandeau dit ce qui reste disponible sans réseau. */
+  var bandeauHorsLigne = document.getElementById("hors-ligne");
+  function majBandeauHorsLigne() {
+    if (!bandeauHorsLigne) return;
+    var hors = navigator.onLine === false;
+    bandeauHorsLigne.hidden = !hors;
+    if (hors && !bandeauHorsLigne.textContent) bandeauHorsLigne.textContent = "Hors ligne" + N + ": leçons déjà lues disponibles";
+  }
+  window.addEventListener("offline", majBandeauHorsLigne);
+  window.addEventListener("online", function () {
+    majBandeauHorsLigne();
+    /* Retour du réseau : on reprend la synchronisation (le test de la base ne s'était peut-être pas fait au démarrage). */
+    api("GET", "etat", null, 5000).then(function (j) { serveur.base = !!j.base; serveur.ia = !!j.ia; return synchroniser(); }, function () {});
+  });
+  majBandeauHorsLigne();
+  function viderCacheHorsLigne() { try { if (window.caches) window.caches.delete("koios-lecons"); } catch (e) { /* rien à vider */ } }
+  if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(null, function () { /* sans service worker, l'app marche comme avant */ }); });
+
   function route() {
     navigation += 1;
+    if (arretVoix) { arretVoix(); arretVoix = null; } // la lecture à voix haute s'arrête quand on change de page
     enHaut();
     var p = location.hash.replace(/^#\/?/, "").split("/").map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
     fermerFiche(false);
@@ -3703,6 +4018,7 @@
         if (!p[1]) return vueMaison();
         if (p[2] === "fiche" && /^\d+$/.test(p[3] || "")) return vueFiche(p[1], parseInt(p[3], 10));
         if (!p[2] || p[2] === "quiz" && !p[3] || p[2] === "defis" || p[2] === "cartes" || p[2] === "glossaire") return vueParcours(p[1], p[2] === "defis" ? "defis" : p[2] === "quiz" ? "quiz" : p[2] === "cartes" ? "cartes" : p[2] === "glossaire" ? "glossaire" : null);
+        if (p[2] === "test" && /^\d+$/.test(p[3] || "")) return vueTestNiveau(p[1], parseInt(p[3], 10));
         if (p[2] === "quiz" || p[2] === "defi") return vueQuiz(p[1], p[3]);
         if (p[2] === "jeu") return vueJeu(p[1], p[3]);
         return vuePalier(p[1], Math.max(1, parseInt(p[2], 10) || 1));
@@ -3713,6 +4029,8 @@
       case "nouveau-salon": return vueNouveauSalon(p[1], parseInt(p[2], 10));
       case "groupe": return p[1] ? vueGroupe(p[1]) : vueAmis();
       case "partie": return p[1] ? vuePartie(p[1], p[2] === "rejoindre") : vueAmis();
+      case "certificat": return p[1] && /^\d+$/.test(p[2] || "") ? vueCertificat(p[1], parseInt(p[2], 10)) : vueMaison();
+      case "dossier": return p[1] ? vueDossier(p[1]) : vueMaison();
       case "reviser": return vueReviser();
       case "badges": return vueBadges();
       case "jouer": return vueJouer();

@@ -202,6 +202,114 @@
     return null;
   }
 
+  /* ---------- Tests et certificats de fin de niveau ----------
+     Un niveau est fini quand tous ses modules sont ouverts et que leur dernière leçon est faite. Le test tire 15 questions parmi
+     celles déjà écrites dans les leçons du niveau (aucune IA) ; il est réussi à 70 %. Résultat : etat.parcours[id].tests[niveau]
+     = { pct, justes, n, date, ok }. Le niveau suivant n'est jamais verrouillé ; seul le certificat exige le test réussi. */
+  var TEST_QUESTIONS = 15, TEST_SEUIL = 70, TEST_MIN = 5;
+
+  function niveauFini(p, niv, fait) {
+    if (!p || !niv || !niv.modules || !niv.modules.length) return false;
+    var ouverts = {};
+    (p.etapes || []).forEach(function (e) { ouverts[e.numero] = e; });
+    return niv.modules.every(function (m) { var e = ouverts[m.numero], l = (e && e.paliers) || []; return l.length > 0 && l[l.length - 1].numero <= (Number(fait) || 0); });
+  }
+  /* Numéros (globaux) des leçons d'un niveau, dans l'ordre. */
+  function leconsDuNiveau(p, niv) {
+    var numeros = {}, l = [];
+    ((niv && niv.modules) || []).forEach(function (m) { numeros[m.numero] = 1; });
+    (p.etapes || []).forEach(function (e) { if (numeros[e.numero]) (e.paliers || []).forEach(function (x) { l.push(x.numero); }); });
+    return l.sort(function (a, b) { return a - b; });
+  }
+  function questionValide(q) {
+    if (!q || typeof q !== "object") return false;
+    if (q.type === "vraifaux") return typeof q.affirmation === "string" && typeof q.vrai === "boolean";
+    if (q.type === "ordre") return typeof q.enonce === "string" && Array.isArray(q.ordre) && Array.isArray(q.elements) && q.ordre.length >= 2;
+    return typeof q.enonce === "string" && Array.isArray(q.reponses) && q.reponses.length >= 2 && Number.isInteger(q.bonne) && q.bonne >= 0 && q.bonne < q.reponses.length;
+  }
+  /* lecons : [{ id, titre, questions }] (leçons déjà écrites). Tire n questions valides, réparties entre les leçons (une par leçon à tour de rôle,
+     leçons et questions mélangées), puis mélange le tout. alea : () => [0, 1[ (Math.random par défaut). Renvoie [{ palier, titre, index, question }]. */
+  function tirerTest(lecons, n, alea) {
+    alea = alea || Math.random;
+    function melanger(l) { l = l.slice(); for (var i = l.length - 1; i > 0; i--) { var j = Math.floor(alea() * (i + 1)), x = l[i]; l[i] = l[j]; l[j] = x; } return l; }
+    var files = melanger((lecons || []).map(function (l) {
+      return melanger(((l && l.questions) || []).map(function (q, i) { return { palier: l.id, titre: l.titre, index: i, question: q }; }).filter(function (x) { return questionValide(x.question); }));
+    }).filter(function (f) { return f.length; }));
+    var pris = [], reste = true;
+    while (pris.length < n && reste) {
+      reste = false;
+      for (var k = 0; k < files.length && pris.length < n; k++) if (files[k].length) { pris.push(files[k].shift()); reste = true; }
+    }
+    return melanger(pris);
+  }
+  function resultatTest(justes, n) {
+    var pct = n > 0 ? Math.round(justes / n * 100) : 0;
+    return { justes: justes, n: n, pct: pct, ok: n > 0 && pct >= TEST_SEUIL };
+  }
+  function testValide(t) { return !!t && typeof t === "object" && Number.isFinite(t.pct) && Number.isFinite(t.justes) && Number.isFinite(t.n) && typeof t.date === "string"; }
+  /* Garde le meilleur : un test réussi reste réussi (avec sa date, celle du certificat) ; sinon le meilleur score. */
+  function majTest(ancien, r, auj) {
+    var a = testValide(ancien) ? ancien : null;
+    if (a && a.ok) return a;
+    if (r.ok || !a || r.pct > a.pct) return { pct: r.pct, justes: r.justes, n: r.n, date: auj, ok: !!r.ok };
+    return a;
+  }
+  function testReussi(suivi, niveau) { var t = suivi && suivi.tests && suivi.tests[niveau]; return testValide(t) && t.ok === true; }
+  /* Fusion de deux appareils : réussi avant non réussi ; deux réussis, le plus ancien ; sinon le meilleur score. */
+  function fusionnerTests(a, b) {
+    var r = {};
+    [a || {}, b || {}].forEach(function (o) {
+      Object.keys(o).forEach(function (k) {
+        var t = o[k];
+        if (!testValide(t)) return;
+        var c = r[k];
+        var garde = !c || (t.ok && !c.ok) || (t.ok === c.ok && (t.ok ? t.date < c.date : t.pct > c.pct));
+        if (garde) r[k] = { pct: t.pct, justes: t.justes, n: t.n, date: t.date, ok: !!t.ok };
+      });
+    });
+    return r;
+  }
+  var MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+  /* « 2026-10-20 » -> « 20 octobre 2026 » (« 1er » le premier du mois). Chaîne vide si la date est illisible. */
+  function dateLongue(s) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s));
+    if (!m || +m[2] < 1 || +m[2] > 12 || +m[3] < 1 || +m[3] > 31) return "";
+    return (+m[3] === 1 ? "1er" : String(+m[3])) + N + MOIS[+m[2] - 1] + N + m[1];
+  }
+
+  /* ---------- Lecture à voix haute ----------
+     Le texte est coupé en morceaux courts (certains navigateurs coupent une lecture trop longue). Un titre est un morceau à part. */
+  function decouperLecture(texte, max) {
+    max = max || 200;
+    var t = String(texte || "").replace(/\s+/g, " ").trim();
+    if (!t) return [];
+    var phrases = t.match(/[^.!?…]+[.!?…]*\s*/g) || [t], morceaux = [], cur = "";
+    function pousser(x) { x = x.trim(); if (x) morceaux.push(x); }
+    phrases.forEach(function (ph) {
+      while (ph.length > max) { // phrase trop longue : coupée à la dernière virgule ou au dernier espace avant max
+        var coupe = Math.max(ph.lastIndexOf(", ", max), ph.lastIndexOf("; ", max)), cut = coupe > max / 3 ? coupe + 1 : ph.lastIndexOf(" ", max);
+        if (cut <= 0) cut = max;
+        pousser(cur); cur = "";
+        pousser(ph.slice(0, cut)); ph = ph.slice(cut);
+      }
+      if ((cur + ph).length > max) { pousser(cur); cur = ph; } else cur += ph;
+    });
+    pousser(cur);
+    return morceaux;
+  }
+  /* parties : [{ titre, texte }] -> liste de morceaux à dire, dans l'ordre (titre puis texte). */
+  function segmentsVoix(parties, max) {
+    var l = [];
+    (parties || []).forEach(function (p) {
+      if (!p) return;
+      var corps = decouperLecture(p.texte, max);
+      if (!corps.length) return;
+      if (p.titre) l.push(String(p.titre).replace(/[\s.!?:]*$/, "") + ".");
+      corps.forEach(function (x) { l.push(x); });
+    });
+    return l;
+  }
+
   g.Logique = {
     INTERVALLES: INTERVALLES, SEANCE: SEANCE, BADGES: BADGES,
     plusJours: plusJours, ecartJours: ecartJours, dateDe: dateDe,
@@ -210,6 +318,10 @@
     jourNormal: jourNormal, jourActif: jourActif, normaliserJours: normaliserJours, fusionnerJours: fusionnerJours,
     serieActuelle: serieActuelle, meilleureSerie: meilleureSerie,
     statistiques: statistiques, calculerBadges: calculerBadges, fusionnerBadges: fusionnerBadges,
-    domaineVerifie: domaineVerifie
+    domaineVerifie: domaineVerifie,
+    TEST_QUESTIONS: TEST_QUESTIONS, TEST_SEUIL: TEST_SEUIL, TEST_MIN: TEST_MIN,
+    niveauFini: niveauFini, leconsDuNiveau: leconsDuNiveau, questionValide: questionValide, tirerTest: tirerTest, resultatTest: resultatTest,
+    majTest: majTest, testReussi: testReussi, fusionnerTests: fusionnerTests, dateLongue: dateLongue,
+    decouperLecture: decouperLecture, segmentsVoix: segmentsVoix
   };
 })(typeof window !== "undefined" ? window : globalThis);

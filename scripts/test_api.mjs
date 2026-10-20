@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 import {
   COLONNES_COMPTE, ErreurHttp, TABLES, bonusActif, egalConstant, enveloppe, hacherMdp, initBase, migrerBase, quota, quotaJoueur, sha256Hex,
@@ -33,6 +34,9 @@ import {
 } from '../lib/fournisseurs.js';
 import { DUREE_CACHE_MS, pageDeReference, pagesAncrees } from '../lib/sources.js';
 import { lireClePerso, masquer, secretsEgaux } from '../lib/api.js';
+import {
+  QUESTIONS_MAX, XP_JEU, XP_JOUR_MAX, XP_LECON, XP_QUESTION, faitsAcceptes, plafonnerParJour, plafondsPaliers, xpPlausible,
+} from '../lib/xp.js';
 import {
   PLAFOND_JOUR, debloquer, definirJournee, definirPause, enJournee, etatFile, traiterFile as traiterFileReel,
 } from '../lib/nuit.js';
@@ -163,6 +167,9 @@ function toutVider() {
 }
 const lignes = (sql, ...p) => db.base.prepare(sql).all(...p).map((r) => ({ ...r }));
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
+// XP plausible pour le serveur (anti-triche) : autant de questions réussies qu'il faut (10 XP au plus chacune).
+const reussiesPour = (xp) => Object.fromEntries(Array.from({ length: Math.ceil(xp / 10) }, (_, i) => ['test:' + i + '#0', 1]));
+const avecXp = (xp, reste = {}) => ({ xp, reussies: reussiesPour(xp), ...reste });
 
 const L = globalThis.Logique;
 const tests = [];
@@ -327,12 +334,13 @@ test('progression : GET renvoie pseudo, ton, etat parsé', async () => {
   assert.deepEqual(r.corps, { pseudo: 'Greg', ton: 'taquin', etat: {} });
 });
 
-test('progression : PUT calcule points (etat.xp, 0 à 1 000 000) et valides (paliers terminés), puis GET relit l’état', async () => {
+test('progression : PUT calcule points (XP plausible) et valides (paliers terminés), puis GET relit l’état', async () => {
   toutVider();
   const j = await creerJoueur('Greg');
   const etat = {
     version: 2,
     xp: 320.9,
+    reussies: reussiesPour(330),
     parcours: {
       'la-tour-eiffel': { fait: [1, 2, 3, 3, '4', 0, 1501, 'x', 2.5, null] }, // 1, 2, 3 et 4
       'mont-blanc': { fait: { 1: true, 2: false, 3: 1, 1600: true, abc: true } }, // 1 et 3
@@ -346,17 +354,16 @@ test('progression : PUT calcule points (etat.xp, 0 à 1 000 000) et valides (pal
     reglages: { son: true },
   };
   const r = await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat } });
-  assert.deepEqual(r.corps, { ok: true });
+  assert.deepEqual(r.corps, { ok: true, xp: 320 });
   const [ligne] = lignes('SELECT points, valides, pseudo, ton FROM joueurs');
   assert.deepEqual(ligne, { points: 320, valides: 4 + 2 + 7, pseudo: 'Greg', ton: 'taquin' });
-  assert.deepEqual((await appel(progressionGet, { jeton: j.jeton })).corps.etat, etat);
-  // XP borné.
-  const xp = async (valeur) => {
-    ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp: valeur } } }));
+  assert.deepEqual((await appel(progressionGet, { jeton: j.jeton })).corps.etat, { ...etat, xp: 320 });
+  // XP borné (et ramené au plausible : voir les tests anti-triche plus bas).
+  const xp = async (valeur, reste = {}) => {
+    ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp: valeur, reussies: reussiesPour(300), ...reste } } }));
     return lignes('SELECT points FROM joueurs')[0].points;
   };
-  assert.equal(await xp(5e9), 1000000);
-  assert.equal(await xp(1000000), 1000000);
+  assert.equal(await xp(5e9), 300);
   assert.equal(await xp(-40), 0);
   assert.equal(await xp('500'), 0);
   assert.equal(await xp(null), 0);
@@ -370,6 +377,78 @@ test('progression : PUT calcule points (etat.xp, 0 à 1 000 000) et valides (pal
   assert.deepEqual(lignes('SELECT points, valides FROM joueurs')[0], { points: 0, valides: 0 });
   ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { autre: 1 } } }));
   assert.deepEqual(lignes('SELECT points, valides FROM joueurs')[0], { points: 0, valides: 0 });
+  assert.equal(lignes("SELECT * FROM joueurs WHERE pseudo_cle = 'de-trop'").length, 0);
+});
+
+// --- Anti-triche XP -----------------------------------------------------------------------------------------------
+
+const semerPaliers = (parcours, n) => {
+  for (let k = 1; k <= n; k++) db.base.prepare('INSERT OR REPLACE INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, ?, ?, 0, ?)').run(`${parcours}:${k}`, parcours, k, '{}', 'now');
+};
+const envoyerEtat = async (joueur, etat) => appel(progressionPut, { methode: 'PUT', jeton: joueur.jeton, corps: { etat } });
+
+test('anti-triche : xpPlausible compte les leçons qui existent, les questions réussies, les jeux et les révisions', async () => {
+  toutVider();
+  semerPaliers('les-phares', 5);
+  const plafonds = await plafondsPaliers(env, ['les-phares', 'inconnu', 'v-gj', 'pas valide!']);
+  assert.deepEqual(plafonds, { 'les-phares': 5 });
+  // 8 leçons annoncées, 5 écrites : 5 comptent. Un parcours inconnu ne rapporte rien ; un cours vérifié (hors base) est plafonné à 100.
+  assert.equal(faitsAcceptes('les-phares', { fait: 8 }, plafonds), 5);
+  assert.equal(faitsAcceptes('les-phares', { fait: [1, 2] }, plafonds), 2);
+  assert.equal(faitsAcceptes('inconnu', { fait: 50 }, plafonds), 0);
+  assert.equal(faitsAcceptes('v-gj', { fait: 5000 }, plafonds), 100);
+  assert.equal(faitsAcceptes('les-phares', null, plafonds), 0);
+  const etat = {
+    parcours: { 'les-phares': { fait: 8, jeux: { paires: 1 } } },
+    reussies: { 'les-phares:1#0': 1, 'les-phares:1#1': 1 },
+    revisions: { a: {}, b: {} },
+    jours: { '2026-10-01': {}, '2026-10-02': {} },
+  };
+  assert.equal(xpPlausible(etat, plafonds), 5 * XP_LECON + 2 * XP_QUESTION + 1 * XP_JEU + 2 * 2);
+  assert.equal(xpPlausible(null), 0);
+  assert.equal(xpPlausible({ reussies: 'x', parcours: [1], revisions: 5 }), 0);
+  const enorme = { reussies: reussiesPour(99999 * 10) };
+  assert.equal(xpPlausible(enorme), QUESTIONS_MAX * XP_QUESTION, 'les questions réussies sont bornées');
+});
+
+test('anti-triche : un téléphone qui envoie 999999 XP est ramené à la valeur plausible (état et classement)', async () => {
+  toutVider();
+  semerPaliers('les-phares', 3);
+  const j = await creerJoueur('Tricheur');
+  const etat = { version: 2, xp: 999999, parcours: { 'les-phares': { fait: 3, xp: 999999 } } };
+  const r = await envoyerEtat(j, etat);
+  assert.deepEqual(r.corps, { ok: true, xp: 3 * XP_LECON }, 'trois leçons écrites et faites : 45 XP');
+  assert.deepEqual(lignes('SELECT points FROM joueurs')[0], { points: 45 });
+  const lu = (await appel(progressionGet, { jeton: j.jeton })).corps.etat;
+  assert.equal(lu.xp, 45);
+  assert.equal(lu.parcours['les-phares'].xp, 45, 'l’XP de la formation ne dépasse pas l’XP du compte');
+  // Des leçons faites qui n'existent pas ne rapportent rien.
+  const faux = await creerJoueur('Faux');
+  assert.equal((await envoyerEtat(faux, { xp: 5000, parcours: { fantome: { fait: 200 } } })).corps.xp, 0);
+  // Le gain honnête n'est pas touché.
+  const honnete = await creerJoueur('Honnete');
+  assert.equal((await envoyerEtat(honnete, { xp: 30, parcours: { 'les-phares': { fait: 2 } } })).corps.xp, 30);
+  assert.equal(lignes('SELECT points FROM joueurs WHERE id = ?', honnete.id)[0].points, 30);
+});
+
+test('anti-triche : plafond de gain par jour et par compte, repart le lendemain', async () => {
+  toutVider();
+  semerPaliers('long', 200);
+  const j = await creerJoueur('Rapide');
+  const suivi = (n) => ({ xp: n * 15, parcours: { long: { fait: n } } });
+  assert.equal((await envoyerEtat(j, suivi(10))).corps.xp, 150);
+  // 200 leçons = 3 000 XP plausibles, mais pas plus de 1 500 de gain dans la journée.
+  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, 150 + XP_JOUR_MAX - 150, 'plafond : XP du début de journée (0) + 1 500');
+  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, XP_JOUR_MAX, 'renvoyer ne change rien');
+  assert.equal(lignes('SELECT points FROM joueurs')[0].points, XP_JOUR_MAX);
+  // Un autre compte a son propre plafond.
+  const autre = await creerJoueur('Autre');
+  assert.equal((await envoyerEtat(autre, suivi(200))).corps.xp, XP_JOUR_MAX);
+  // Le lendemain : le début de journée devient l'XP déjà acceptée.
+  db.base.prepare("UPDATE quotas SET jour = '2000-01-01' WHERE cle LIKE 'xpdebut:%'").run();
+  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, 3000);
+  // Sans base, le plafond n'est pas appelé : la fonction pure est sans effet de bord.
+  assert.equal(await plafonnerParJour(env, j.id, 100, 99999, new Date('2030-01-01T10:00:00Z')), 100 + XP_JOUR_MAX);
 });
 
 test('progression : PUT change pseudo et ton, valide les deux, garde l’ancien sinon', async () => {
@@ -6432,7 +6511,7 @@ const semerFormation = (id = 'les-phares', titre = 'Les phares') => db.base.prep
 const postGroupe = (joueur, corps, requete = '', e = env) => appel(groupePost, { env: e, methode: 'POST', jeton: joueur && joueur.jeton, corps, requete });
 const getGroupe = (id, joueur) => appel(groupeGet, { requete: '?id=' + id, jeton: joueur && joueur.jeton });
 const suivreProgres = async (joueur, parcours, suivi, xp = 0) => ok200(await appel(progressionPut, {
-  methode: 'PUT', jeton: joueur.jeton, corps: { pseudo: joueur.pseudo, etat: { version: 2, xp, parcours: { [parcours]: suivi } } },
+  methode: 'PUT', jeton: joueur.jeton, corps: { pseudo: joueur.pseudo, etat: avecXp(xp, { version: 2, parcours: { [parcours]: suivi } }) },
 }));
 
 test('groupe POST : création (connexion, nom 2 à 40, formation existante), le créateur est inscrit', async () => {
@@ -6582,7 +6661,8 @@ test('groupe : un état illisible ou hostile ne casse pas le classement, et tout
   const id = (await postGroupe(a, { nom: 'Les phares', parcours: 'les-phares' })).corps.id;
   ok200(await postGroupe(b, { id, rejoindre: true }));
   db.base.prepare('UPDATE joueurs SET etat = ? WHERE id = ?').run('{pas du json', a.id);
-  await suivreProgres(b, 'les-phares', { fait: 99999, xp: 1e12, date: 'jamais' });
+  // Écrit à la main : la route PUT, elle, ramène déjà l'XP à une valeur plausible.
+  db.base.prepare('UPDATE joueurs SET etat = ?, points = ?, valides = ? WHERE id = ?').run(JSON.stringify({ version: 2, xp: 1e12, parcours: { 'les-phares': { fait: 99999, xp: 1e12, date: 'jamais' } } }), 1000000, 1500, b.id);
   const g = (await getGroupe(id)).corps.groupe;
   assert.deepEqual(g.classement.map((m) => [m.pseudo, m.lecons, m.xp, m.activite]), [['Bob', 1500, 1000000, null], ['Alice', 0, 0, null]]);
   assert.deepEqual(lireSuivi('{"fait":"x","xp":-4,"date":5}'), { lecons: 0, xp: 0, activite: null });
@@ -7109,6 +7189,218 @@ test('série : ancien format (une chaîne par jour) lu, jours actifs, série act
   assert.ok(!('2026-03-07' in tous), 'un jour sans rien de fait n’est pas actif');
   const f = L.fusionnerJours({ '2026-03-01': { lecon: 1, jour: 'faux' } }, { '2026-03-01': { quiz: 1, jour: 'juste' } });
   assert.deepEqual(f['2026-03-01'], { lecon: 1, quiz: 1, jour: 'juste' });
+});
+
+// --- Lot 7 : tests et certificats de fin de niveau, voix, hors ligne (règles pures de app/logique.js et de app/sw.js) ---------------
+
+const progTest = () => ({
+  etapes: [
+    { numero: 1, paliers: [{ numero: 1 }, { numero: 2 }] },
+    { numero: 2, paliers: [{ numero: 3 }, { numero: 4 }, { numero: 5 }] },
+    { numero: 3, paliers: [{ numero: 6 }] },
+  ],
+});
+const niv1 = { numero: 1, modules: [{ numero: 1 }, { numero: 2 }] };
+const qcmT = (i) => ({ type: 'qcm', enonce: 'Q' + i + ' ?', reponses: ['a', 'b'], bonne: 0 });
+const graine = (g) => { let a = g >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+
+test('test de niveau : un niveau est fini quand tous ses modules sont ouverts et leur dernière leçon faite', () => {
+  const p = progTest();
+  assert.deepEqual(L.leconsDuNiveau(p, niv1), [1, 2, 3, 4, 5]);
+  assert.equal(L.niveauFini(p, niv1, 4), false);
+  assert.equal(L.niveauFini(p, niv1, 5), true);
+  assert.equal(L.niveauFini(p, niv1, 99), true);
+  assert.equal(L.niveauFini(p, { numero: 2, modules: [{ numero: 3 }, { numero: 4 }] }, 99), false, 'le module 4 n’est pas encore ouvert');
+  assert.equal(L.niveauFini(p, { numero: 9, modules: [] }, 99), false);
+  assert.equal(L.niveauFini(p, null, 99), false);
+  assert.equal(L.niveauFini(null, niv1, 99), false);
+  assert.equal(L.niveauFini({ etapes: [{ numero: 1, paliers: [] }] }, { modules: [{ numero: 1 }] }, 9), false, 'un module sans leçon n’est pas fini');
+});
+
+test('test de niveau : 15 questions tirées par programme, réparties entre les leçons, sans IA', () => {
+  const lecons = Array.from({ length: 6 }, (_, k) => ({ id: 'p:' + (k + 1), titre: 'L' + (k + 1), questions: [qcmT(1), qcmT(2), qcmT(3), qcmT(4)] }));
+  const tire = L.tirerTest(lecons, 15, graine(7));
+  assert.equal(tire.length, 15);
+  assert.equal(new Set(tire.map((x) => x.palier + '#' + x.index)).size, 15, 'aucune question en double');
+  const parLecon = {};
+  for (const x of tire) parLecon[x.palier] = (parLecon[x.palier] || 0) + 1;
+  assert.equal(Object.keys(parLecon).length, 6, 'toutes les leçons sont représentées');
+  assert.ok(Object.values(parLecon).every((n) => n >= 2 && n <= 3), JSON.stringify(parLecon));
+  assert.deepEqual(L.tirerTest(lecons, 15, graine(7)).map((x) => x.palier + '#' + x.index), tire.map((x) => x.palier + '#' + x.index), 'même graine, même tirage');
+  assert.notDeepEqual(L.tirerTest(lecons, 15, graine(8)).map((x) => x.palier + '#' + x.index), tire.map((x) => x.palier + '#' + x.index));
+  // Peu de questions : on prend tout ce qui existe, sans inventer. Les questions illisibles et les leçons vides sont écartées.
+  const peu = [{ id: 'a:1', titre: 'A', questions: [qcmT(1), null, { type: 'qcm' }, { type: 'qcm', enonce: 'x', reponses: ['a', 'b'], bonne: 5 }, { type: 'vraifaux', affirmation: 'Vrai', vrai: true }] }, { id: 'a:2', titre: 'B' }, null];
+  assert.equal(L.tirerTest(peu, 15).length, 2);
+  assert.deepEqual(L.tirerTest([], 15), []);
+  assert.deepEqual(L.tirerTest(null, 15), []);
+  assert.equal(L.questionValide({ type: 'ordre', enonce: 'x', ordre: ['a', 'b'], elements: ['b', 'a'] }), true);
+  assert.equal(L.questionValide({ type: 'ordre', enonce: 'x', ordre: ['a'], elements: ['a'] }), false);
+  assert.equal(L.TEST_QUESTIONS, 15);
+});
+
+test('test de niveau : réussite à 70 %, le meilleur résultat est gardé, un test réussi reste réussi', () => {
+  assert.deepEqual(L.resultatTest(11, 15), { justes: 11, n: 15, pct: 73, ok: true });
+  assert.deepEqual(L.resultatTest(10, 15), { justes: 10, n: 15, pct: 67, ok: false });
+  assert.deepEqual(L.resultatTest(7, 10), { justes: 7, n: 10, pct: 70, ok: true }, '70 % pile réussit');
+  assert.equal(L.resultatTest(0, 0).ok, false);
+  const r1 = L.majTest(undefined, L.resultatTest(8, 15), '2026-10-20');
+  assert.deepEqual(r1, { pct: 53, justes: 8, n: 15, date: '2026-10-20', ok: false });
+  assert.deepEqual(L.majTest(r1, L.resultatTest(5, 15), '2026-10-21'), r1, 'un moins bon score ne remplace pas');
+  const r2 = L.majTest(r1, L.resultatTest(9, 15), '2026-10-21');
+  assert.deepEqual([r2.pct, r2.ok, r2.date], [60, false, '2026-10-21']);
+  const r3 = L.majTest(r2, L.resultatTest(13, 15), '2026-10-22');
+  assert.deepEqual(r3, { pct: 87, justes: 13, n: 15, date: '2026-10-22', ok: true });
+  assert.deepEqual(L.majTest(r3, L.resultatTest(2, 15), '2026-11-01'), r3, 'réussi reste réussi, avec sa date');
+  assert.deepEqual(L.majTest(r3, L.resultatTest(15, 15), '2026-11-01'), r3, 'la date du certificat ne bouge pas');
+  assert.deepEqual(L.majTest({ pct: 'x' }, L.resultatTest(13, 15), '2026-10-22'), r3, 'un ancien résultat illisible est remplacé');
+  assert.equal(L.testReussi({ tests: { 1: r3, 2: r1 } }, 1), true);
+  assert.equal(L.testReussi({ tests: { 1: r3, 2: r1 } }, 2), false);
+  assert.equal(L.testReussi({ tests: { 1: { ok: true } } }, 1), false, 'un résultat incomplet ne vaut pas réussite');
+  assert.equal(L.testReussi({}, 1), false);
+  assert.equal(L.testReussi(null, 1), false);
+  // Fusion de deux appareils.
+  const fus = L.fusionnerTests({ 1: r1, 2: r3 }, { 1: r3, 2: { ...r3, date: '2026-09-01' }, 3: { pct: 40, justes: 6, n: 15, date: '2026-10-01', ok: false }, 4: 'x' });
+  assert.deepEqual(fus[1], r3, 'réussi avant non réussi');
+  assert.equal(fus[2].date, '2026-09-01', 'deux réussis : le plus ancien');
+  assert.equal(fus[3].pct, 40);
+  assert.equal(fus[4], undefined);
+  assert.deepEqual(L.fusionnerTests(null, undefined), {});
+});
+
+test('certificat : date en toutes lettres, « 1er » le premier du mois', () => {
+  const N = '\u00a0';
+  assert.equal(L.dateLongue('2026-10-20'), `20${N}octobre${N}2026`);
+  assert.equal(L.dateLongue('2026-02-01'), `1er${N}février${N}2026`);
+  assert.equal(L.dateLongue('2026-12-09'), `9${N}décembre${N}2026`);
+  for (const mauvais of ['', 'hier', '2026-13-01', '2026-00-10', '2026-10-32', null, undefined, 20261020]) assert.equal(L.dateLongue(mauvais), '');
+});
+
+test('voix : le texte est coupé en morceaux courts, un titre est un morceau à part, rien d’inventé', () => {
+  const texte = 'Première phrase courte. Deuxième phrase un peu plus longue que la première ! Troisième ? Quatrième.';
+  assert.deepEqual(L.decouperLecture(texte, 200), [texte]);
+  const morceaux = L.decouperLecture(texte, 50);
+  assert.ok(morceaux.length >= 2 && morceaux.every((m) => m.length <= 50), JSON.stringify(morceaux));
+  assert.equal(morceaux.join(' '), texte, 'aucun mot perdu');
+  // Phrase très longue : coupée aux virgules, puis aux espaces.
+  const longue = 'mot, '.repeat(80).trim();
+  const coupee = L.decouperLecture(longue, 60);
+  assert.ok(coupee.every((m) => m.length <= 60));
+  assert.equal(coupee.join(' ').replace(/\s+/g, ' '), longue);
+  assert.deepEqual(L.decouperLecture('   ', 50), []);
+  assert.deepEqual(L.decouperLecture(null), []);
+  const segs = L.segmentsVoix([{ titre: 'En bref', texte: 'Un fait. Un autre fait.' }, { titre: 'Vide', texte: '  ' }, null, { titre: '', texte: 'Sans titre.' }, { titre: 'À retenir :', texte: 'Point un. Point deux.' }], 200);
+  assert.deepEqual(segs, ['En bref.', 'Un fait. Un autre fait.', 'Sans titre.', 'À retenir.', 'Point un. Point deux.']);
+  assert.deepEqual(L.segmentsVoix(null), []);
+});
+
+// Service worker : exécuté dans un bac à sable avec de faux caches, un faux réseau et des événements.
+function monterSW({ enLigne = true, version = '9.9.9' } = {}) {
+  const ecouteurs = {};
+  const caches = new Map(); // nom -> Map(url -> Response)
+  const reseau = { enLigne, appels: [], reponses: {} };
+  const faireCache = (nom) => {
+    if (!caches.has(nom)) caches.set(nom, new Map());
+    const m = caches.get(nom);
+    return {
+      put: async (cle, rep) => { m.set(typeof cle === 'string' ? cle : cle.url, rep); },
+      add: async (req) => { const rep = await fauxFetch(req); if (!rep.ok) throw new Error('echec'); m.set(req.url, rep); },
+      match: async (cle) => { const rep = m.get(typeof cle === 'string' ? (cle.startsWith('http') ? cle : 'https://koios.test' + cle) : cle.url); return rep ? rep.clone() : undefined; },
+    };
+  };
+  async function fauxFetch(req) {
+    const url = typeof req === 'string' ? req : req.url;
+    reseau.appels.push(url);
+    if (!reseau.enLigne) throw new TypeError('Failed to fetch');
+    const chemin = new URL(url).pathname + new URL(url).search;
+    const fabrique = reseau.reponses[chemin];
+    return fabrique ? fabrique() : new Response('contenu ' + chemin, { status: 200 });
+  }
+  const sandbox = {
+    self: { location: new URL('https://koios.test/sw.js'), addEventListener: (type, fn) => { ecouteurs[type] = fn; }, skipWaiting: async () => {}, clients: { claim: async () => {} } },
+    caches: { open: async (nom) => faireCache(nom), keys: async () => [...caches.keys()], delete: async (nom) => caches.delete(nom), match: async () => undefined },
+    fetch: fauxFetch, Response, URL, Promise, JSON, TypeError,
+    Request: class extends Request { constructor(u, o) { super(typeof u === 'string' ? new URL(u, 'https://koios.test/sw.js').href : u, o); } }, // comme dans un vrai service worker, les adresses relatives se résolvent
+    importScripts: (...fichiers) => { assert.deepEqual(fichiers, ['version.js']); sandbox.self.KOIOS_VERSION = version; },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(readFileSync(new URL('../app/sw.js', import.meta.url), 'utf8'), sandbox);
+  async function evenement(type, extra = {}) {
+    const attentes = [];
+    const e = { waitUntil: (p) => attentes.push(p), respondWith: (p) => { e.reponse = p; }, ...extra };
+    ecouteurs[type](e);
+    await Promise.all(attentes);
+    return e;
+  }
+  const requete = (chemin, options = {}) => {
+    const r = new Request('https://koios.test' + chemin, options);
+    return r;
+  };
+  async function aller(chemin, options = {}) {
+    const e = await evenement('fetch', { request: requete(chemin, options) });
+    const rep = e.reponse ? await e.reponse : null;
+    return { rep, intercepte: !!e.reponse };
+  }
+  return { caches, reseau, evenement, aller, requete };
+}
+
+test('hors ligne : le cache de l’app porte le numéro de version, une nouvelle version efface l’ancien et garde les leçons lues', async () => {
+  const v1 = monterSW({ version: '1.0.0' });
+  await v1.evenement('install');
+  assert.ok(v1.caches.has('koios-app-1.0.0'));
+  const gardes = [...v1.caches.get('koios-app-1.0.0').keys()].map((u) => new URL(u).pathname);
+  for (const f of ['/', '/app.js', '/logique.js', '/style.css', '/icones.js', '/visuels.js']) assert.ok(gardes.includes(f), f + ' est gardé');
+  // Une leçon lue en ligne est gardée.
+  v1.reseau.reponses['/api/palier?parcours=a&n=1'] = () => new Response(JSON.stringify({ palier: { titre: 'Leçon 1' } }), { status: 200 });
+  assert.equal((await (await v1.aller('/api/palier?parcours=a&n=1')).rep.json()).palier.titre, 'Leçon 1');
+  assert.ok(v1.caches.get('koios-lecons').has('https://koios.test/api/palier?parcours=a&n=1'));
+  // Nouvelle version : même magasin d'événements, caches existants.
+  const v2 = monterSW({ version: '2.0.0' });
+  for (const [nom, contenu] of v1.caches) v2.caches.set(nom, contenu);
+  await v2.evenement('install');
+  await v2.evenement('activate');
+  assert.deepEqual([...v2.caches.keys()].sort(), ['koios-app-2.0.0', 'koios-lecons'], 'l’ancien cache de l’app est supprimé, les leçons lues restent');
+  // Le numéro de version vient bien de app/version.js.
+  assert.match(readFileSync(new URL('../app/version.js', import.meta.url), 'utf8'), /self\.KOIOS_VERSION = "[^"]+"/);
+  assert.match(readFileSync(new URL('../app/sw.js', import.meta.url), 'utf8'), /importScripts\("version\.js"\)/);
+});
+
+test('hors ligne : les leçons déjà lues s’ouvrent sans réseau, les autres répondent clairement, les écritures ne sont pas interceptées', async () => {
+  const sw = monterSW();
+  await sw.evenement('install');
+  await sw.evenement('activate');
+  sw.reseau.reponses['/api/palier?parcours=a&n=1'] = () => new Response(JSON.stringify({ palier: { titre: 'Lue' } }), { status: 200 });
+  sw.reseau.reponses['/api/parcours?id=a'] = () => new Response(JSON.stringify({ parcours: { titre: 'A' } }), { status: 200 });
+  sw.reseau.reponses['/api/palier?parcours=a&n=2'] = () => new Response(JSON.stringify({ erreur: 'Connexion requise.' }), { status: 401 });
+  await sw.aller('/api/palier?parcours=a&n=1');
+  await sw.aller('/api/parcours?id=a');
+  await sw.aller('/api/palier?parcours=a&n=2'); // refusée : jamais gardée
+  assert.equal([...sw.caches.get('koios-lecons').keys()].length, 2);
+  sw.reseau.enLigne = false;
+  const lue = await sw.aller('/api/palier?parcours=a&n=1');
+  assert.equal(lue.rep.status, 200);
+  assert.equal((await lue.rep.json()).palier.titre, 'Lue');
+  assert.equal((await (await sw.aller('/api/parcours?id=a')).rep.json()).parcours.titre, 'A');
+  const absente = await sw.aller('/api/palier?parcours=a&n=2');
+  assert.equal(absente.rep.status, 504);
+  assert.match((await absente.rep.json()).erreur, /^Hors ligne : cette leçon n’a pas encore été lue/);
+  // Écritures et autres routes d'API : jamais interceptées (elles échouent proprement, l'app le gère).
+  for (const [chemin, options] of [['/api/progression', { method: 'PUT', body: '{}' }], ['/api/signalement', { method: 'POST', body: '{}' }], ['/api/quiz?parcours=a', {}], ['/api/etat', {}], ['/api/parcours', {}]]) {
+    assert.equal((await sw.aller(chemin, options)).intercepte, false, chemin);
+  }
+  // La coquille de l'app sert hors ligne ; la navigation retombe sur la page d'accueil gardée.
+  assert.equal(await (await sw.aller('/app.js')).rep.text(), 'contenu /app.js');
+  await assert.rejects(sw.aller('/inconnu-jamais-vu.js'), 'un fichier jamais vu échoue proprement hors ligne');
+  const navigation = await sw.evenement('fetch', { request: { method: 'GET', url: 'https://koios.test/', mode: 'navigate' } });
+  assert.equal(await (await navigation.reponse).text(), 'contenu /', 'la page d’accueil gardée s’ouvre hors ligne');
+});
+
+test('hors ligne : le bandeau et l’enregistrement du service worker sont branchés dans l’app', () => {
+  const app = readFileSync(new URL('../app/app.js', import.meta.url), 'utf8');
+  const index = readFileSync(new URL('../app/index.html', import.meta.url), 'utf8');
+  assert.match(app, /Hors ligne" \+ N \+ ": leçons déjà lues disponibles"/);
+  assert.match(app, /serviceWorker\.register\("sw\.js"/);
+  assert.match(index, /id="hors-ligne"/);
+  assert.match(readFileSync(new URL('../app/_headers', import.meta.url), 'utf8'), /\/sw\.js\n\s+Cache-Control: no-cache/);
 });
 
 test('badges : 13 badges calculés sur les données réelles, conditions et progression', () => {
@@ -8423,6 +8715,77 @@ test('admin « reecrire » : met en file les leçons partiel > 20 % ou « à rev
   assert.equal(exp.corps.lecons.find((x) => x.numero === 3).verification.aRevoir, true);
 });
 
+const signalerLecon = (joueur, corps) => appel(signalementPost, { methode: 'POST', jeton: joueur && joueur.jeton, corps: { type: 'lecon', parcours: 'la-tour-eiffel', numero: 1, motif: 'fait', ...corps } });
+
+test('signalement de leçon : champs vérifiés, leçon existante, un seul par leçon et par compte, 5 par jour', async () => {
+  await prepareProgramme();
+  for (const k of [1, 2, 3, 4, 5, 6]) insererPalierTest('la-tour-eiffel', k);
+  const a = await creerJoueur('Alice');
+  erreurFr(await signalerLecon(null, {}), 401);
+  for (const [mauvais, extrait] of [
+    [{ parcours: 'Pas Valide!' }, /Parcours/], [{ parcours: 12 }, /Parcours/], [{ numero: 0 }, /Numéro/], [{ numero: 1501 }, /Numéro/], [{ numero: 1.5 }, /Numéro/], [{ numero: '1' }, /Numéro/],
+    [{ motif: 'nul' }, /Motif/], [{ motif: undefined }, /Motif/], [{ motif: 'autre' }, /quelques mots/], [{ motif: 'autre', message: 'ab' }, /quelques mots/],
+    [{ message: 'x'.repeat(301) }, /300/], [{ message: 42 }, /300/],
+  ]) erreurFr(await signalerLecon(a, mauvais), 400, extrait);
+  erreurFr(await signalerLecon(a, { numero: 99 }), 404, /introuvable/);
+  erreurFr(await signalerLecon(a, { parcours: 'inconnu' }), 404);
+  assert.equal(lignes('SELECT * FROM signalements').length, 0);
+  const ok = await signalerLecon(a, { message: '  La date\n est fausse. ' });
+  assert.deepEqual(ok.corps, { ok: true, enFile: false });
+  assert.deepEqual(lignes('SELECT joueur, chapitre, exercice, message FROM signalements'), [{ joueur: a.id, chapitre: 'lecon:la-tour-eiffel', exercice: 1, message: 'fait|La date est fausse.' }]);
+  erreurFr(await signalerLecon(a, { motif: 'pas_clair' }), 409, /déjà signalé/);
+  assert.equal(lignes('SELECT * FROM signalements').length, 1);
+  // Message facultatif sauf pour « autre » ; 5 par jour.
+  for (const k of [2, 3, 4, 5]) assert.equal((await signalerLecon(a, { numero: k, motif: 'pas_clair' })).statut, 200);
+  erreurFr(await signalerLecon(a, { numero: 6 }), 429, /5 signalements/);
+  assert.equal(lignes('SELECT * FROM signalements').length, 5);
+  const b = await creerJoueur('Bob');
+  assert.equal((await signalerLecon(b, { numero: 6, motif: 'autre', message: 'Trop vague' })).statut, 200, 'chaque compte a son quota');
+  // L'ancien signalement d'exercice marche toujours.
+  assert.equal((await appel(signalementPost, { methode: 'POST', jeton: a.jeton, corps: { chapitre: 'hg-01', exercice: 1, message: 'faux' } })).statut, 200);
+});
+
+test('signalement de leçon : 3 joueurs différents mettent la leçon en file de réécriture ; l’admin les voit et peut les ignorer ; la réécriture les efface', async () => {
+  await prepareProgramme();
+  for (const k of [1, 2]) insererPalierTest('la-tour-eiffel', k);
+  const [a, b, c, d] = [await creerJoueur('A'), await creerJoueur('B'), await creerJoueur('C'), await creerJoueur('D')];
+  assert.equal((await signalerLecon(a, { motif: 'fait', message: 'Date fausse' })).corps.enFile, false);
+  assert.equal((await signalerLecon(b, { motif: 'pas_clair' })).corps.enFile, false);
+  assert.equal(lignes("SELECT * FROM file_attente WHERE type = 'reecriture'").length, 0, 'deux ne suffisent pas');
+  // Le même joueur ne compte qu'une fois.
+  erreurFr(await signalerLecon(b, { motif: 'fait' }), 409);
+  assert.equal(lignes("SELECT * FROM file_attente WHERE type = 'reecriture'").length, 0);
+  assert.equal((await signalerLecon(c, { motif: 'autre', message: 'Le texte se répète' })).corps.enFile, true);
+  assert.deepEqual(lignes("SELECT parcours, type, numero, etat FROM file_attente"), [{ parcours: 'la-tour-eiffel', type: 'reecriture', numero: 1, etat: 'attente' }]);
+  assert.equal((await signalerLecon(d, { motif: 'fait' })).corps.enFile, true, 'un 4e ne duplique pas la tâche');
+  assert.equal(lignes('SELECT * FROM file_attente').length, 1);
+  // Une autre leçon avec un seul signalement.
+  await signalerLecon(a, { numero: 2, motif: 'pas_clair' });
+  // Admin : liste, plus signalées d'abord.
+  const lire = () => appel(adminGet, { env: envAdmin(), entetes: enteteAdmin, requete: '?signalements=1' });
+  erreurFr(await appel(adminGet, { env: envAdmin(), requete: '?signalements=1' }), 403);
+  const liste = (await lire()).corps.lecons;
+  assert.deepEqual(liste.map((x) => [x.parcours, x.numero, x.joueurs, x.enFile, x.titre]), [['la-tour-eiffel', 1, 4, true, 'Palier 1'], ['la-tour-eiffel', 2, 1, false, 'Palier 2']]);
+  assert.deepEqual(liste[0].motifs, { fait: 2, pas_clair: 1, autre: 1 });
+  assert.deepEqual(liste[0].messages, ['Date fausse', 'Le texte se répète']);
+  assert.ok(!JSON.stringify(liste).includes(a.id), 'aucun identifiant de joueur');
+  // Ignorer : efface les signalements de cette leçon seulement, sans réécriture.
+  const poster = (corps, e = envAdmin(), entetes = enteteAdmin) => appel(adminPost, { env: e, methode: 'POST', entetes, corps });
+  erreurFr(await poster({ action: 'ignorer_signalements', parcours: 'la-tour-eiffel', numero: 2 }, envAdmin(), {}), 403);
+  erreurFr(await poster({ action: 'ignorer_signalements', numero: 2 }), 400);
+  erreurFr(await poster({ action: 'ignorer_signalements', parcours: 'la-tour-eiffel', numero: 0 }), 400);
+  const ig = await poster({ action: 'ignorer_signalements', parcours: 'la-tour-eiffel', numero: 2 });
+  assert.equal(ig.corps.retires, 1);
+  assert.deepEqual(ig.corps.lecons.map((x) => x.numero), [1]);
+  assert.equal(lignes('SELECT * FROM file_attente').length, 1);
+  // La réécriture (cron) efface les signalements de la leçon réécrite.
+  const sc = scenario(partiesStandard());
+  brancher(sc);
+  assert.equal((await traiterFile({ DB: db, AI: sc.ai })).faites, 1);
+  assert.equal(lignes("SELECT * FROM signalements WHERE chapitre LIKE 'lecon:%'").length, 0);
+  assert.deepEqual((await lire()).corps.lecons, []);
+});
+
 test('rédacteur : une leçon n’a qu’un seul modèle pour les parties A et B (jamais de mélange), le meilleur disponible', async () => {
   const j = await prepareProgramme();
   const modeleDe = (u) => /\/([^/:]+):generateContent$/.exec(u.pathname)[1];
@@ -8743,7 +9106,7 @@ test('compte inscrire : 20 inscriptions par jour et par IP, la 21e reçoit 429 ;
 test('compte inscrire : avec la clé d’un ancien profil, le profil est complété (progression gardée) et son ancienne clé ne marche plus', async () => {
   toutVider();
   const ancien = await creerAncienProfil('Vieux');
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: ancien.jeton, corps: { etat: { xp: 320, parcours: { a: { fait: [1, 2, 3] } } } } }));
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: ancien.jeton, corps: { etat: avecXp(320, { parcours: { a: { fait: [1, 2, 3] } } }) } }));
   const r = await postCompte({ action: 'inscrire', prenom: 'Vieux', nom: 'Profil', pseudo: 'vieux', mdp: MDP }, { jeton: ancien.jeton });
   assert.equal(r.statut, 200, JSON.stringify(r.corps));
   assert.equal(r.corps.id, ancien.id, 'même profil');
@@ -8964,8 +9327,8 @@ test('compte GET : profil du compte sans aucun hash ; 401 sans session ; config 
 test('progression : le pseudo d’un compte ne se change pas par la synchronisation (il est unique) ; celui d’un ancien profil si', async () => {
   toutVider();
   const a = await creerCompte('Greg');
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { pseudo: 'Usurpateur', ton: 'sobre', etat: { xp: 5 } } }));
-  assert.deepEqual((await appel(progressionGet, { jeton: a.jeton })).corps, { pseudo: 'Greg', ton: 'sobre', etat: { xp: 5 } });
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { pseudo: 'Usurpateur', ton: 'sobre', etat: avecXp(5) } }));
+  assert.deepEqual((await appel(progressionGet, { jeton: a.jeton })).corps, { pseudo: 'Greg', ton: 'sobre', etat: avecXp(5) });
   assert.equal(ligneJoueur(a.id).pseudo_cle, 'greg');
 });
 
@@ -9070,7 +9433,7 @@ test('compte supprimer : mot de passe exigé (401 sinon, 10 échecs puis 429), e
   const c = await creerCompte('Autre');
   const d = await creerCompte('Etranger');
   // Du contenu lié à Greg : progression, formation, sujet, duel et scores, groupe, partie, amitiés, demande, invitation, code, brouillon, signalement.
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: { xp: 99, parcours: { x: { fait: [1] } } } } }));
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: avecXp(99, { parcours: { x: { fait: [1] } } }) } }));
   db.base.prepare("INSERT INTO parcours (id, titre, contenu, auteur, vues, cree) VALUES ('la-mer', 'La mer', '{}', ?, 0, '2026-10-20')").run(a.id);
   db.base.prepare("INSERT INTO sujets (id, titre, parent, niveau, contenu, auteur, vues, cree) VALUES ('s1', 'Sujet', NULL, 1, '{}', ?, 0, '2026-10-20')").run(a.id);
   db.base.prepare("INSERT INTO brouillons (joueur, sujet, contenu, cree) VALUES (?, 's', '{}', '2026-10-20')").run(a.id);
@@ -9249,7 +9612,7 @@ test('compte google : un ancien profil est complété avec Google (progression g
   reinitExt();
   ext.google = reponseGoogle(infoGoogle());
   const vieux = await creerAncienProfil('Vieux');
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: vieux.jeton, corps: { etat: { xp: 77 } } }));
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: vieux.jeton, corps: { etat: avecXp(77) } }));
   const r = await postGoogle({ pseudo: 'vieux', prenom: 'V', nom: 'P' }, { jeton: vieux.jeton });
   assert.equal(r.statut, 200, JSON.stringify(r.corps));
   assert.equal(r.corps.id, vieux.id);
@@ -9333,7 +9696,7 @@ test('admin comptes : liste (50 par page) avec pseudo, prénom, nom, créé, vu,
   toutVider();
   const chef = await creerCompte('Chef');
   faireAdmin(chef);
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: chef.jeton, corps: { etat: { xp: 120, parcours: { a: { fait: [1, 2] } } } } }));
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: chef.jeton, corps: { etat: avecXp(120, { parcours: { a: { fait: [1, 2] } } }) } }));
   const ajout = db.base.prepare("INSERT INTO joueurs (id, pseudo, pseudo_cle, prenom, nom, mdp_hash, secours_hash, cree, role, bloque) VALUES (?, ?, ?, ?, ?, 'pbkdf2$100000$aa$bb', 'pbkdf2$100000$cc$dd', ?, 'joueur', ?)");
   for (let i = 0; i < 55; i++) ajout.run('id' + String(i).padStart(10, '0'), 'Joueur' + i, 'joueur' + i, i === 7 ? 'Zoé' : 'Prénom' + i, i === 8 ? 'Du_Pont' : 'Nom' + i, `2026-10-1${i % 10}T10:00:00Z`, i === 3 ? 1 : 0);
   db.base.prepare("INSERT INTO joueurs (id, pseudo) VALUES ('profilsanscompte', 'Ancien')").run();
@@ -9960,7 +10323,7 @@ test('cercle : toi et tes amis seulement, par XP ; 401 sans session ; jamais d�
   const etranger = await creerCompte('Etranger');
   const vieux = await creerAncienProfil('Vieux');
   for (const [j, xp] of [[a, 100], [b, 300], [c, 50], [etranger, 9999], [vieux, 5000]]) {
-    ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp, parcours: { p: { fait: [1, 2] } } } } }));
+    ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: avecXp(xp, { parcours: { p: { fait: [1, 2] } } }) } }));
   }
   erreurFr(await appel(cercleGet), 401);
   erreurFr(await appel(cercleGet, { jeton: `${a.id}.${'z'.repeat(32)}` }), 401);
@@ -9988,7 +10351,7 @@ test('vie privée : aucune route publique ne liste les joueurs ni ne renvoie d�
   const a = await creerCompte('Greg');
   const b = await creerCompte('Bea');
   db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(a.id, b.id);
-  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: { xp: 10 } } }));
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: avecXp(10) } }));
   const hashes = lignes('SELECT mdp_hash, secours_hash FROM joueurs').flatMap((x) => [x.mdp_hash, x.secours_hash]);
   const lectures = [
     [cercleGet, { jeton: a.jeton }], [amisGet, { jeton: a.jeton }], [compteGet, { jeton: a.jeton }], [progressionGet, { jeton: a.jeton }],
