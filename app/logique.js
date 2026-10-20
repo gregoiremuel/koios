@@ -157,7 +157,7 @@
     { id: "lecons-50", nom: "50" + N + "leçons", icone: "livres", teinte: "t1", cle: "lecons", cible: 50, condition: "Termine 50" + N + "leçons." },
     { id: "lecons-200", nom: "200" + N + "leçons", icone: "diplome", teinte: "t5", cle: "lecons", cible: 200, condition: "Termine 200" + N + "leçons." },
     { id: "module-1", nom: "Premier module", icone: "chemin", teinte: "t5", cle: "modules", cible: 1, condition: "Termine toutes les leçons d’un module." },
-    { id: "bases", nom: "Bases terminées", icone: "verifie", teinte: "t2", cle: "bases", cible: 1, condition: "Termine tous les modules du niveau Bases d’une formation." },
+    { id: "bases", nom: "Novice terminé", icone: "verifie", teinte: "t2", cle: "bases", cible: 1, condition: "Termine tous les modules du niveau Novice d’une formation." },
     { id: "serie-3", nom: "Série de 3" + N + "jours", icone: "eclair", teinte: "t3", cle: "serie", cible: 3, condition: "Sois actif 3" + N + "jours de suite (leçon, révision, quiz ou question du jour)." },
     { id: "serie-7", nom: "Série de 7" + N + "jours", icone: "sablier", teinte: "t6", cle: "serie", cible: 7, condition: "Sois actif 7" + N + "jours de suite." },
     { id: "serie-30", nom: "Série de 30" + N + "jours", icone: "trophee", teinte: "t4", cle: "serie", cible: 30, condition: "Sois actif 30" + N + "jours de suite." },

@@ -5,7 +5,7 @@
   var F = " ", N = " ";
   var SUGGESTIONS = ["La Vendée", "Les volcans", "Le cinéma de Kubrick", "La philosophie stoïcienne", "Les fonds marins"];
   var XP = { palier: 10, verif: 5, quiz: 5, defi: 10, jeu: 2 };
-  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40, variantes: 15, variantesTotal: 150, signalements: 5 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js, quiz-general.js (un bloc = 10 questions) et variante.js
+  var LIMITES = { formations: 10, lecons: 30, quizDirect: 10, formationsTotal: 80, leconsTotal: 300, blocs: 25, blocsTotal: 150, prolonger: 5, prolongerTotal: 40, signalements: 5 }; // par jour : voir functions/api/parcours.js, palier.js, quiz-direct.js, quiz-general.js (un bloc = 10 questions)
   var L = window.Logique; // règles pures : révision espacée, jours actifs, badges, cours vérifiés (app/logique.js)
 
   /* ---------- Mémoire locale ---------- */
@@ -14,6 +14,7 @@
     ecrire: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* mémoire seule */ } }
   };
   var profil = S.lire("koios.profil", null);
+  try { localStorage.removeItem("koios.profondeur"); } catch (e) { /* mémoire seule */ } // lot 11 : plus de mode « Essentiel », l'ancien réglage est ignoré et retiré
   try { localStorage.removeItem("koios.admin"); } catch (e) { /* mémoire seule */ } // la clé admin ne reste plus sur le téléphone : le rôle admin est porté par le compte
   var etat = S.lire("koios.etat", null);
   var toutNeuf = !etat; // première visite : les premiers badges sont annoncés
@@ -178,7 +179,7 @@
     var c = cle || (profil && profil.id ? profil.id + "." + profil.cle : null);
     if (c) h.Authorization = "Bearer " + c;
     var perso = cleIA();
-    if (perso && ((methode === "POST" && /^(parcours|variante|quiz-general|question)(\?|$)/.test(chemin)) || (methode === "GET" && /^palier\?/.test(chemin)))) h["x-cle-ia"] = perso.f + ":" + perso.c;
+    if (perso && ((methode === "POST" && /^(parcours|quiz-general|question)(\?|$)/.test(chemin)) || (methode === "GET" && /^palier\?/.test(chemin)))) h["x-cle-ia"] = perso.f + ":" + perso.c;
     if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
     return fetch("/api/" + chemin, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined, signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { clearTimeout(t); if (!r.ok) { var e = new Error(j.erreur || ("Erreur " + r.status)); e.statut = r.status; throw e; } return j; }); },
@@ -391,7 +392,7 @@
   function formationComplete(p) { return parProgramme(p) && (p.etapes || []).length >= (p.modulesTotal || 0); } // tous les modules sont ouverts
   function fini(p) { return (p.verifie || formationComplete(p)) && suivi(p.id).fait >= paliersPrevus(p); }
   /* Une photo gardée n'est conservée que si elle vient de la requête actuelle du parcours (sinon une ancienne photo hors sujet resterait). */
-  /* Modules finis et niveau Bases fini d'une formation par niveaux, d'après les leçons faites (pour les badges). Jamais à la baisse. */
+  /* Modules finis et premier niveau (Novice) fini d'une formation par niveaux, d'après les leçons faites (pour les badges). Jamais à la baisse. */
   function majModules(p, s) {
     if (!parProgramme(p)) return;
     var ouverts = {}, mods = 0, bases = 0;
@@ -1059,12 +1060,6 @@
     });
     return attendre;
   }
-  /* Profondeur d'une formation par niveaux : « complet » (par défaut) ou « essentiel » (les modules marqués par le programme, environ 40 %).
-     Réglage d'affichage gardé sur ce téléphone : les verrous, l'XP, la progression et les numéros de leçons ne changent pas (les leçons
-     s'enchaînent toujours dans l'ordre ; un module masqué apparaît quand c'est ton tour). Les anciens programmes n'ont pas de module essentiel. */
-  function aEssentiel(p) { return parProgramme(p) && p.programme.niveaux.some(function (n) { return n.modules.some(function (m) { return m.essentiel === true; }); }); }
-  function profondeur(p) { var r = S.lire("koios.profondeur", {}); return aEssentiel(p) && r && r[p.id] === "essentiel" ? "essentiel" : "complet"; }
-  function fixerProfondeur(p, v) { var r = S.lire("koios.profondeur", {}); if (!r || typeof r !== "object") r = {}; if (v === "essentiel") r[p.id] = v; else delete r[p.id]; S.ecrire("koios.profondeur", r); }
   /* Génération de nuit, côté admin : leçons prêtes sur leçons connues d'une formation, et bouton pour tout mettre en file. Rien n'apparaît sans clé admin valable. */
   function afficherAdminFormation(p, zone, j) {
     zone.textContent = "";
@@ -1139,20 +1134,6 @@
       if (profil && profil.role === "admin" && parProgramme(p) && !p.verifie) {
         api("GET", "admin?parcours=" + encodeURIComponent(p.id), null, 10000).then(function (j) { if (vive()) afficherAdminFormation(p, zoneAdmin, j); }, function () { /* pas de clé valable, ou hors ligne : rien à montrer */ });
       }
-      var zoneProfondeur = null;
-      if (aEssentiel(p) && !p.verifie) {
-        var segP = el("div", { "class": "onglets", role: "radiogroup", "aria-label": "Profondeur de la formation" });
-        [["essentiel", "Essentiel"], ["complet", "Complet"]].forEach(function (c) {
-          var b = el("button", { type: "button", role: "radio", "aria-checked": profondeur(p) === c[0] ? "true" : "false", text: c[1] });
-          b.addEventListener("click", function () {
-            fixerProfondeur(p, c[0]);
-            segP.querySelectorAll("button").forEach(function (x) { x.setAttribute("aria-checked", x === b ? "true" : "false"); });
-            remplir(ongletCourant);
-          });
-          segP.appendChild(b);
-        });
-        zoneProfondeur = el("div", { "class": "pile serree" }, [segP, el("p", { "class": "meta", text: "Essentiel montre les modules clés, Complet les montre tous. Tes leçons, tes verrous et ton XP restent les mêmes." })]);
-      }
       var ver = null; // la carte « Cours vérifié à la main » est masquée : les 5 chapitres ne sont plus montrés
       var coursVerifie = ver ? el("a", { "class": "cours-verifie", href: "#/p/" + encodeURIComponent(ver.id) }, [icone("verifie"), el("span", { "class": "cv-texte" }, [el("b", { text: "Cours vérifié à la main · " + pluriel(ver.paliers, "chapitre", "chapitres") + " de référence" }), el("span", { "class": "meta", text: "Deux sources par notion. Plus court que cette formation." })]), icone("chevron")]) : null;
       var complet = null;
@@ -1173,7 +1154,6 @@
         coursVerifie,
         zoneAdmin,
         zoneGroupe,
-        zoneProfondeur,
         s.fait >= 1 && !p.verifie ? el("div", { "class": "pile serree" }, [lien("#/dossier/" + encodeURIComponent(p.id), "Dossier de voyage à imprimer", "lien")]) : null,
         tabs, zone
       ]), "accueil", p.titre);
@@ -1234,13 +1214,9 @@
     var prochain = (p.etapes || []).length + 1, actuel = s.fait + 1, courant = 0;
     (p.etapes || []).forEach(function (e) { (e.paliers || []).forEach(function (x) { if (x.numero === actuel) courant = e.numero; }); });
     if (!courant) courant = s.fait >= prevus && prochain <= p.modulesTotal ? prochain : (p.etapes || []).length;
-    var ess = profondeur(p) === "essentiel";
-    /* Essentiel : les modules marqués, plus celui où tu en es et celui qui s'ouvre ensuite (rien ne se verrouille autrement). */
-    function visible(m) { return !ess || m.essentiel === true || m.numero === courant || (m.numero === prochain && s.fait >= prevus); }
-    if (ess) bloc.appendChild(el("p", { "class": "meta", text: "Mode Essentiel" + N + ": les modules clés. Les leçons s’enchaînent toujours dans l’ordre" + N + ": un module masqué apparaît quand c’est ton tour." }));
-    else if (!formationComplete(p)) bloc.appendChild(el("p", { "class": "meta", text: "Les modules s’ouvrent dans l’ordre." }));
+    if (!formationComplete(p)) bloc.appendChild(el("p", { "class": "meta", text: "Les modules s’ouvrent dans l’ordre." }));
     p.programme.niveaux.forEach(function (niv) {
-      var mods = niv.modules.filter(visible);
+      var mods = niv.modules;
       var faits = mods.filter(function (m) { var e = ouverts[m.numero], l = e ? e.paliers || [] : []; return l.length && l[l.length - 1].numero <= s.fait; }).length;
       var total = mods.length;
       var ul = el("ul", { "class": "liste modules" });
@@ -1270,7 +1246,7 @@
         !p.verifie && L.niveauFini(p, niv, s.fait) ? blocTestNiveau(p, s, niv) : null]));
     });
     if (!formationComplete(p)) bloc.appendChild(el("p", { "class": "meta", text: "Les leçons d’un module sont rédigées quand tu l’ouvres, dès que tu as fini le module précédent." }));
-    else if (!p.verifie && !ess) bloc.appendChild(boutonProlonger(p, function () { route(); }));
+    else if (!p.verifie) bloc.appendChild(boutonProlonger(p, function () { route(); }));
     return bloc;
   }
   function ongletQuiz(p, s) {
@@ -1699,68 +1675,6 @@
       p.programme && formationComplete(p) && !p.verifie ? boutonProlonger(p, function () { delete cache["p:" + p.id]; location.hash = base; }) : null,
       lien("#/", "Retour à l’accueil", "btn second")])]), "accueil", "Formation terminée");
   }
-  /* ---------- Versions « Simple » et « Expert » d'une leçon ---------- */
-  var modeLecture = "normal"; // le choix reste pour la session, d'une leçon à l'autre
-  var variantes = {}; // versions déjà reçues : « parcours:leçon:mode » -> promesse
-  var SECTIONS_LECON = ["enBref", "comment", "pourquoi", "ouQuand"];
-  function chargerVariante(parcours, n, mode) {
-    var k = parcours + ":" + n + ":" + mode;
-    if (!variantes[k]) {
-      variantes[k] = pretCompte().then(function () {
-        if (!enLigne()) { var x = new Error("hors ligne"); x.statut = 503; throw x; }
-        return api("POST", "variante", { parcours: parcours, n: n, mode: mode }, 100000);
-      }).then(function (j) { return j.variante; }, function (e) { delete variantes[k]; throw e; });
-    }
-    return variantes[k];
-  }
-  /* Sélecteur « Normal · Simple · Expert » sous le titre d'une leçon. Il remplace le texte des quatre sections (pas leur titre) ; une section
-     que la version n'a pas gardée reste telle quelle. Pas de sélecteur pour un cours vérifié. `apres` est appelé après chaque remplacement. */
-  function selecteurLecture(p, n, secEls, originales, article, apres) {
-    if (verifie(p.id)) return null;
-    var courant = "normal", boutons = {};
-    var seg = el("div", { "class": "onglets", role: "radiogroup", "aria-label": "Niveau de lecture" });
-    [["normal", "Normal"], ["simple", "Simple"], ["expert", "Expert"]].forEach(function (c) {
-      var b = el("button", { type: "button", role: "radio", "aria-checked": c[0] === "normal" ? "true" : "false", text: c[1] });
-      b.addEventListener("click", function () { choisir(c[0]); });
-      boutons[c[0]] = b; seg.appendChild(b);
-    });
-    var statut = el("p", { "class": "attente courte", role: "status", hidden: "" });
-    var info = el("p", { "class": "meta", hidden: "" });
-    var alerte = el("p", { "class": "alerte", role: "status", hidden: "" });
-    function marquer(m) { Object.keys(boutons).forEach(function (k) { boutons[k].setAttribute("aria-checked", k === m ? "true" : "false"); }); }
-    function activer(oui) { Object.keys(boutons).forEach(function (k) { boutons[k].disabled = !oui; }); if (oui) article.removeAttribute("aria-busy"); else article.setAttribute("aria-busy", "true"); statut.hidden = oui; }
-    function poser(secs) {
-      SECTIONS_LECON.forEach(function (cle) {
-        var sec = secEls[cle], t = (secs && secs[cle]) || originales[cle], ancien = sec && sec.querySelector(".texte");
-        if (ancien && t) ancien.replaceWith(texteL(t));
-      });
-      apres();
-    }
-    function choisir(m, auto) {
-      if (m === courant) return;
-      alerte.hidden = true;
-      if (m === "normal") { courant = m; modeLecture = m; marquer(m); poser(null); info.hidden = true; return; }
-      marquer(m);
-      statut.textContent = "Réécriture " + (m === "simple" ? "en version simple" : "en version experte") + "… La première fois, compte jusqu’à une minute.";
-      activer(false);
-      chargerVariante(p.id, n, m).then(function (v) {
-        if (!article.isConnected) return;
-        var vv = v.verification || {};
-        courant = m; modeLecture = m; poser(v.sections);
-        info.textContent = "Version " + (m === "simple" ? "simple" : "experte") + (vv.ia && vv.ia.length > 1 ? " rédigée par l’IA " + vv.ia[0] + " à partir des mêmes sources, puis contrôlée par l’IA " + vv.ia[1] + (vv.retirees ? F + "; " + pluriel(vv.retirees, "phrase non confirmée a été retirée", "phrases non confirmées ont été retirées") + "." : ".") : ".");
-        info.hidden = false;
-        activer(true);
-      }, function (e) {
-        if (!article.isConnected) return;
-        marquer(courant); if (auto) modeLecture = courant;
-        alerte.textContent = e.statut === 401 ? "La réécriture demande ton compte en ligne. Réessaie dans un moment."
-          : messageErreur(e, "Limite du jour" + N + ": " + pluriel(LIMITES.variantes, "version réécrite", "versions réécrites") + " par personne. Les versions déjà écrites restent ouvertes.");
-        alerte.hidden = false;
-        activer(true);
-      });
-    }
-    return { noeud: el("div", { "class": "pile serree lecture" }, [seg, statut, info, alerte]), choisir: choisir };
-  }
   function vuePalier(id, n) {
     var s0 = suivi(id);
     if (n > (s0.fait || 0) + 1) { pageVerrou(id, "Cette leçon s’ouvre après la leçon " + (n - 1) + ".", (s0.fait || 0) + 1); return; }
@@ -1805,6 +1719,9 @@
         }));
       }
       var deja = n <= s.fait;
+      /* Fin de leçon : ce qui vient ensuite, d'après le titre de la leçon suivante quand son module est ouvert. */
+      var suiteT = null; (p.etapes || []).forEach(function (e) { (e.paliers || []).forEach(function (x) { if (x.numero === n + 1) suiteT = x.titre; }); });
+      var ensuite = suiteT ? el("p", { "class": "meta ensuite" }, [icone("fleche"), "Ensuite" + N + ": " + suiteT]) : null;
       var finir = el("button", { "class": "btn", type: "button" }, [el("span", { text: deja ? "Leçon suivante" : "Terminer la leçon · +" + XP.palier + N + "XP" }), icone("fleche")]);
       finir.addEventListener("click", function () {
         var s2 = suivi(p.id);
@@ -1840,7 +1757,7 @@
       var blocObjectif = objectifL || rappelL ? el("section", { "class": "objectif-lecon pile serree" }, [titreSection("Objectif", "medaille"), objectifL ? el("p", { "class": "objectif-phrase", text: l.objectif }) : null, rappelL ? el("p", { "class": "meta rappel", text: l.rappel }) : null]) : null;
       var cartesL = blocCartesLecon(p, n, l.cartes);
       var originales = l.sections || {};
-      var secEls = { // les quatre sections réécrites par « Simple » et « Expert » : on remplace leur texte, pas leur titre
+      var secEls = {
         enBref: sectionL("En bref", texteL(originales.enBref), "eclair"),
         comment: sectionL("Comment", texteL(originales.comment), "engrenage"),
         pourquoi: sectionL("Pourquoi", texteL(originales.pourquoi), "aide"),
@@ -1872,26 +1789,23 @@
       // Photo de la leçon : la sienne, sinon une photo libre cherchée sur Commons. Rien n'est réservé tant que l'adresse n'est pas connue.
       var emplacement = el("div", { "class": "emplacement", hidden: "" });
       function poserPhoto(img) { var f = photo(img, "lecon-img", l.titre); if (f) { emplacement.appendChild(f); emplacement.hidden = false; } }
-      var termesLecon = null; // mots déjà définis (glossaire des leçons précédentes), pour souligner aussi le texte réécrit
-      var lecture = selecteurLecture(p, n, secEls, originales, article, function () { if (termesLecon) lierTermes(article, termesLecon, p.id); });
-      /* Voix : les sections et « À retenir » tels qu'ils sont affichés à l'instant (version normale, simple ou experte). Absente si le navigateur ne sait pas lire. */
+      /* Voix : les sections et « À retenir » tels qu'ils sont affichés. Absente si le navigateur ne sait pas lire. */
       var voix = lecteurVoix(function () { return [secEls.enBref, article.querySelector(".retenir"), secEls.comment, article.querySelector(".exemple"), secEls.pourquoi, secEls.ouQuand].filter(Boolean); });
       montrer(el("div", { "class": "page plein " + teinteSujet(p.titre) }, [
         el("div", { "class": "barre-haut" }, [el("a", { "class": "fermer", href: "#/p/" + encodeURIComponent(p.id), "aria-label": "Fermer la leçon" }, [icone("fermer")]), points, puceXP()]),
         el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: p.titre }), filAriane(l, p.id), el("h1", { text: l.titre }),
           el("div", { "class": "meta-lecon" }, [badge(v), el("span", { "class": "meta", text: "Leçon " + n }), minutes ? el("span", { "class": "meta", text: "≈" + N + minutes + N + "min" }) : null]),
-          lecture ? lecture.noeud : null, voix]),
+          voix]),
         emplacement,
         article,
-        verifBloc, finir, rangeeNav,
+        verifBloc, ensuite, finir, rangeeNav,
         p.verifie ? null : blocQuestion(p, n),
         p.verifie ? null : blocSignalement(p, n)
       ]), null, l.titre);
       if (imageOk(l.image)) poserPhoto(l.image);
       else trouverImage(String(l.titre || "").slice(0, 50).trim() + " " + requetePhoto(p), "commons").then(function (img) { if (img && emplacement.isConnected) poserPhoto(img); });
       // Mots déjà définis dans les leçons précédentes : soulignés, avec leur fiche. Sans glossaire, la leçon reste telle quelle.
-      glossaireJusqua(p, n - 1).then(function (termes) { termesLecon = termes; if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
-      if (lecture && modeLecture !== "normal") lecture.choisir(modeLecture, true); // le choix de la session suit d'une leçon à l'autre
+      glossaireJusqua(p, n - 1).then(function (termes) { if (article.isConnected) lierTermes(article, termes, p.id); }, function () {});
     }, function (e) {
       if (!vive()) return;
       if (e.statut === 404 && /^Formation terminée/.test(e.message || "")) { // le serveur dit qu'il n'y a plus de module
@@ -3583,8 +3497,8 @@
     var haut = profil ? entete() : el("div", { "class": "pile serree" }, [el("header", { "class": "haut" }, [marque(true)]), el("a", { "class": "retour-texte", href: "#/accueil" }, [icone("retour"), "Retour"])]);
     var rubriques = el("div", { "class": "aide-rubriques" }, [
       rubriqueAide("livres", "Une formation", [
-        el("p", { text: "Tape un sujet. L’app écrit une formation complète, de zéro jusqu’au niveau expert, en 4 niveaux" + N + ": Bases, Intermédiaire, Avancé, Expert." }),
-        el("p", { text: "Les Bases partent de zéro, sans rien supposer. Chaque niveau a de 5 à 10 modules (6 à 10 pour les Bases), donc de 21 à 40 modules en tout. Chaque module compte 6 à 10 leçons, une seule idée par leçon." }),
+        el("p", { text: "Tape un sujet. L’app écrit une formation complète, de zéro jusqu’au niveau expert, en 4 niveaux" + N + ": Novice, Intermédiaire, Avancé, Expert. Tout monte d’un seul mouvement, du débutant à l’expert." }),
+        el("p", { text: "Le niveau Novice part de zéro, sans rien supposer. Chaque niveau a de 5 à 10 modules (6 à 10 pour Novice), donc de 21 à 40 modules en tout. Chaque module compte 6 à 10 leçons, une seule idée par leçon." }),
         el("p", { text: "Les modules s’ouvrent dans l’ordre et chacun s’appuie sur ceux d’avant. Tu peux relire toutes les leçons déjà faites depuis le sommaire." }),
         el("p", { text: "Si la formation existe déjà, elle s’ouvre, sans être réécrite. Cherche‑la dans la " + guill("Bibliothèque") + " ou en tapant ton sujet." })
       ]),
@@ -3598,7 +3512,7 @@
       rubriqueAide("livre", "Une leçon", [
         el("p", { text: "Une leçon réunit" + N + ":" }),
         listeAide([guill("Avant de commencer") + N + ": un rappel de ce que tu as déjà vu", "l’essentiel en bref", guill("À retenir"), "les explications" + N + ": comment, pourquoi, où et quand", "un exemple", "les définitions", "une frise ou des chiffres", "un moyen de s’en souvenir, quand il y en a un", guill("Tes cartes") + N + ": 2 à 4 cartes à retourner", "les sources, repliées sous " + guill("Sources") + ", à ouvrir si tu veux vérifier", "une question pour vérifier que tu as compris"]),
-        el("p", { text: "Sous le titre, " + guill("Normal") + N + "·" + N + guill("Simple") + N + "·" + N + guill("Expert") + " change le registre du texte (voir " + guill("Explique-moi simplement") + ")." }),
+        el("p", { text: "Une seule façon d’apprendre" + N + ": la leçon. Chaque leçon commence par un rappel de la précédente et finit par ce que tu verras ensuite." }),
         el("p", { text: "Les mots déjà vus sont soulignés" + N + ": touche‑les pour revoir leur définition." }),
         el("p", { text: "Chaque module a sa " + guill("Fiche du module") + N + ": l’essentiel et les définitions des leçons que tu as faites, à relire d’un coup. Elle se construit sans IA." })
       ]),
@@ -3618,16 +3532,7 @@
       ]),
       rubriqueAide("medaille", "Série et badges", [
         el("p", { text: "Un jour compte dans ta série quand tu termines une leçon, une révision, un quiz ou la question du jour. La tuile " + guill("Série") + " montre les jours de suite et la semaine en cours." }),
-        el("p", { text: "Les badges sont dans ton Profil. Chacun se calcule sur ce que tu as vraiment fait" + N + ": leçons terminées, premier module, niveau Bases, séries de 3, 7 et 30" + N + "jours, cartes révisées, premier duel ou salon, première partie en direct, 1" + F + "000" + N + "XP. Les badges obtenus sont en couleur, les autres en gris avec leur condition." })
-      ]),
-      rubriqueAide("ampoule", "Explique-moi simplement", [
-        el("p", { text: "Sous le titre d’une leçon, choisis " + guill("Normal") + ", " + guill("Simple") + " ou " + guill("Expert") + "." }),
-        listeAide([
-          [guill("Simple") + N + ": phrases très courtes, mots courants, une analogie par idée, aucun jargon."],
-          [guill("Expert") + N + ": plus précis, avec les chiffres, les nuances et les débats que disent les sources."],
-          "Le texte de l’en-bref et des explications est réécrit par l’IA à partir de la leçon et de ses sources, puis contrôlé par une 2e IA" + F + "; une phrase non confirmée est retirée. Le reste de la leçon ne change pas.",
-          "Ton choix reste pour la session. Une version déjà écrite s’ouvre tout de suite, pour tout le monde. "
-        ])
+        el("p", { text: "Les badges sont dans ton Profil. Chacun se calcule sur ce que tu as vraiment fait" + N + ": leçons terminées, premier module, niveau Novice, séries de 3, 7 et 30" + N + "jours, cartes révisées, premier duel ou salon, première partie en direct, 1" + F + "000" + N + "XP. Les badges obtenus sont en couleur, les autres en gris avec leur condition." })
       ]),
       rubriqueAide("carnet", "Le glossaire", [
         el("p", { text: "Dans chaque formation, l’onglet Glossaire réunit les mots définis dans les leçons déjà faites. Une recherche t’aide à retrouver un mot." })
@@ -3703,8 +3608,8 @@
       ]),
       rubriqueAide("sablier", "Limites", [
         el("p", { text: "Une leçon nouvelle peut prendre jusqu’à une minute la première fois. Ensuite elle s’ouvre tout de suite, pour tout le monde." }),
-        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale. Tu peux aussi prolonger " + pluriel(LIMITES.prolonger, "formation", "formations") + " avec " + guill("Aller plus loin") + " et demander " + pluriel(LIMITES.variantes, "version simple ou experte", "versions simples ou expertes") + " de leçons." }),
-        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + ", " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " et " + pluriel(LIMITES.variantesTotal, "version réécrite", "versions réécrites") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
+        el("p", { text: "Chaque jour, une personne peut lancer " + pluriel(LIMITES.formations, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.lecons, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.quizDirect, "nouveau quiz direct", "nouveaux quiz directs") + " et " + pluriel(LIMITES.blocs, "nouveau bloc de 10 questions", "nouveaux blocs de 10 questions") + " pour le quiz de culture générale. Tu peux aussi prolonger " + pluriel(LIMITES.prolonger, "formation", "formations") + " avec " + guill("Aller plus loin") + "." }),
+        el("p", { text: "Pour tout le monde ensemble, la limite est de " + pluriel(LIMITES.formationsTotal, "nouvelle formation", "nouvelles formations") + ", " + pluriel(LIMITES.leconsTotal, "nouvelle leçon", "nouvelles leçons") + ", " + pluriel(LIMITES.blocsTotal, "nouveau bloc de questions", "nouveaux blocs de questions") + " et " + pluriel(LIMITES.prolongerTotal, "prolongement", "prolongements") + " par jour. Une fois ce plafond atteint, reviens le lendemain." }),
         el("p", { text: "Ce qui est déjà écrit reste ouvert pour tout le monde, sans compter dans ces limites. La question du jour et le tournoi sont écrits une seule fois pour tous et ne comptent pas dans tes limites." }),
         el("p", { text: "Jeu en direct" + N + ": jusqu’à 12 joueurs, mise à jour toutes les 2 secondes. Un groupe de formation compte aussi 12 membres au plus." }),
         el("p", { text: "L’IA peut se tromper." })

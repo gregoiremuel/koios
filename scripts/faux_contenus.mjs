@@ -278,15 +278,13 @@ export function programmeSimule(demande) {
   const module = (t) => {
     const k = titres.indexOf(t);
     const prerequis = k === 0 ? [] : k % 4 === 3 && k > 1 ? [titres[k - 1], titres[k - 2]] : [titres[k - 1]];
-    // Une leçon sur 5 environ est marquée « essentiel » (les deux premiers modules de chaque niveau au moins : le serveur complète).
-    const essentiel = k % 5 === 0 || k % 5 === 2;
-    return { titre: t, objectif: objectif(t), prerequis, ...(essentiel ? { essentiel: true } : {}) };
+    return { titre: t, objectif: objectif(t), prerequis };
   };
   return {
     resume: f.resume,
     motImage: f.motImage,
     niveaux: [
-      { titre: 'Bases : les repères', modules: titres.slice(0, 6).map(module) },
+      { titre: 'Novice : les repères', modules: titres.slice(0, 6).map(module) },
       { titre: 'Intermédiaire : relier les notions', modules: titres.slice(6, 11).map(module) },
       { titre: 'Avancé : cas et débats', modules: titres.slice(11, 16).map(module) },
       { titre: 'Expert : sources et limites', modules: titres.slice(16, 21).map(module) },
@@ -412,23 +410,6 @@ export function quizSimule(demande) {
     `Cette affirmation vient du serveur local, qui n’écrit aucun fait réel ; seul le verdict ${i === 1 ? 'vrai' : 'faux'} sert à essayer l’écran.`,
   ));
   return { questions: [...qcms, ...vfs] };
-}
-
-// --- Variante d'une leçon (simple ou expert) ---------------------------------
-
-// Réécrit chaque section du texte actuel donné par la demande : la phrase est reprise avec une tournure du mode
-// (simulé : c'est l'écran qu'on essaie, pas le style). Les sections absentes du texte actuel restent null.
-export function varianteSimulee(demande) {
-  const mode = premier(/Mode demandé : (\w+)/, demande, 'simple');
-  const debut = mode === 'expert' ? 'Plus précisément, ' : 'En clair, ';
-  const sections = { enBref: null, comment: null, pourquoi: null, ouQuand: null };
-  for (const ligne of demande.split('\n')) {
-    const m = /^[^\n(]+ \(clé (enBref|comment|pourquoi|ouQuand)\) : (.*)$/.exec(ligne);
-    if (!m) continue;
-    const phrases = m[2].split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«“"(0-9])/u).filter(Boolean);
-    sections[m[1]] = phrases.map((p, i) => (i === 0 ? debut + p.charAt(0).toLowerCase() + p.slice(1) : p));
-  }
-  return { sections };
 }
 
 // --- Vérification ----------------------------------------------------------

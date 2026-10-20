@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
@@ -51,7 +51,7 @@ import {
 } from '../lib/images.js';
 import {
   FORMAT_LECON, EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
-  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION, CONSIGNES_VARIANTE, validerVariante,
+  PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION, titresProches,
   TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, nombresSoutenus, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
   validerMoitieA, validerMoitieB, validerRedaction, validerVerification,
@@ -59,7 +59,6 @@ import {
 } from '../lib/paliers.js';
 import '../app/logique.js';
 import { TYPES_VISUELS, anneeDe, aplatirVisuel, validerVisuel, validerVisuels } from '../lib/visuels.js';
-import { onRequestPost as variantePost } from '../functions/api/variante.js';
 import worker from '../worker.js';
 import {
   CONSIGNE_DOCUMENTS, CONSIGNE_VERIF_DOCUMENTS, brouillonVide,
@@ -2083,7 +2082,7 @@ function scenario(parts) {
     [PROMPT_PROGRAMME]: 'programme', [PROMPT_PROGRAMME_COURT]: 'programme2', [PROMPT_MODULE]: 'module', [PROMPT_LECON]: 'lecon',
     // Une leçon = deux moitiés (A : « lecon », B : « leconB »), chacune avec sa version courte (« leconA2 », « leconB2»).
     [PROMPT_LECON_A]: 'lecon', [PROMPT_LECON_B]: 'leconB', [PROMPT_LECON_A_COURT]: 'leconA2', [PROMPT_LECON_B_COURT]: 'leconB2',
-    [PROMPT_PROLONGER]: 'prolonger', [PROMPT_VARIANTE]: 'variante', [PROMPT_QUESTION]: 'question', [PROMPT_VERIFICATION_STRICTE]: 'verif', [PROMPT_PERTINENCE]: 'pertinence',
+    [PROMPT_PROLONGER]: 'prolonger', [PROMPT_QUESTION]: 'question', [PROMPT_VERIFICATION_STRICTE]: 'verif', [PROMPT_PERTINENCE]: 'pertinence',
   })[systeme] || 'inconnu';
   // Sans réponse prévue pour une étape : « programme2 » reprend « programme » ; « leconB », « leconA2 » et « leconB2 » reprennent « lecon ».
   const repli = { programme2: 'programme', leconB: 'lecon', leconA2: 'lecon', leconB2: 'lecon' };
@@ -3458,14 +3457,14 @@ test('prompts du programme, du module et de la leçon : JSON strict, 4 niveaux, 
       assert.ok(norme(prompt).includes(norme(mot)), mot);
     }
   }
-  // Programme : 4 niveaux dans l'ordre, 6 à 10 modules en Bases et 5 à 10 ailleurs, « Qu’est-ce que… » d'abord, prérequis, resume et motImage.
+  // Programme : 4 niveaux dans l'ordre, 6 à 10 modules en Novice et 5 à 10 ailleurs, « Qu’est-ce que… » d'abord, prérequis, resume et motImage.
   assert.ok(PROMPT_PROGRAMME.includes(JSON.stringify(EXEMPLE_PROGRAMME)));
-  for (const t of ['Exactement 4 niveaux', 'Bases, Intermédiaire, Avancé, Expert', 'Bases compte de 6 à 10 modules', 'Avancé et Expert comptent chacun de 5 à 10 modules',
+  for (const t of ['Exactement 4 niveaux', 'Novice, Intermédiaire, Avancé, Expert', 'Novice compte de 6 à 10 modules', 'Avancé et Expert comptent chacun de 5 à 10 modules',
     'plus pour un sujet vaste, moins pour un sujet étroit', 'Qu’est-ce que <le sujet> ?', 'UNE notion fondamentale', 'sans aucune connaissance', 'Progression stricte',
     'prerequis', 'de 0 à 3 titres de modules PRÉCÉDENTS', '6 à 10 leçons', '20 à 160 caractères', '3 à 60 caractères', '3 à 40 caractères', 'resume', 'motImage', 'anglais']) {
     assert.ok(PROMPT_PROGRAMME.includes(t), t);
   }
-  // Module : 6 à 10 leçons, micro-étapes en Bases, programme et titres publiés fournis par le message.
+  // Module : 6 à 10 leçons, micro-étapes en Novice, programme et titres publiés fournis par le message.
   assert.ok(PROMPT_MODULE.includes(JSON.stringify(EXEMPLE_MODULE)));
   for (const t of ['6 à 10 titres', 'lecons', 'Ne répète aucun titre déjà publié', 'définitions et les repères essentiels', 'UNE idée par leçon', 'micro-étapes très progressives', 'Maîtrise']) assert.ok(PROMPT_MODULE.includes(t), t);
   // Leçon : mêmes règles que le palier, plus à retenir, moyen mnémotechnique, termes déjà définis, ton du niveau.
@@ -3481,7 +3480,7 @@ test('prompts du programme, du module et de la leçon : JSON strict, 4 niveaux, 
   assert.ok(PROMPT_PROLONGER.includes(JSON.stringify(EXEMPLE_PROLONGEMENT)));
   for (const t of ['3 à 5 NOUVEAUX modules', 'Maîtrise', 'Ne répète RIEN', 'plus loin en précision', 'titres de toutes les leçons déjà publiées', 'modules']) assert.ok(PROMPT_PROLONGER.includes(t), t);
   assert.equal(TON_NIVEAU.length, 5);
-  assert.match(TON_NIVEAU[1], /^Bases : pars de zéro\..*Définis tout mot technique\. Phrases très simples/);
+  assert.match(TON_NIVEAU[1], /^Novice : pars de zéro\..*Définis tout mot technique\. Phrases très simples/);
   assert.match(TON_MAITRISE, /^Maîtrise : va plus loin que le niveau expert/);
   assert.equal(tonDuNiveau(4), TON_NIVEAU[4]);
   assert.equal(tonDuNiveau(5), TON_MAITRISE);
@@ -3502,7 +3501,7 @@ test('prompts du programme, du module et de la leçon : JSON strict, 4 niveaux, 
   assert.equal(MESSAGE_FIN, 'Formation terminée : tu as fait le tour de ce sujet.');
 });
 
-test('validerProgramme : 4 niveaux, 6 à 10 modules en Bases et 5 à 10 ailleurs, titres et objectifs aux bonnes longueurs, aucun titre en double ; modules numérotés ; prérequis', async () => {
+test('validerProgramme : 4 niveaux, 6 à 10 modules en Novice et 5 à 10 ailleurs, titres et objectifs aux bonnes longueurs, aucun titre en double ; modules numérotés ; prérequis', async () => {
   const modif = (fn) => { const b = programmeBrut(); fn(b); return validerProgramme(b); };
   const modulesDe5 = (n, pre = 'Module de test') => Array.from({ length: n }, (_, i) => ({ titre: `${pre} ${i}`, objectif: 'Un objectif assez long pour être valide.' }));
   const ok = validerProgramme(programmeBrut());
@@ -3523,13 +3522,13 @@ test('validerProgramme : 4 niveaux, 6 à 10 modules en Bases et 5 à 10 ailleurs
   refus(modif((b) => { b.niveaux[1].titre = 'ab'; }), 'titre de niveau trop court');
   refus(modif((b) => { b.niveaux[1].titre = 'x'.repeat(41); }), 'titre de niveau trop long');
   refus(modif((b) => { b.niveaux[1].titre = b.niveaux[0].titre.toUpperCase(); }), 'titres de niveau en double');
-  // Bornes par niveau : Bases 6 à 10, Intermédiaire, Avancé et Expert 5 à 10.
-  refus(modif((b) => { b.niveaux[0].modules.pop(); }), 'Bases : 5 modules');
+  // Bornes par niveau : Novice 6 à 10, Intermédiaire, Avancé et Expert 5 à 10.
+  refus(modif((b) => { b.niveaux[0].modules.pop(); }), 'Novice : 5 modules');
   refus(modif((b) => { b.niveaux[2].modules.pop(); }), 'Avancé : 4 modules');
   refus(modif((b) => { b.niveaux[3].modules.length = 0; }), 'Expert : aucun module');
   refus(modif((b) => { b.niveaux[2].modules = modulesDe5(11); }), 'Avancé : 11 modules');
-  refus(modif((b) => { b.niveaux[0].modules = modulesDe5(11, 'Base'); }), 'Bases : 11 modules');
-  assert.equal(modif((b) => { b.niveaux[0].modules = modulesDe5(10, 'Base'); }).valeur.niveaux[0].modules.length, 10, 'Bases : 10 modules');
+  refus(modif((b) => { b.niveaux[0].modules = modulesDe5(11, 'Base'); }), 'Novice : 11 modules');
+  assert.equal(modif((b) => { b.niveaux[0].modules = modulesDe5(10, 'Base'); }).valeur.niveaux[0].modules.length, 10, 'Novice : 10 modules');
   assert.equal(modif((b) => { b.niveaux[3].modules = modulesDe5(10, 'Expert'); }).valeur.niveaux[3].modules.length, 10, 'Expert : 10 modules');
   assert.equal(modif((b) => { b.niveaux[1].modules = modulesDe5(5, 'Inter'); }).valeur.niveaux[1].modules.length, 5, 'Intermédiaire : 5 modules');
   refus(modif((b) => { b.niveaux[0].modules[0].titre = 'ab'; }), 'titre de module trop court');
@@ -3765,7 +3764,7 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   assert.deepEqual(p.programme.niveaux.map((n) => n.numero), [1, 2, 3, 4]);
   assert.deepEqual(p.programme.niveaux.map((n) => n.titre.replace('\u00a0', ' ')), EXEMPLE_PROGRAMME.niveaux.map((n) => n.titre), 'espace insécable avant « : »');
   assert.deepEqual(Object.keys(p.programme.niveaux[0]), ['numero', 'titre', 'modules']);
-  assert.deepEqual(Object.keys(p.programme.niveaux[0].modules[0]), ['numero', 'titre', 'objectif', 'prerequis', 'essentiel']);
+  assert.deepEqual(Object.keys(p.programme.niveaux[0].modules[0]), ['numero', 'titre', 'objectif', 'prerequis']);
   assert.deepEqual(p.programme.niveaux.flatMap((n) => n.modules.map((m) => m.numero)), nombres(1, NB_MODULES));
   assert.deepEqual(p.programme.niveaux[1].modules[0], { numero: 7, ...EXEMPLE_PROGRAMME.niveaux[1].modules[0] });
   assert.deepEqual(p.programme.niveaux[0].modules[1].prerequis, [TITRE_MODULE_1], 'prérequis typographiés comme les titres');
@@ -3799,9 +3798,9 @@ test('parcours POST : création sans GLM (Llama écrit programme et module 1, im
   assert.ok(demande.length < 6000 * 2 + 1200, 'au plus 6 000 caractères par langue');
   assert.equal(mod.entree.messages[0].content, PROMPT_MODULE);
   const m1 = mod.entree.messages[1].content;
-  assert.match(m1, /Programme d’ensemble :\nNiveau 1 · Bases : les repères\n  Module 1 · Qu’est-ce que la tour Eiffel \? \(module à écrire\)\n  Module 2 · Le vocabulaire de la tour\n/);
+  assert.match(m1, /Programme d’ensemble :\nNiveau 1 · Novice : les repères\n  Module 1 · Qu’est-ce que la tour Eiffel \? \(module à écrire\)\n  Module 2 · Le vocabulaire de la tour\n/);
   assert.match(m1, /Module à écrire : n° 1, « Qu’est-ce que la tour Eiffel \? »/);
-  assert.match(m1, /Niveau : n° 1, « Bases : les repères »/);
+  assert.match(m1, /Niveau : n° 1, « Novice : les repères »/);
   assert.match(m1, /Objectif du module : Dire ce qu’est la tour/);
   assert.ok(!m1.includes('Prérequis du module'), 'le module 1 n’a aucun prérequis');
   assert.ok(!m1.includes('déjà publiés'), 'aucun titre publié pour le module 1');
@@ -3945,7 +3944,7 @@ test('parcours POST : la typographie française est appliquée au programme et �
   toutVoir();
   const j = await creerJoueur();
   const brut = programmeBrut();
-  brut.niveaux[0].titre = 'Bases : les repères';
+  brut.niveaux[0].titre = 'Novice : les repères';
   brut.niveaux[0].modules[1].objectif = 'Comprendre pourquoi la tour est bâtie : pour l’Exposition de 1889 ?';
   const mod = moduleBrut();
   mod.lecons[1] = 'Où et quand : un lieu ?';
@@ -3953,7 +3952,7 @@ test('parcours POST : la typographie française est appliquée au programme et �
   const r = await appel(parcoursPost, { env: envDe(sc), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
   ok200(r);
   const p = r.corps.parcours;
-  assert.equal(p.programme.niveaux[0].titre, 'Bases : les repères');
+  assert.equal(p.programme.niveaux[0].titre, 'Novice : les repères');
   assert.equal(p.programme.niveaux[0].modules[1].objectif, 'Comprendre pourquoi la tour est bâtie : pour l’Exposition de 1889 ?');
   assert.equal(p.etapes[0].paliers[1].titre, 'Où et quand : un lieu ?');
 });
@@ -4494,7 +4493,7 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   const p = r.corps.palier;
   assert.deepEqual(Object.keys(p), CLES_LECON);
   assert.deepEqual([p.id, p.parcours, p.numero, p.etape, p.titre], ['la-tour-eiffel:1', 'la-tour-eiffel', 1, 1, EXEMPLE_MODULE.lecons[0]]);
-  assert.deepEqual(p.niveau, { numero: 1, titre: 'Bases : les repères' });
+  assert.deepEqual(p.niveau, { numero: 1, titre: 'Novice : les repères' });
   assert.deepEqual(p.module, { numero: 1, titre: TITRE_MODULE_1 });
   assert.deepEqual(p.aRetenir, EXEMPLE_LECON.aRetenir);
   assert.deepEqual(p.avant, EXEMPLE_LECON.avant);
@@ -4513,7 +4512,7 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   assert.match(ecritureB.entree.messages[1].content, /Écris la partie B de la leçon en JSON : seulement les champs demandés\.$/);
   const demande = ecriture.entree.messages[1].content;
   assert.match(demande, /Parcours : « La tour Eiffel »/);
-  assert.match(demande, /Niveau n° 1 : « Bases\s: les repères »\nConsigne de ton : Bases : pars de zéro\. Le lecteur ne connaît rien au sujet\. Définis tout mot technique\. Phrases très simples/);
+  assert.match(demande, /Niveau n° 1 : « Novice\s: les repères »\nConsigne de ton : Novice : pars de zéro\. Le lecteur ne connaît rien au sujet\. Définis tout mot technique\. Phrases très simples/);
   assert.match(demande, /Module n° 1 : « Qu’est-ce que la tour Eiffel.\? »\nObjectif du module : Dire ce qu’est la tour/);
   assert.ok(!demande.includes('Prérequis du module'), 'aucun prérequis pour le module 1');
   assert.match(demande, /C’est la toute première leçon de la formation/);
@@ -5137,7 +5136,7 @@ test('programme : si le programme complet échoue (délai, illisible), un progra
   toutVoir();
   const j = await creerJoueur();
   const post = (sc, extra = {}) => appel(parcoursPost, { env: envDe(sc, extra), methode: 'POST', jeton: j.jeton, corps: { titre: 'La tour Eiffel' } });
-  assert.ok(PROMPT_PROGRAMME_COURT.includes('Programme court : Bases compte exactement 6 modules') && !PROMPT_PROGRAMME_COURT.includes('Bases compte de 6 à 10'));
+  assert.ok(PROMPT_PROGRAMME_COURT.includes('Programme court : Novice compte exactement 6 modules') && !PROMPT_PROGRAMME_COURT.includes('Novice compte de 6 à 10'));
   assert.ok(PROMPT_PROGRAMME_COURT.includes(JSON.stringify(EXEMPLE_PROGRAMME)));
   // Programme complet illisible : le court réussit, avec le même rédacteur.
   const sc = scenario({ ...partiesStandard(), programme: ['Désolé, je ne peux pas.'], programme2: [programmeBrut()] });
@@ -5233,7 +5232,7 @@ test('prolonger : 3 à 5 modules d’un niveau « Maîtrise 1 » ajoutés au pro
   assert.deepEqual(sc.appels.map((a) => [a.etape, a.via, a.modele]), [['prolonger', 'ai', LLAMA]]);
   assert.equal(sc.appels[0].entree.messages[0].content, PROMPT_PROLONGER);
   const demande = sc.appels[0].entree.messages[1].content;
-  assert.match(demande, /Programme existant \(21 modules\) :\nNiveau 1 · Bases : les repères\n/);
+  assert.match(demande, /Programme existant \(21 modules\) :\nNiveau 1 · Novice : les repères\n/);
   assert.match(demande, /Niveau 4 · Expert : sources et limites\n/);
   assert.match(demande, /Titres des 105 leçons déjà publiées, à ne pas répéter :\n- Leçon 1 du module 1\n/);
   assert.ok(demande.includes('- Leçon 105 du module 21') && demande.includes('- Leçon 53 du module 11'));
@@ -5262,7 +5261,7 @@ test('prolonger : 3 à 5 modules d’un niveau « Maîtrise 1 » ajoutés au pro
   assert.match(msgMod, /Prérequis du module \(déjà vus\) : « Le projet et ses auteurs », « Les archives de l’entreprise »/);
   const msgLecon = sc3.par('lecon')[0].entree.messages[1].content;
   assert.match(msgLecon, /Niveau n° 5 : « Maîtrise 1 »\nConsigne de ton : Maîtrise : va plus loin que le niveau expert/);
-  assert.ok(!msgLecon.includes('Consigne de ton : Bases'), 'jamais le ton des Bases pour un niveau Maîtrise');
+  assert.ok(!msgLecon.includes('Consigne de ton : Novice'), 'jamais le ton des Novice pour un niveau Maîtrise');
   assert.equal(sc3.par('module')[0].entree.messages[0].content, PROMPT_MODULE);
   // Formation terminée seulement quand les trois modules sont ouverts.
   ouvrirTout('prog');
@@ -5330,7 +5329,7 @@ test('prolonger : 5 par jour et par lecteur, 40 par jour au total ; le refus d�
   const j = await creerJoueur();
   const autre = await creerJoueur('Autre');
   insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 21, lecons: 5 });
-  const nouveau = (i) => ({ modules: [1, 2, 3].map((k) => ({ titre: `Module ${i}-${k} de maîtrise`, objectif: 'Un objectif assez long pour être valide.', prerequis: [] })) });
+  const nouveau = (i) => ({ modules: [1, 2, 3].map((k) => ({ titre: `${['Arcs', 'Poutres', 'Câbles'][k - 1]} de série ${['alpha', 'bêta', 'gamma', 'delta', 'epsilon'][i - 1]}`, objectif: 'Un objectif assez long pour être valide.', prerequis: [] })) });
   for (let i = 1; i <= 5; i++) {
     ok200(await prolonger(j.jeton, { id: 'prog', prolonger: true }, scenario({ ...partiesStandard(), prolonger: [nouveau(i)] })));
     ouvrirTout('prog');
@@ -5418,7 +5417,7 @@ test('parcours GET ?q= : recherche dans les titres sans accents ni casse, 30 ré
   const [g, l] = r.corps.parcours;
   assert.deepEqual([g.titre, g.vues, g.paliers, g.lecons, g.modules, g.niveaux.length], ['Gemmologie et joaillerie', 40, 6, 1, 21, 4]);
   assert.deepEqual([l.paliers, l.lecons, l.modules], [10, 3, 21]);
-  assert.deepEqual(g.niveaux[0], { numero: 1, titre: 'Bases : les repères' });
+  assert.deepEqual(g.niveaux[0], { numero: 1, titre: 'Novice : les repères' });
   // Sans accents, sans casse, mots dans le désordre, mot partiel.
   assert.deepEqual((await q('gemologie')).length, 0, 'une faute n’est pas corrigée');
   assert.deepEqual((await q('Pierres PRÉCIEUSES')).map((x) => x.id), ['les-pierres-precieuses']);
@@ -7505,152 +7504,6 @@ test('cours vérifiés : un titre avec le mot clé d’un domaine ouvre ce domai
   for (const [titre, id] of Object.entries(attendu)) assert.equal(L.domaineVerifie(titre), id, titre);
 });
 
-test('variante : prompt, consignes et validation (sections, mode simple plus court)', () => {
-  assert.match(PROMPT_VARIANTE, /UN SEUL objet JSON strict/);
-  assert.match(PROMPT_VARIANTE, /n’utilise QUE les faits des extraits fournis/);
-  const design = readFileSync(new URL('../DESIGN.md', import.meta.url), 'utf8');
-  const mots = design.split('\n').find((l) => l.startsWith('- Mots :')).replace('- Mots :', '').replace(/\.\s*$/, '').split(',').map((m) => m.trim());
-  const proses = [PROMPT_VARIANTE, ...Object.values(CONSIGNES_VARIANTE)].flatMap((t) => t.split('\n').filter((l) => !l.startsWith('Mots interdits :') && !l.includes('{')));
-  for (const mot of mots) for (const l of proses) assert.ok(!new RegExp('(?<![\\p{L}])' + mot.replace(/[’']/g, '[’\']') + '(?![\\p{L}])', 'iu').test(l), 'mot interdit : ' + mot);
-  const ok = { sections: { enBref: ['La tour est en fer.', 'Elle date de 1889.'], comment: ['On la monte avec des rivets.', 'Il y en a beaucoup.'], pourquoi: null, ouQuand: null } };
-  const r = validerVariante(ok, { mode: 'simple', cles: ['enBref', 'comment'] });
-  assert.ok(r.valeur, r.raison);
-  assert.deepEqual(Object.keys(r.valeur.sections), ['enBref', 'comment', 'pourquoi', 'ouQuand']);
-  const courte = { sections: { enBref: ['Elle est en fer.', 'Elle date.'] } };
-  assert.ok(validerVariante(courte, { mode: 'simple', cles: ['enBref'] }).valeur);
-  assert.ok(validerVariante(courte, { mode: 'expert', cles: ['enBref'] }).raison, 'phrases trop courtes refusées en expert');
-  assert.ok(validerVariante({ sections: { enBref: ['Une seule phrase assez longue.'] } }, { mode: 'simple' }).raison, 'enBref : 2 phrases au moins');
-  const inconnue = { sections: { ...ok.sections, pourquoi: ['Phrase ajoutée en trop.', 'Autre phrase ajoutée.'] } };
-  assert.equal(validerVariante(inconnue, { mode: 'simple', cles: ['enBref', 'comment'] }).valeur.sections.pourquoi, null, 'une section absente de la leçon reste absente');
-});
-
-const varianteBrute = () => ({
-  sections: {
-    enBref: ['La tour Eiffel est une grande tour de fer.', 'Elle se trouve à Paris.'],
-    comment: ['Des ouvriers assemblent le fer avec des rivets.', 'Il y a 2,5 millions de rivets.'],
-    pourquoi: null, ouQuand: null,
-  },
-});
-function insererLeconVariante(parcours = 'la-tour-eiffel') {
-  insererParcours(parcours, { titre: 'La tour Eiffel' });
-  const contenu = {
-    id: `${parcours}:1`, parcours, numero: 1, etape: 1, titre: 'Une tour de fer',
-    sections: { enBref: 'La tour est en fer puddlé. Elle date de 1889.', comment: 'Le fer est assemblé par des rivets. Les pièces sont nombreuses.', pourquoi: null, ouQuand: null },
-    definitions: [{ terme: 'Rivet', definition: 'Tige métallique à tête.' }],
-    sources: [['Wikipédia · Tour Eiffel', 'https://fr.wikipedia.org/wiki/Tour_Eiffel'], ['Wikipedia (en) · Eiffel Tower', 'https://en.wikipedia.org/wiki/Eiffel_Tower']],
-    questions: [],
-  };
-  db.base.prepare('INSERT INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, 1, ?, 0, ?)').run(contenu.id, parcours, JSON.stringify(contenu), '2026-10-19T08:00:00.000Z');
-}
-const postVariante = (j, sc, corps) => { brancher(sc); return appel(variantePost, { env: envDe(sc), methode: 'POST', jeton: j && j.jeton, corps }); };
-const quotasVariante = () => lignes("SELECT cle, n FROM quotas WHERE cle LIKE 'variante%' ORDER BY cle");
-
-test('variante POST : 401, 400 (parcours, v-xx refusé, n, mode), 404, 503 ; rien consommé', async () => {
-  toutVoir();
-  const j = await creerJoueur();
-  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
-  erreurFr(await postVariante(null, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 401);
-  erreurFr(await postVariante(j, sc, { parcours: 'Pas valide!', n: 1, mode: 'simple' }), 400);
-  erreurFr(await postVariante(j, sc, { parcours: 'v-gj', n: 1, mode: 'simple' }), 400, /cours vérifiés/);
-  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 0, mode: 'simple' }), 400);
-  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: '1', mode: 'simple' }), 400);
-  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'normal' }), 400, /simple ou expert/);
-  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 404, /Parcours/);
-  insererParcours('la-tour-eiffel', { titre: 'La tour Eiffel' });
-  erreurFr(await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 404, /Leçon introuvable/);
-  insererLeconVariante('autre-sujet');
-  insererLeconVariante('la-tour-eiffel-2');
-  const sansIA = await appel(variantePost, { env: { DB: db }, methode: 'POST', jeton: j.jeton, corps: { parcours: 'autre-sujet', n: 1, mode: 'simple' } });
-  erreurFr(sansIA, 503);
-  assert.deepEqual(quotasVariante(), []);
-  assert.equal(sc.appels.length, 0);
-});
-
-test('variante POST : réécriture à partir de la leçon et des extraits, vérifiée par la 2e IA, mise en cache', async () => {
-  toutVoir();
-  const j = await creerJoueur();
-  insererLeconVariante();
-  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
-  const r = await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
-  ok200(r);
-  const v = r.corps.variante;
-  assert.deepEqual(Object.keys(v), ['id', 'parcours', 'n', 'mode', 'sections', 'verification']);
-  assert.equal(v.id, 'la-tour-eiffel:1:simple');
-  assert.equal(v.sections.enBref, varianteBrute().sections.enBref.join(' '));
-  assert.equal(v.sections.pourquoi, null);
-  assert.deepEqual(v.verification, { ia: [NOM_LLAMA, NOM_MISTRAL], affirmations: 4, retirees: 0, statut: 'recoupe' });
-  assert.deepEqual(sc.appels.map((a) => [a.etape, a.modele]), [['variante', LLAMA], ['verif', MISTRAL]]);
-  const demande = sc.appels[0].entree.messages[1].content;
-  assert.equal(sc.appels[0].entree.messages[0].content, PROMPT_VARIANTE);
-  assert.match(demande, /Mode demandé : simple/);
-  assert.ok(demande.includes(CONSIGNES_VARIANTE.simple));
-  assert.ok(demande.includes('La tour est en fer puddlé. Elle date de 1889.'), 'le texte actuel de la leçon');
-  assert.ok(demande.includes('Rivet : Tige métallique à tête.'));
-  assert.match(demande, /Extrait 1 · Wikipédia \(fr\), page « Tour Eiffel »/);
-  assert.equal(lignes('SELECT id FROM variantes')[0].id, 'la-tour-eiffel:1:simple');
-  assert.deepEqual(quotasVariante(), [{ cle: 'variante:joueur:' + j.id, n: 1 }, { cle: 'variante:total', n: 1 }]);
-  // En cache : servie à un autre lecteur, sans IA ni quota.
-  const autre = await creerJoueur('Camille');
-  const sc2 = scenario({});
-  const r2 = await postVariante(autre, sc2, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
-  ok200(r2);
-  assert.deepEqual(r2.corps.variante, v);
-  assert.equal(sc2.appels.length, 0);
-  assert.equal(quotasVariante().length, 2);
-  assert.deepEqual(quotasVariante().map((q) => q.n), [1, 1]);
-  // Autre mode : nouvelle ligne, consigne experte.
-  const sc3 = scenario({ variante: [{ sections: { enBref: ['La tour Eiffel mesure 312 mètres à l’origine.', 'Elle est bâtie en fer puddlé.'], comment: ['Chaque pièce est posée avec précision.', 'Les rivets assemblent les pièces.'], pourquoi: null, ouQuand: null } }], verif: [verifNumeros()] });
-  ok200(await postVariante(j, sc3, { parcours: 'la-tour-eiffel', n: 1, mode: 'expert' }));
-  assert.ok(sc3.appels[0].entree.messages[1].content.includes(CONSIGNES_VARIANTE.expert));
-  assert.equal(lignes('SELECT id FROM variantes').length, 2);
-});
-
-test('variante POST : une phrase non confirmée est retirée (statut partiel) ; sans extraits ou rédaction invalide : 502, rien en cache', async () => {
-  toutVoir();
-  const j = await creerJoueur();
-  insererLeconVariante();
-  const sc = scenario({ variante: [varianteBrute()], verif: [verifSi(/2,5 millions/)] });
-  const r = await postVariante(j, sc, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' });
-  ok200(r);
-  assert.equal(r.corps.variante.verification.statut, 'partiel');
-  assert.equal(r.corps.variante.verification.retirees, 1);
-  assert.ok(!r.corps.variante.sections.comment.includes('2,5 millions'));
-  assert.ok(r.corps.variante.sections.comment.includes('rivets'));
-  // Plus de 40 % retiré : nouvelle rédaction (on garde la meilleure).
-  toutVoir();
-  const j2 = await creerJoueur();
-  insererLeconVariante();
-  const sc2 = scenario({ variante: [varianteBrute()], verif: [verifSi(/./), verifNumeros()] });
-  ok200(await postVariante(j2, sc2, { parcours: 'la-tour-eiffel', n: 1, mode: 'expert' }));
-  assert.equal(sc2.par('variante').length, 2);
-  assert.match(sc2.par('variante')[1].entree.messages[1].content, /affirmations introuvables/);
-  // Rien d’utilisable.
-  toutVoir();
-  const j3 = await creerJoueur();
-  insererLeconVariante();
-  const mauvais = scenario({ variante: [{ sections: { enBref: ['Trop court'] } }], verif: [verifNumeros()] });
-  erreurFr(await postVariante(j3, mauvais, { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 502);
-  wiki.pages = {}; wiki.pagesEn = {};
-  erreurFr(await postVariante(j3, scenario({}), { parcours: 'la-tour-eiffel', n: 1, mode: 'simple' }), 502, /sources/);
-  assert.equal(lignes('SELECT id FROM variantes').length, 0);
-});
-
-test('variante POST : 15 par jour et par lecteur, 150 par jour au total (le cache n’en consomme pas)', async () => {
-  toutVoir();
-  const j = await creerJoueur();
-  for (let k = 1; k <= 16; k++) {
-    insererLeconVariante(`sujet-${k}`);
-  }
-  const sc = scenario({ variante: [varianteBrute()], verif: [verifNumeros()] });
-  for (let k = 1; k <= 15; k++) ok200(await postVariante(j, sc, { parcours: `sujet-${k}`, n: 1, mode: 'simple' }));
-  erreurFr(await postVariante(j, sc, { parcours: 'sujet-16', n: 1, mode: 'simple' }), 429, /15 versions/);
-  ok200(await postVariante(j, sc, { parcours: 'sujet-3', n: 1, mode: 'simple' }));
-  const k2 = await creerJoueur('Camille');
-  db.base.prepare("UPDATE quotas SET n = 150 WHERE cle = 'variante:total'").run();
-  erreurFr(await postVariante(k2, sc, { parcours: 'sujet-16', n: 1, mode: 'simple' }), 429, /débordée/);
-  assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'variante:joueur:" + k2.id + "'")[0].n, 1);
-});
-
 // =============================================================================
 // Lot 5 : Gemini rapide, clé personnelle, génération de nuit, bibliothèque, qualité des leçons
 // =============================================================================
@@ -7917,7 +7770,7 @@ test('contenu créé avec une clé perso : visible dans la bibliothèque et lisi
   assert.ok(x, 'visible dans la bibliothèque');
   assert.equal(x.lecons, 1);
   assert.equal(x.ouverts, 1);
-  assert.deepEqual(x.niveauAtteint, { numero: 1, titre: typographierTexte('Bases : les repères') });
+  assert.deepEqual(x.niveauAtteint, { numero: 1, titre: typographierTexte('Novice : les repères') });
   const liste = await appel(parcoursGet, { env: sansIA });
   assert.equal(liste.corps.parcours.find((p) => p.id === 'la-tour-eiffel').lecons, 1);
   const lu = await appel(palierGet, { env: sansIA, jeton: b.jeton, requete: '?parcours=la-tour-eiffel&n=1' });
@@ -7978,7 +7831,7 @@ test('file de nuit : « debloquer » met en file leçons puis modules, dans l’
   assert.deepEqual(d.corps.formation, { id: 'la-tour-eiffel', programme: true, pretes: 0, total: 6, modules: NB_MODULES, ouverts: 1, enFile: attendues });
   const file = lignes('SELECT type, numero FROM file_attente ORDER BY id');
   assert.deepEqual(file.slice(0, 6), [1, 2, 3, 4, 5, 6].map((numero) => ({ type: 'lecon', numero })));
-  assert.deepEqual(file.slice(6, 9), [2, 3, 4].map((numero) => ({ type: 'module', numero })), 'modules dans l’ordre des niveaux : Bases d’abord');
+  assert.deepEqual(file.slice(6, 9), [2, 3, 4].map((numero) => ({ type: 'module', numero })), 'modules dans l’ordre des niveaux : Novice d’abord');
   // Deuxième appel : aucun doublon.
   assert.equal((await poster({ action: 'debloquer', parcours: 'la-tour-eiffel' })).corps.ajoutees, 0);
   assert.equal(lignes('SELECT COUNT(*) AS n FROM file_attente')[0].n, attendues);
@@ -8370,32 +8223,54 @@ test('file : hors de la nuit (0 à 5 h UTC) le cron ne travaille pas, sauf « Tr
 
 // --- D. Bibliothèque et profondeur ---------------------------------------------------
 
-test('programme : « essentiel » facultatif, environ 40 %, au moins 2 par niveau ; anciens programmes inchangés', async () => {
-  const p = validerProgramme(programmeBrut()).valeur;
-  const marques = p.niveaux.map((n) => n.modules.filter((m) => m.essentiel === true).length);
-  assert.ok(marques.every((n) => n >= 2), 'au moins 2 par niveau : ' + marques);
-  const total = marques.reduce((a, b) => a + b, 0);
-  assert.ok(total / NB_MODULES >= 0.3 && total / NB_MODULES <= 0.55, 'environ 40 % : ' + total);
-  assert.ok(p.niveaux.every((n) => n.modules.every((m) => m.essentiel === undefined || m.essentiel === true)), 'jamais essentiel: false');
+test('programme (lot 11) : « essentiel » n’est plus demandé ni gardé ; les anciens programmes restent lisibles', async () => {
+  assert.ok(!/essentiel"/.test(PROMPT_PROGRAMME) && !/Parcours « Essentiel »/.test(PROMPT_PROGRAMME));
+  const brut = programmeBrut();
+  brut.niveaux[0].modules[0].essentiel = true; // une vieille réponse de l'IA : ignorée
+  const p = validerProgramme(brut).valeur;
+  assert.ok(p.niveaux.every((n) => n.modules.every((m) => !('essentiel' in m))));
   assert.deepEqual(modulesDe(p).map((m) => m.numero), Array.from({ length: NB_MODULES }, (_, i) => i + 1), 'les numéros globaux ne changent pas');
-  // L'IA a marqué un seul module : chaque niveau en compte 2 au moins (les premiers du niveau complètent).
-  const peu = programmeBrut();
-  for (const n of peu.niveaux) for (const m of n.modules) delete m.essentiel;
-  peu.niveaux[0].modules[2].essentiel = true;
-  const v = validerProgramme(peu).valeur;
-  assert.deepEqual(v.niveaux.map((n) => n.modules.filter((m) => m.essentiel).length), [2, 2, 2, 2]);
-  assert.deepEqual(v.niveaux[0].modules.map((m) => !!m.essentiel), [true, false, true, false, false, false], 'le marquage de l’IA est gardé, les premiers complètent');
-  // Un ancien programme (aucun marquage) reste tel quel.
-  const ancien = programmeBrut();
-  for (const n of ancien.niveaux) for (const m of n.modules) delete m.essentiel;
-  const a = validerProgramme(ancien).valeur;
-  assert.ok(a.niveaux.every((n) => n.modules.every((m) => !('essentiel' in m))));
-  // « Aller plus loin » : les modules ajoutés ne sont jamais marqués (Complet seulement).
-  const prolonge = prolongementBrut();
-  prolonge.modules[0].essentiel = true;
-  assert.ok(validerProlongement(prolonge, { programme: p }).valeur.niveau.modules.every((m) => !('essentiel' in m)));
-  assert.match(PROMPT_PROGRAMME, /"essentiel": true sur environ 40 % des modules \(au moins 2 par niveau\)/);
-  assert.match(PROMPT_PROGRAMME_COURT, /essentiel/);
+  // Un ancien programme stocké (avec essentiel) se lit toujours : modulesDe garde le champ.
+  const ancien = { niveaux: [{ numero: 1, titre: 'Bases', modules: [{ numero: 1, titre: 'Un', objectif: 'Un objectif.', prerequis: [], essentiel: true }] }] };
+  assert.equal(modulesDe(ancien)[0].essentiel, true);
+});
+
+test('programme (lot 11) : une seule progression, Novice à Expert, sans doublon', () => {
+  for (const t of ['Novice', 'Intermédiaire', 'Avancé', 'Expert', 'Une seule progression', 'repères, vocabulaire, méthodes, cas, maîtrise', 'pour faire joli', 'praticien']) {
+    assert.ok(PROMPT_PROGRAMME.includes(t), t);
+  }
+  assert.ok(PROMPT_PROLONGER.includes('pour faire joli'));
+  assert.ok(PROMPT_MODULE.includes('UN objectif d’apprentissage') && PROMPT_MODULE.includes('pour faire joli'));
+  assert.ok(validerProgramme(programmeBrut()).valeur);
+  // Titre en double à un accent ou à un article près : refusé.
+  const proche = programmeBrut();
+  proche.niveaux[1].modules[0].titre = proche.niveaux[0].modules[1].titre.toUpperCase().replace('LE ', 'Les ').replace('É', 'E');
+  const r = validerProgramme(proche);
+  assert.ok(r.raison && /titre/.test(r.raison), r.raison);
+  assert.ok(titresProches('Les rivets et l’assemblage', 'Rivets & assemblage'));
+  assert.ok(!titresProches('Le fer', 'Le fil'));
+  assert.ok(!titresProches('Le fer', 'Le fer puddlé'));
+  // Niveau croissant : le degré écrit dans le titre doit être celui de sa place.
+  const ordre = programmeBrut();
+  ordre.niveaux[2].titre = 'Novice : à rebours';
+  assert.match(validerProgramme(ordre).raison, /degré/);
+  // Leçons d'un module : bornées, sans titres proches entre elles ni avec les leçons déjà publiées.
+  const titres = ['Le fer', 'Les rivets', 'Le chantier', 'Les fondations', 'Les ouvriers', 'La peinture'];
+  assert.ok(validerModule({ lecons: titres }).valeur);
+  assert.ok(validerModule({ lecons: titres.slice(0, 5) }).raison, 'moins de 6 leçons');
+  assert.ok(validerModule({ lecons: [...titres.slice(0, 5), 'Fondations, les'] }).raison, 'doublon proche dans le module');
+  assert.ok(validerModule({ lecons: titres }, { existants: ['Les ouvriers du chantier'] }).valeur, 'un titre plus long n’est pas un doublon');
+  assert.ok(validerModule({ lecons: titres }, { existants: ['Les rivets !'] }).raison, 'doublon proche d’une leçon publiée');
+});
+
+test('lot 11 : plus de route variante, plus de mode dans l’app, anciens réglages retirés', () => {
+  const lire = (f) => readFileSync(new URL('../' + f, import.meta.url), 'utf8');
+  assert.ok(!existsSync(new URL('../functions/api/variante.js', import.meta.url)));
+  assert.ok(!/variante/.test(lire('worker.js')));
+  const app = lire('app/app.js');
+  for (const m of [/selecteurLecture/, /chargerVariante/, /fixerProfondeur/, /aEssentiel/, /"Essentiel"/, /LIMITES\.variantes/, /"variante"/]) assert.ok(!m.test(app), String(m));
+  assert.match(app, /localStorage\.removeItem\("koios\.profondeur"\)/, 'migration : l’ancien réglage est retiré');
+  assert.ok(!/variante\|/.test(app), 'x-cle-ia ne vise plus variante');
 });
 
 // --- E. Qualité des leçons ------------------------------------------------------------
@@ -8637,7 +8512,7 @@ test('leçon : plus de 20 % retiré -> réécrite une fois avec la liste des err
   assert.ok(!r5.corps.palier.verification.aRevoir);
 });
 
-test('leçon : les prompts interdisent les généralisations ; première leçon « Qu’est-ce que X ? » du niveau Bases : enBref définit X', async () => {
+test('leçon : les prompts interdisent les généralisations ; première leçon « Qu’est-ce que X ? » du niveau Novice : enBref définit X', async () => {
   for (const prompt of [PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_B, PROMPT_PALIER]) {
     assert.match(prompt, /Pas de généralisation/);
     assert.match(prompt, /toutes les pierres/);
@@ -8648,11 +8523,11 @@ test('leçon : les prompts interdisent les généralisations ; première leçon 
   const sc = scenario(partiesStandard());
   ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc));
   const premier = sc.par('lecon')[0].entree.messages[1].content;
-  assert.match(premier, /Consigne de cette leçon : c’est la première leçon d’un module « Qu’est-ce que… » au niveau Bases\. La première phrase de enBref définit « la tour Eiffel » en une phrase simple/);
+  assert.match(premier, /Consigne de cette leçon : c’est la première leçon d’un module « Qu’est-ce que… » au niveau Novice\. La première phrase de enBref définit « la tour Eiffel » en une phrase simple/);
   const second = scenario(partiesStandard());
   ok200(await lirePalier(j, 'la-tour-eiffel', 2, second));
   assert.ok(!second.par('lecon')[0].entree.messages[1].content.includes('Consigne de cette leçon'), 'seulement la première leçon du module');
-  assert.equal(sujetDefini({ numero: 2 }, { titre: 'Qu’est-ce que X ?', paliers: [{ numero: 1 }] }, { numero: 1 }), null, 'seulement le niveau Bases');
+  assert.equal(sujetDefini({ numero: 2 }, { titre: 'Qu’est-ce que X ?', paliers: [{ numero: 1 }] }, { numero: 1 }), null, 'seulement le niveau Novice');
   assert.equal(sujetDefini({ numero: 1 }, { titre: 'Les phares', paliers: [{ numero: 1 }] }, { numero: 1 }), null);
   assert.equal(sujetDefini({ numero: 1 }, { titre: 'Qu’est-ce qu’une gemme ?', paliers: [{ numero: 4 }] }, { numero: 4 }), 'une gemme');
 });
@@ -10267,7 +10142,7 @@ test('limites de création : limite de base + bonus des codes actifs ; sans bonu
 test('limites de création : toutes les routes qui créent avec l’IA passent par quotaJoueur (limite de base + bonus, admin sans limite)', async () => {
   toutVider();
   const source = (f) => readFileSync(new URL('../functions/api/' + f, import.meta.url), 'utf8');
-  for (const f of ['libre.js', 'parcours.js', 'sujet.js', 'chapitre-ia.js', 'palier.js', 'quiz-direct.js', 'quiz-general.js', 'variante.js']) {
+  for (const f of ['libre.js', 'parcours.js', 'sujet.js', 'chapitre-ia.js', 'palier.js', 'quiz-direct.js', 'quiz-general.js']) {
     const texte = source(f);
     assert.ok(/quotaJoueur\(env, joueur, '[a-z]+:joueur:'/.test(texte), f);
     assert.ok(!/await quota\(env, '[a-z]+:joueur:'/.test(texte), f + ' : un quota par joueur échappe aux codes');
@@ -11161,7 +11036,7 @@ test('carte du module (app) : générée sans IA à partir du plan, états fait,
   const plan = {
     titre: 'Gemmologie',
     niveaux: [
-      { titre: 'Bases : les repères', modules: [{ numero: 1, titre: 'A', etat: 'fait' }, { numero: 2, titre: 'B', etat: 'cours' }, { numero: 3, titre: 'C', etat: 'ferme' }] },
+      { titre: 'Novice : les repères', modules: [{ numero: 1, titre: 'A', etat: 'fait' }, { numero: 2, titre: 'B', etat: 'cours' }, { numero: 3, titre: 'C', etat: 'ferme' }] },
       { titre: 'Intermédiaire : la taille', modules: [{ numero: 4, titre: 'D', etat: 'ferme' }, { numero: 5, titre: 'E', etat: 'ferme' }] },
     ],
     courant: { titre: 'B', lecons: [{ numero: 1, fait: true }, { numero: 2, fait: false }, { numero: 3, fait: false }] },
@@ -11176,7 +11051,7 @@ test('carte du module (app) : générée sans IA à partir du plan, états fait,
   assert.deepEqual(cercles, ['v-m v-m-fait', 'v-m v-m-cours', 'v-m v-m-ferme', 'v-m v-m-ferme', 'v-m v-m-ferme', 'v-m v-m-fait', 'v-m v-m-ouvert', 'v-m v-m-ouvert']);
   for (const t of noeuds.filter((n) => n.tag === 'text')) assert.ok(Number(t.attrs['font-size']) >= 14);
   assert.ok(!noeuds.some((n) => n.tag === 'script'));
-  assert.ok(noeuds.some((n) => n.tag === 'text' && n.texte === 'Bases : les repères · 1/3 modules'));
+  assert.ok(noeuds.some((n) => n.tag === 'text' && n.texte === 'Novice : les repères · 1/3 modules'));
   assert.equal(V.carteModule(null), null);
   assert.equal(V.carteModule({ niveaux: [] }), null);
   assert.ok(V.carteModule({ titre: 'x', niveaux: plan.niveaux, courant: null }), 'sans module en cours');

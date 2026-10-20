@@ -128,12 +128,12 @@ Uniquement `transform` et `opacité` (l'anneau de progression et le dépliage d'
 
 Vérification automatique : `python3 scripts/verifier.py` (app) et `python3 scripts/catalogue.py` (contenu vérifié).
 
-## Lot 3c : révision, badges, versions de lecture
+## Lot 3c : révision, badges
 
 - **Révision du jour** (`#/reviser`) : un élément à la fois, carte retournable (voir Carte retournable), deux boutons de 44 px « À revoir » et « Je savais ». Fin : bilan et date de la prochaine révision. Cinq boîtes, 1, 3, 7, 16 et 35 jours.
 - **Badges** : pastille ronde de 56 px teintée (couleur de catégorie, icône Phosphor), obtenu = en couleur, à venir = gris avec la condition. Page `#/badges`, depuis le Profil. Pas d’emoji.
 - **Toast de badge** : petite carte en bas, entrée par `transform` et opacité (250 ms), disparaît seule ; coupée sous `prefers-reduced-motion`.
-- **Sélecteur de lecture** : « Normal · Simple · Expert », groupe de boutons de 44 px sous le titre de la leçon ; attente sobre (barre fine), le choix est gardé pendant la session. Absent pour les cours vérifiés.
+- **Une seule façon d’apprendre (lot 11)** : plus de sélecteur de lecture ni de choix Essentiel / Complet. Tous les modules sont visibles dans l’ordre. En bas d’une leçon, une ligne « Ensuite : <titre de la leçon suivante> » (14 px `--encre-2`, icône « fleche »), seulement si ce titre est connu.
 - **Cours vérifiés (v-xx)** : masqués à l’utilisateur (ni carte, ni formation).
 
 ## Lot 9 : visuels de leçon et piège fréquent

@@ -579,9 +579,10 @@ details.creer-salon[open] summary { margin-bottom: 8px; }
   .attente::before { animation: none !important; }
 }
 
-/* Lot 3c : sélecteur de lecture, badges, toast de badge */
+/* Lot 3c : badges, toast de badge */
 .attente.courte { min-height: 0; padding: 4px 0; }
-.lecture { padding-top: 6px; }
+.ensuite { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.ensuite .i { width: 20px; height: 20px; flex: none; }
 .badge-rond { width: 48px; height: 48px; border-radius: 24px; display: grid; place-items: center; flex: none; background: var(--pale); color: var(--acc); border: 1px solid var(--bord); }
 .badge-rond .i { width: 24px; height: 24px; }
 .badge-rond.gris { background: var(--surface); color: var(--encre-2); border-color: var(--ligne); }

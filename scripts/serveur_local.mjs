@@ -29,11 +29,11 @@ import { fileURLToPath } from 'node:url';
 import worker from '../worker.js';
 import { PROMPT_CHAPITRE, PROMPT_PLAN } from '../lib/sujets.js';
 import {
-  PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROGRAMME_COURT, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION,
+  PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROGRAMME_COURT, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VERIFICATION,
 } from '../lib/paliers.js';
 import { fauxD1 } from './faux_d1.mjs';
 import {
-  PAGES, leconSimulee, moduleSimule, palierSimule, planSimule, programmeSimule, prolongementSimule, quizSimule, trouverPage, varianteSimulee, verificationSimulee,
+  PAGES, leconSimulee, moduleSimule, palierSimule, planSimule, programmeSimule, prolongementSimule, quizSimule, trouverPage, verificationSimulee,
 } from './faux_contenus.mjs';
 
 const RACINE = resolve(fileURLToPath(new URL('../app/', import.meta.url)));
@@ -175,7 +175,6 @@ function reponseDe(systeme, demande) {
   if ([PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_B, PROMPT_LECON_A_COURT, PROMPT_LECON_B_COURT].includes(systeme)) return leconSimulee(demande);
   if (systeme === PROMPT_PALIER) return palierSimule(demande);
   if (systeme === PROMPT_QUIZ) return quizSimule(demande);
-  if (systeme === PROMPT_VARIANTE) return varianteSimulee(demande);
   if (systeme === PROMPT_VERIFICATION) return verificationSimulee(demande);
   throw new Error('demande inconnue du faux modèle');
 }

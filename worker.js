@@ -26,7 +26,6 @@ import * as diagnostic from './functions/api/diagnostic.js';
 import * as tournoi from './functions/api/tournoi.js';
 import * as groupe from './functions/api/groupe.js';
 import * as partie from './functions/api/partie.js';
-import * as variante from './functions/api/variante.js';
 import * as admin from './functions/api/admin.js';
 import * as cleIa from './functions/api/cle-ia.js';
 import * as compte from './functions/api/compte.js';
@@ -40,7 +39,7 @@ const ROUTES = {
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
   parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire, fiche,
-  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, variante, admin, 'cle-ia': cleIa, compte, amis, question, documents,
+  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, admin, 'cle-ia': cleIa, compte, amis, question, documents,
 };
 
 function erreur(statut, message) {

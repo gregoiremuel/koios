@@ -12,7 +12,7 @@ Règles : français, aucun secret dans le dépôt ni dans les journaux, tests `t
 ## B. Clé personnelle (chacun apporte sa clé)
 - Nouveau fournisseur `claude` (API Anthropic Messages : POST https://api.anthropic.com/v1/messages, en-têtes `x-api-key`, `anthropic-version: 2023-06-01`, modèle `claude-haiku-5-5`, `system` séparé, réponse `content[0].text`). Famille `claude`.
 - Fournisseurs acceptés pour une clé perso : `gemini`, `glm`, `claude`. Même code que les clés du serveur, mais la clé vient de la requête.
-- Le front envoie l'en-tête `x-cle-ia: <fournisseur>:<clé>` sur les routes qui écrivent une formation (parcours, palier, variante, fiche, quiz-general, chapitre-ia). La clé reste dans le navigateur (localStorage, try/catch). Elle n'est JAMAIS enregistrée en base, jamais journalisée, jamais renvoyée, jamais dans un message d'erreur (masquer toute occurrence).
+- Le front envoie l'en-tête `x-cle-ia: <fournisseur>:<clé>` sur les routes qui écrivent une formation (parcours, palier, fiche, quiz-general, chapitre-ia). La clé reste dans le navigateur (localStorage, try/catch). Elle n'est JAMAIS enregistrée en base, jamais journalisée, jamais renvoyée, jamais dans un message d'erreur (masquer toute occurrence).
 - Avec une clé perso : elle passe en premier pour la rédaction. La vérification utilise toujours une famille différente (clés du serveur d'abord, sinon l'autre clé perso si fournie). Si aucune autre famille n'est disponible, la leçon n'est PAS publiée comme « recoupée » : elle l'est avec le badge « Une seule IA » (déjà prévu ? sinon l'ajouter).
 - Une clé perso invalide (401/403) : message clair « Ta clé est refusée par <fournisseur> », sans retomber en silence sur les clés du serveur.
 - Profil : section « Ma clé IA » : choix du fournisseur (Gemini conseillé, lien d'aide pour créer une clé gratuite, GLM, Claude), champ, bouton Tester (appel minuscule), bouton Retirer. Texte : « Ta clé reste sur ton téléphone. Les leçons que tu crées restent dans la bibliothèque pour tous. »
@@ -30,9 +30,9 @@ Règles : français, aucun secret dans le dépôt ni dans les journaux, tests `t
 - Front : dans Profil, « Espace admin » (champ clé, gardé en localStorage). Une fois la clé reconnue (GET admin → 200) : page `#/admin` avec compteurs (en attente, faites, échecs), boutons Pause / Reprendre, et sur la page de chaque formation un bouton « Débloquer toute la formation (de nuit) » + « x leçons prêtes sur y ».
 - Les lecteurs normaux voient les leçons déjà prêtes instantanément (cache), sans modification.
 
-## D. Bibliothèque et profondeur
+## D. Bibliothèque (profondeur retirée au lot 11)
 - La page Bibliothèque affiche pour chaque formation : leçons prêtes / total connu, niveau atteint, et un badge « Complète » si tout est prêt.
-- Profondeur : le programme (prompt) marque `essentiel: true` environ 40 % des modules (au moins 2 par niveau). La page d'une formation propose un réglage « Essentiel / Complet » (Complet par défaut). En « Essentiel », seuls ces modules sont montrés ; les numéros globaux et les anciens programmes (sans `essentiel`) ne changent pas. Choisir l'option la moins risquable pour les verrous et l'XP, et décrire le choix dans le compte rendu. « Aller plus loin » reste en Complet.
+- Profondeur : le réglage « Essentiel / Complet » et le champ `essentiel` des modules ont été retirés au lot 11 (voir `docs/lot11-un-seul-mode.md`) ; les anciens programmes qui ont le champ restent lisibles.
 
 ## E. Qualité des leçons (prompts)
 - Chaque leçon commence par un objectif mesurable (« À la fin, tu sauras… ») et un rappel de 1 à 2 phrases de ce qui a été vu juste avant (liens avec les leçons précédentes). Ces champs sont facultatifs côté validation (ils ne font jamais échouer une leçon) et affichés en tête de leçon.

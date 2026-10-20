@@ -15,6 +15,9 @@ App web (PWA) de défis de savoir entre amis, avec le Rival, une IA taquine qui 
 ## Où trouver quoi
 
 - `docs/cahier-des-charges.md` : ce qu'on construit et dans quel ordre.
-- `docs/plan-v3.md` : prochain chantier (formations par niveaux, images, 4 onglets, documents). À suivre lot par lot.
+- `docs/plan-v4.md` : plan en cours (fournisseurs d'IA gratuits, finition).
+- `docs/lot11-un-seul-mode.md` : dernier chantier (un seul mode, la leçon ; progression continue). Lots précédents : `docs/lot5.md`, `docs/lot6-comptes.md`, `docs/lot9-visuels.md`, `docs/lot10-documents.md`.
+- `docs/api-v2.md` : routes et tables de l'API (annexe V1 en bas).
+- `docs/lecons.md` : pièges rencontrés, une ligne chacun.
 - `DESIGN.md` : couleurs, polices, mise en page, interdits.
 - `maquettes/` : maquettes HTML validées ou à valider.

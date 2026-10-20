@@ -187,6 +187,7 @@ CREATE TABLE IF NOT EXISTS parties_reponses (
 
 -- Leçons réécrites en version « simple » ou « expert » (id = <parcours>:<n>:<mode>), vérifiées par une 2e IA et
 -- partagées entre tous les lecteurs.
+-- Lot 11 : plus utilisée (versions simple/expert retirées) ; gardée pour ne supprimer aucune donnée.
 CREATE TABLE IF NOT EXISTS variantes (
   id TEXT PRIMARY KEY,
   contenu TEXT,

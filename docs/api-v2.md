@@ -1,6 +1,6 @@
 # API v2 de Koîos : parcours (formation par niveaux ou sans fin), paliers recoupés par 2 IA, images, quiz
 
-S'ajoute à l'API existante (docs/api.md) ; les routes V1 et V1.1 restent en place. Même style : `functions/api/<route>.js`, ajout dans `worker.js`, JSON, erreurs `{erreur}` en français, quotas par jour UTC, cache D1 partagé entre tous les lecteurs (un contenu n'est rédigé qu'une fois).
+S'ajoute à l'API existante (annexe en bas de ce fichier) ; les routes V1 et V1.1 restent en place. Même style : `functions/api/<route>.js`, ajout dans `worker.js`, JSON, erreurs `{erreur}` en français, quotas par jour UTC, cache D1 partagé entre tous les lecteurs (un contenu n'est rédigé qu'une fois).
 
 ## Fournisseurs (secrets Cloudflare, jamais dans le dépôt)
 
@@ -25,7 +25,7 @@ S'ajoute à l'API existante (docs/api.md) ; les routes V1 et V1.1 restent en pla
   - **Ancien format** (sans `programme`) : `etapes: [{ numero, titre, paliers }]` de 10 paliers, sans fin. Comportement inchangé.
 - `paliers(id TEXT PRIMARY KEY, parcours TEXT, numero INTEGER, contenu TEXT, vues INTEGER DEFAULT 0, cree TEXT)`, index sur `parcours`.
 - `quiz_direct(parcours TEXT PRIMARY KEY, contenu TEXT, cree TEXT)`.
-- `variantes(id TEXT PRIMARY KEY, contenu TEXT, cree TEXT)` : id = `parcours:n:mode` (mode `simple` ou `expert`).
+- `variantes(id TEXT PRIMARY KEY, contenu TEXT, cree TEXT)` : plus utilisée depuis le lot 11 (versions simple et experte retirées) ; table et données gardées.
 
 Identifiants : parcours `slug(titre)` (40 caractères au plus, `[a-z0-9-]`) ; palier `<parcours>:<numero>`.
 
@@ -39,7 +39,7 @@ Identifiants : parcours `slug(titre)` (40 caractères au plus, `[a-z0-9-]`) ; pa
    - Leçon (par niveaux) : champs ajoutés `avant` (0 à 3 rappels), `exemple` (1 à 3 phrases ou null), `cartes` (2 à 4 `{ recto, verso }`) ; sections de 2 à 6 phrases (en bref 2 à 3), 1 à 6 définitions ; 5000 jetons, 85 s au total. Tout passe par la vérification de la 2e IA (carte non confirmée retirée, exemple null, rappel retiré).
 3. `GET palier?parcours=<id>&n=<k>` : en cache → `{ palier }` (public). Sinon auth + quota 30/jour/lecteur et 300/jour au total. Si `k` dépasse le plan, génère d'abord le plan de l'étape suivante, l'enregistre dans le parcours (même quota) : ancien format = 10 paliers plus pointus, sans répéter les titres existants ; **formation par niveaux** = les leçons du module suivant (module `etapes.length + 1`, 5 à 10 titres, sans répéter les titres publiés), numéros qui continuent. `k` de 1 à 1500 (PALIER_MAX), au plus 10 au-delà des paliers connus.
    - Erreurs propres à la formation : 404 « Formation terminée : tu as fait le tour de ce sujet. » quand tous les modules sont ouverts et que `k` dépasse le dernier palier (public, sans connexion ni quota) ; 404 « Palier introuvable : lis d’abord les paliers précédents. » si `k` est trop loin, ou si le module ouvert compte moins de leçons que `k` (le module reste enregistré) ; 502 « Le Rival n’a pas réussi à écrire la suite de ce parcours. Réessaie dans un moment. » si la liste de leçons est invalide.
-   - **Leçon d'une formation par niveaux** : le prompt reçoit le niveau et sa consigne de ton (Bases : partir de zéro, tout mot technique défini, phrases très simples ; Intermédiaire : relier les notions, causes et enchaînements ; Avancé : cas, nuances, débats ; Expert : sources, controverses, limites des connaissances), le module (titre, objectif, liste de ses leçons) et les noms des termes déjà définis dans les leçons précédentes (40 au plus, à ne pas redéfinir). Champs ajoutés au palier : `niveau` `{ numero, titre }`, `module` `{ numero, titre }`, `aRetenir` (2 à 4 phrases de 15 à 160 caractères, obligatoire), `mnemo` (`null` ou 20 à 200 caractères : moyen mnémotechnique, jamais un fait nouveau). `definitions` : 1 à 5 termes. 4 000 jetons au plus. `aRetenir` et `mnemo` passent par la vérification : un « à retenir » non confirmé est retiré, un `mnemo` non confirmé devient `null`.
+   - **Leçon d'une formation par niveaux** : le prompt reçoit le niveau et sa consigne de ton (Novice : partir de zéro, tout mot technique défini, phrases très simples ; Intermédiaire : relier les notions, causes et enchaînements ; Avancé : cas, nuances, débats ; Expert : sources, controverses, limites des connaissances), le module (titre, objectif, liste de ses leçons) et les noms des termes déjà définis dans les leçons précédentes (40 au plus, à ne pas redéfinir). Champs ajoutés au palier : `niveau` `{ numero, titre }`, `module` `{ numero, titre }`, `aRetenir` (2 à 4 phrases de 15 à 160 caractères, obligatoire), `mnemo` (`null` ou 20 à 200 caractères : moyen mnémotechnique, jamais un fait nouveau). `definitions` : 1 à 5 termes. 4 000 jetons au plus. `aRetenir` et `mnemo` passent par la vérification : un « à retenir » non confirmé est retiré, un `mnemo` non confirmé devient `null`.
    `palier` = `{ id, parcours, numero, etape, titre, image, sections: { enBref, comment, pourquoi, ouQuand }, definitions: [{ terme, definition }], frise: [{ date, evenement }], chiffres: [{ libelle, valeur, unite }], notions: { noeuds, liens }, histoire, questions, sources, verification }`.
    - `sections` : 2 à 4 phrases chacune, en français simple et précis ; une section sans matière vaut `null` (au moins `enBref` et une autre).
    - `definitions` : 2 à 5 termes du palier. `frise` : 0 ou 3 à 6 dates. `chiffres` : 0 ou 3 à 6 valeurs numériques, même unité. `notions` : facultatif (4 à 7 nœuds, 3 à 8 liens). `histoire` : une anecdote ou un fait historique sourcé, ou `null`.
@@ -106,10 +106,9 @@ Toutes les écritures sont des `POST partie { action, … }` (auth) ; lecture pa
 **Limites.** 12 joueurs, mise à jour toutes les 2 secondes (4 s si l'onglet est caché), pas de WebSocket : une lecture fait quelques requêtes D1, donc 12 joueurs coûtent environ 6 lectures par seconde. Pas d'XP gagnée en direct.
 
 
-## Variantes de lecture (lot 3c) : `POST /api/variante`
+## Un seul mode (lot 11)
 
-Corps `{ parcours, n, mode }`, mode `simple` ou `expert`. Connexion obligatoire (401). 400 : parcours invalide, cours vérifié v-xx, n non entier, mode inconnu. 404 : parcours ou leçon absents. 503 : pas d'IA.
-Réécrit `enBref` et les sections d'explication de la leçon en cache, à partir de ses extraits Wikipédia ; vérifié par la 2e IA (phrases non confirmées retirées). Cache dans `variantes` : une version en cache ne coûte ni IA ni quota. Quota : 15 par jour et par lecteur, 150 par jour au total (429). Réponse `{ variante: { id, parcours, n, mode, sections, verification } }`.
+La route `POST /api/variante`, ses quotas (`variante:joueur:*`, `variante:total`) et les modes « Essentiel / Complet », « Simple / Expert » sont retirés. Le programme ne demande plus `essentiel` (les anciens programmes qui l'ont restent lisibles). Le programme est contrôlé par le serveur : titres de modules et de leçons uniques et sans doublon proche (comparaison sans accents, sans articles), degré du niveau dans l'ordre Novice, Intermédiaire, Avancé, Expert, 6 à 10 modules en Novice et 5 à 10 ailleurs, 6 à 10 leçons par module. Les documents (lot 10) restent filtrés par le niveau de la leçon.
 
 ## Routes ajoutées depuis (lots 7 à 10)
 
@@ -122,3 +121,48 @@ Réécrit `enBref` et les sections d'explication de la leçon en cache, à parti
   - `DELETE documents?id=N` : supprime le document et ses morceaux.
   - Tables `documents (id, parcours, titre, fichier, pages, cree, actif, editeur, niveau)` et `doc_morceaux (doc_id, n, page, texte, mots)` ; morceaux de 150 à 250 mots, recouvrement de 20 mots.
   - Les leçons s'appuient d'abord sur les morceaux (recherche BM25 sans IA, documents du parcours ou sans parcours, de niveau inférieur ou égal à celui de la leçon, 4 morceaux et 1 200 mots au plus), qui deviennent des pages `langue: 'doc'` placées avant Wikipédia. Source affichée : « <éditeur>, <titre>, p. N » (ou « Document de référence : <titre>, p. N »), sans lien. `POST admin {action: 'reecrire', parcours, avecDocuments: true}` remet en file les leçons qui ne citent encore aucun document.
+
+# Annexe : routes V1 et V1.1 (toujours en place)
+
+`worker.js` confie `/api/<route>` au fichier `functions/api/<route>.js` (gestionnaires `onRequestGet`, `onRequestPost`, `onRequestPut` avec `({ request, env })`). Réponses JSON, erreurs `{ "erreur": "…" }` en français. Authentification : en-tête `Authorization: Bearer <id>.<cle>`.
+
+## V1
+
+`GET etat` · `POST joueur` · `GET|PUT progression` · `GET cercle` · `POST libre` · `POST signalement` (voir le code).
+
+## V1.1 : sujets sans fin, chapitres IA ancrés, mélange, duels
+
+Principe : un sujet créé par un lecteur est rédigé une seule fois par l'IA puis **partagé avec tous** (cache D1). La bibliothèque grandit avec l'usage et le quota gratuit de Workers AI sert à du neuf. Wikipédia (français) sert de **point de départ** pour limiter les inventions de l'IA, jamais de preuve : tout chapitre IA reste marqué « brouillon ».
+
+### Tables (ajout)
+
+- `sujets(id TEXT PRIMARY KEY, titre TEXT, parent TEXT, niveau INTEGER, contenu TEXT, auteur TEXT, vues INTEGER DEFAULT 0, cree TEXT)` ; index sur `parent`.
+- `chapitres_ia(id TEXT PRIMARY KEY, sujet TEXT, numero INTEGER, contenu TEXT, vues INTEGER DEFAULT 0, cree TEXT)` ; index sur `sujet`.
+- `duels(id TEXT PRIMARY KEY, createur TEXT, questions TEXT, scores TEXT, cree TEXT)`.
+
+### Identifiants
+
+- Sujet : `slug(titre)` (minuscules sans accents, `[a-z0-9-]`, 40 caractères au plus) ; sous-sujet : `<id du parent>.<slug(titre)>`. 160 caractères au plus (sinon 400 « Sujet trop profond »).
+- Chapitre IA : `ia:<id du sujet>:<numero>`.
+
+### Routes
+
+1. `GET sujets?parent=<id>` (sans `parent` : sujets racine) → `{ sujets: [{ id, titre, resume, niveau, vues }] }`, 60 au plus, par vues décroissantes. Public.
+2. `GET sujet?id=<id>` → `{ sujet }` ou 404 ; incrémente `vues`. Public.
+3. `POST sujet { titre, parent? }` (auth) : si l'id existe, renvoie `{ sujet }` sans rien générer. Sinon quota 10/jour/lecteur et 80/jour au total, puis génération. Titre de 2 à 80 caractères ; `parent` doit exister.
+   `sujet = { id, titre, parent, niveau (1 découverte, 2 approfondissement, 3 expert ; niveau du parent + 1, plafonné à 3), resume (2 phrases), plan: [{ numero, titre, resume }] (8 chapitres, du général au pointu), approfondir: [5 à 8 titres de sous-sujets plus précis], image: { src, alt, credit, page } | null, sources: [["Wikipédia · <titre de page>", url]], ancrage: "wikipedia" | "aucun", brouillon: true }`.
+4. `GET chapitre-ia?sujet=<id>&n=<k>` ou `GET chapitre-ia?id=ia:<sujet>:<k>` : en cache → `{ chapitre }` (public). Sinon auth + quota 15/jour/lecteur et 100/jour au total, génération, mise en cache. 404 si le sujet ou le numéro n'existe pas.
+   `chapitre` = format de le format des chapitres vérifiés (`app/contenu/*.json`, contrôlé par `scripts/catalogue.py` : `essentiel`, `reperes`, `exercices`…) avec `id`, `domaine: "libre"`, `sujetId`, `sujetTitre`, `numero`, `titre` (celui du plan), `brouillon: true`, `ancrage`, `sources` (pages Wikipédia utilisées, aussi recopiées dans chaque exercice), `figure` (image de la page Wikipédia, sinon null), et si valides : `chiffres`, `notions`, `saviezVous`. Jamais de `citation` pour un chapitre IA.
+5. `GET melange?n=10&graine=<entier>` → `{ questions: [{ chapitre, titre, sujetTitre, index, exercice }] }` tirées des chapitres IA en cache, de façon déterministe selon `graine` ; `n` de 1 à 20. Public.
+6. `POST duel { questions: [{ chapitre, index }] (5 à 20), score: { justes, n, points } }` (auth) → `{ id }` (8 caractères). `GET duel?id=` → `{ duel: { id, createur (pseudo), questions, scores: [{ pseudo, justes, n, points, date }] } }`. `PUT duel { id, score }` (auth) : ajoute ou remplace le score de ce lecteur. `GET duels` (auth) → `{ duels: [{ id, createur, scores, cree }] }`, 20 derniers où le lecteur a joué.
+
+### Ancrage Wikipédia (`lib/wiki.js`)
+
+- Recherche : `https://fr.wikipedia.org/w/api.php?action=query&list=search&srsearch=<q>&srlimit=3&format=json&utf8=1` ; puis texte et image de la meilleure page : `action=query&prop=extracts|pageimages|info&explaintext=1&piprop=thumbnail|name&pithumbsize=800&inprop=url&titles=<titre>&format=json&redirects=1`.
+- En-tête `User-Agent: Koios/1.1 (https://koios.gregoire-muel.workers.dev)` ; délai 6 s ; en cas d'échec, `ancrage: "aucun"`.
+- Texte tronqué à 7 000 caractères. Image : `src` = vignette, `page` = `https://fr.wikipedia.org/wiki/Fichier:<nom>`, `credit` = « Image : Wikimédia, auteur et licence sur la page du fichier ».
+- Consigne à l'IA : n'utiliser que les faits du texte fourni ; ce qui n'y figure pas n'est pas écrit.
+
+### Test local
+
+`node scripts/serveur_local.mjs [port]` : sert `app/` et `/api/*` avec une base SQLite en mémoire, une IA simulée et un Wikipédia simulé, pour essayer l'app de bout en bout sans Cloudflare.
