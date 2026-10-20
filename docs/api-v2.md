@@ -110,3 +110,15 @@ Toutes les écritures sont des `POST partie { action, … }` (auth) ; lecture pa
 
 Corps `{ parcours, n, mode }`, mode `simple` ou `expert`. Connexion obligatoire (401). 400 : parcours invalide, cours vérifié v-xx, n non entier, mode inconnu. 404 : parcours ou leçon absents. 503 : pas d'IA.
 Réécrit `enBref` et les sections d'explication de la leçon en cache, à partir de ses extraits Wikipédia ; vérifié par la 2e IA (phrases non confirmées retirées). Cache dans `variantes` : une version en cache ne coûte ni IA ni quota. Quota : 15 par jour et par lecteur, 150 par jour au total (429). Réponse `{ variante: { id, parcours, n, mode, sections, verification } }`.
+
+## Routes ajoutées depuis (lots 7 à 10)
+
+- `POST question {parcours, numero, question}` (auth) : « Pose une question » sur une leçon ; réponse de 3 à 5 phrases tirée de la leçon et de ses sources, recoupée par une autre IA, ou « les sources ne la contiennent pas ». Mise en cache (`questions_cache`), retirée quand la leçon est réécrite.
+- `POST signalement {type: 'lecon', parcours, numero, motif, message?}` (auth) : signale une erreur dans une leçon lue (motifs `fait`, `pas_clair`, `autre` ; 5 par jour). Trois joueurs différents mettent la leçon en file de réécriture. L'ancien `POST signalement {chapitre, exercice, message}` reste valable.
+- `compte` (`GET`, `POST {action}`) : inscription, connexion, mot de passe, phrase de secours, session ; `amis` : invitations et amitiés ; `admin` : voir l'en-tête de `functions/api/admin.js`. `POST /api/joueur` répond 410 (fermée).
+- **Documents (lot 10A, admin seulement : compte admin ou clé `x-admin-cle`)** — `functions/api/documents.js` :
+  - `GET documents` → `{ documents: [{ id, titre, fichier, editeur, niveau, parcours, formation, pages, morceaux, octets, actif, cree }], octets, max }`.
+  - `POST documents {titre, fichier?, editeur?, niveau? (1 à 4), parcours?, pagesTotal?, pages: [{page, texte}]}` : crée le document avec le premier paquet (60 000 caractères au plus, environ 50 ko) ; `{id, pages}` ajoute un paquet ; `{action: 'modifier', id, actif?, parcours?, editeur?, niveau?}` ; 409 si le `fichier` existe déjà ; 400 « Pas de texte extractible » pour un PDF d'images ; 413 au-delà de 2 Mo par document ou 20 Mo au total.
+  - `DELETE documents?id=N` : supprime le document et ses morceaux.
+  - Tables `documents (id, parcours, titre, fichier, pages, cree, actif, editeur, niveau)` et `doc_morceaux (doc_id, n, page, texte, mots)` ; morceaux de 150 à 250 mots, recouvrement de 20 mots.
+  - Les leçons s'appuient d'abord sur les morceaux (recherche BM25 sans IA, documents du parcours ou sans parcours, de niveau inférieur ou égal à celui de la leçon, 4 morceaux et 1 200 mots au plus), qui deviennent des pages `langue: 'doc'` placées avant Wikipédia. Source affichée : « <éditeur>, <titre>, p. N » (ou « Document de référence : <titre>, p. N »), sans lien. `POST admin {action: 'reecrire', parcours, avecDocuments: true}` remet en file les leçons qui ne citent encore aucun document.

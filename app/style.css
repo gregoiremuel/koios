@@ -617,6 +617,13 @@ textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; li
 .bandeau-credit .alerte { margin: 0; }
 
 .pages-admin { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.ligne-doc { display: flex; gap: 8px; align-items: center; flex-basis: 100%; }
+.ligne-doc .champ { min-height: 44px; flex: 1; min-width: 0; font-size: 16px; }
+.barre-det { height: 4px; border-radius: 2px; background: var(--ligne); overflow: hidden; }
+.barre-det[hidden] { display: none; }
+.barre-det i { display: block; width: 100%; height: 100%; border-radius: 2px; background: var(--encre); transform-origin: left; transform: scaleX(0); transition: transform 200ms ease-out; }
+select.champ { appearance: none; background: var(--fond) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 256 256'%3E%3Cpath fill='%235b6270' d='M213.7 101.7l-80 80a8 8 0 0 1-11.4 0l-80-80a8 8 0 0 1 11.4-11.4L128 164.7l74.3-74.4a8 8 0 0 1 11.4 11.4z'/%3E%3C/svg%3E") no-repeat right 16px center; padding-right: 40px; }
+@media (prefers-reduced-motion: reduce) { .barre-det i { transition: none; } }
 @media (max-width: 480px) { .ligne-ami .actions { flex-basis: 100%; justify-content: flex-start; } }
 
 /* Lot 7 : signalement, voix, test de niveau, certificat, dossier de voyage, hors ligne */
@@ -700,3 +707,5 @@ textarea.champ.zone { min-height: 96px; padding: 12px 16px; resize: vertical; li
   .dossier-module, .dossier-lecon h3, .dossier-lecon h4 { break-after: avoid; }
   a { text-decoration: none; }
 }
+input[type="file"].champ { display: flex; align-items: center; padding: 0 12px; font-size: 16px; color: var(--encre-2); }
+input[type="file"].champ::file-selector-button { min-height: 36px; margin-right: 12px; padding: 0 14px; border: 1px solid var(--ligne-forte); border-radius: 10px; background: var(--surface); color: var(--encre); font: inherit; font-weight: 600; cursor: pointer; }

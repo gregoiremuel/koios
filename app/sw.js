@@ -67,7 +67,8 @@ self.addEventListener("fetch", function (e) {
   var r = e.request;
   if (r.method !== "GET") return; // écritures : réseau seul, elles échouent proprement hors ligne
   var url = new URL(r.url);
-  if (url.origin !== self.location.origin) return; // polices et photos d'ailleurs : le navigateur s'en charge
+  // Polices et photos d'ailleurs : le navigateur s'en charge. pdf.js (cdnjs.cloudflare.com, page admin « Documents ») passe aussi par là : jamais mis en cache hors ligne.
+  if (url.origin !== self.location.origin) return;
   if (url.pathname === "/api/palier" || (url.pathname === "/api/parcours" && url.searchParams.has("id"))) { e.respondWith(reseauPuisCache(e, r)); return; }
   if (url.pathname.indexOf("/api/") === 0) return;
   if (r.mode === "navigate") {

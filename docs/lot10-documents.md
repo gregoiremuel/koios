@@ -26,3 +26,10 @@ But : les leçons s'appuient d'abord sur les documents que l'admin ajoute (cours
 2. Intégration dans genererPalier / vérification / sources affichées / contrôle des 15 mots.
 3. Page admin Documents + script d'import.
 4. Nettoyage. 5. Relecteur (avec rendu réel 390 px), corrections, déploiement, import des PDF, réécriture de la gemmologie.
+
+## Précisions de Greg (intégrées)
+- Éditeur : champ `editeur` (texte libre) sur `documents`, affiché devant le titre : « Institut National de Gemmologie, <titre>, p. N ». Import gemmologie : `--editeur "Institut National de Gemmologie" --parcours gemmologie-et-joaillerie`.
+- Niveau : champ `niveau` (1 à 4, NULL = tous). La recherche ne remonte que les morceaux de niveau <= niveau de la leçon. Import : modules 1 à 8 et tableau = 1 ; livret Niveau I = 2 (choix : « 1-2 » tient dans un seul entier ; 2 évite qu'un contenu plus avancé serve aux toutes premières leçons) ; livret Niveau II = 3 ; `--niveau N` force.
+- Droit d'auteur : pas de phrases recopiées (plus de 15 mots identiques = phrase retirée). Seule exception : une définition courte (15 mots au plus) entre guillemets « », avec sa source à côté.
+- Progression : limites écrites par niveau dans le prompt ; un terme défini ne doit pas être réservé à un niveau plus avancé du programme (titre de module propre à un niveau supérieur : définition retirée) ; sigles et formules employés sans définition : avertissement dans les détails de file, rejet à partir de 3.
+- Ordre de priorité des sources, dit au rédacteur : 1) documents de référence ; 2) sites d'instituts professionnels, musées, encyclopédies éditées, sites spécialisés (via les pages web déjà trouvées ; la recherche web n'a pas changé) ; 3) Wikipédia, point de départ seulement. Un document compte pour UNE source ; une affirmation que seul un document soutient est gardée et marquée « à valider ».

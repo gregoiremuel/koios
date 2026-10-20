@@ -61,6 +61,15 @@ import '../app/logique.js';
 import { TYPES_VISUELS, anneeDe, aplatirVisuel, validerVisuel, validerVisuels } from '../lib/visuels.js';
 import { onRequestPost as variantePost } from '../functions/api/variante.js';
 import worker from '../worker.js';
+import {
+  CONSIGNE_DOCUMENTS, CONSIGNE_VERIF_DOCUMENTS, brouillonVide,
+} from '../lib/paliers.js';
+import {
+  MORCEAU_MAX, MORCEAU_MIN, RECOUVREMENT, decouper, meilleursMorceaux, motsUtiles, plusLongueSuite, recopie, scoresBM25, siglesDe, suitesDe, termeReserve,
+  termesReserves,
+} from '../lib/documents.js';
+import { onRequestDelete as documentsDelete, onRequestGet as documentsGet, onRequestPost as documentsPost } from '../functions/api/documents.js';
+import { reecrire } from '../lib/nuit.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
 import { onRequestPost as joueurPost } from '../functions/api/joueur.js';
 import { onRequestGet as compteGet, onRequestPost as comptePost } from '../functions/api/compte.js';
@@ -165,7 +174,7 @@ async function creerJoueur(pseudo = 'Greg', { ancien = false } = {}) {
 const creerAncienProfil = (pseudo = 'Vieux') => creerJoueur(pseudo, { ancien: true });
 
 function toutVider() {
-  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache', 'sessions', 'codes', 'codes_utilises', 'amities', 'invitations', 'questions_cache']) {
+  for (const t of ['joueurs', 'brouillons', 'signalements', 'quotas', 'sujets', 'chapitres_ia', 'duels', 'parcours', 'paliers', 'quiz_direct', 'quiz_general', 'salons', 'groupes', 'groupe_membres', 'parties', 'parties_joueurs', 'parties_reponses', 'variantes', 'file_attente', 'sources_cache', 'sessions', 'codes', 'codes_utilises', 'amities', 'invitations', 'questions_cache', 'documents', 'doc_morceaux']) {
     db.base.exec(`DELETE FROM ${t}`);
   }
 }
@@ -249,11 +258,12 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(sql, dansLib);
   await initBase(env);
   const noms = lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((r) => r.name);
-  assert.deepEqual(noms, ['amities', 'brouillons', 'chapitres_ia', 'codes', 'codes_utilises', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'invitations', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'questions_cache', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'sessions', 'signalements', 'sources_cache', 'sujets', 'variantes']);
+  assert.deepEqual(noms, ['amities', 'brouillons', 'chapitres_ia', 'codes', 'codes_utilises', 'doc_morceaux', 'documents', 'duels', 'file_attente', 'groupe_membres', 'groupes', 'images', 'invitations', 'joueurs', 'paliers', 'parcours', 'parties', 'parties_joueurs', 'parties_reponses', 'questions_cache', 'quiz_direct', 'quiz_general', 'quotas', 'salons', 'sessions', 'signalements', 'sources_cache', 'sujets', 'variantes']);
   const index = lignes("SELECT name, tbl_name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%' ORDER BY name");
   assert.deepEqual(index, [
     { name: 'idx_amities_b', tbl_name: 'amities' },
     { name: 'idx_chapitres_ia_sujet', tbl_name: 'chapitres_ia' },
+    { name: 'idx_doc_morceaux', tbl_name: 'doc_morceaux' },
     { name: 'idx_joueurs_google_sub', tbl_name: 'joueurs' },
     { name: 'idx_joueurs_pseudo_cle', tbl_name: 'joueurs' },
     { name: 'idx_paliers_parcours', tbl_name: 'paliers' },
@@ -280,6 +290,8 @@ test('schema.sql et initBase créent les mêmes tables', async () => {
   assert.deepEqual(colonnes('groupe_membres'), ['groupe', 'joueur', 'rejoint']);
   assert.deepEqual(colonnes('parties'), ['id', 'createur', 'titre', 'questions', 'etat', 'indice', 'debut_question', 'cree']);
   assert.deepEqual(colonnes('parties_joueurs'), ['partie', 'joueur', 'points']);
+  assert.deepEqual(colonnes('documents'), ['id', 'parcours', 'titre', 'fichier', 'pages', 'cree', 'actif', 'editeur', 'niveau']);
+  assert.deepEqual(colonnes('doc_morceaux'), ['doc_id', 'n', 'page', 'texte', 'mots']);
   assert.deepEqual(colonnes('parties_reponses'), ['partie', 'joueur', 'indice', 'choix', 'ms', 'juste']);
 });
 
@@ -11193,6 +11205,281 @@ test('visuels : jamais d’insertion de HTML (visuels.js, fonctions ajoutées à
   const bloc = css.slice(css.indexOf('/* Lot 9A'), css.indexOf('@media print'));
   assert.ok(bloc.length > 500);
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(bloc.replace(/#fff\b/gi, '')), 'aucune couleur en dur (hors blanc)');
+});
+
+
+// --- Lot 10A : documents de référence ----------------------------------------------------
+
+const mots = (n, prefixe = 'mot') => Array.from({ length: n }, (_, i) => `${prefixe}${i}`).join(' ');
+const paragraphes = (...blocs) => blocs.join('\n\n');
+
+test('documents : découpage en morceaux de 150 à 250 mots, recouvrement de 20 mots, titres respectés', () => {
+  const texte = paragraphes('Les gemmes', mots(120, 'a'), 'Dureté', mots(100, 'b'), mots(300, 'c'));
+  const morceaux = decouper([{ page: 1, texte }]);
+  assert.ok(morceaux.length >= 3);
+  morceaux.slice(0, -1).forEach((m) => assert.ok(m.mots >= MORCEAU_MIN && m.mots <= MORCEAU_MAX, `taille ${m.mots}`));
+  assert.ok(morceaux.at(-1).mots <= MORCEAU_MAX);
+  assert.deepEqual(morceaux.map((m) => m.n), morceaux.map((_, i) => i));
+  for (let i = 1; i < morceaux.length; i++) {
+    const avant = morceaux[i - 1].texte.split(' ').slice(-RECOUVREMENT);
+    assert.deepEqual(morceaux[i].texte.split(' ').slice(0, RECOUVREMENT), avant, 'recouvrement de 20 mots');
+  }
+  // un morceau est compté en mots, ses mots figurent dans le texte
+  assert.equal(morceaux[0].mots, morceaux[0].texte.split(' ').length);
+  // un titre court (sans point) ouvre un nouveau morceau quand le courant a son compte
+  const deux = decouper([{ page: 1, texte: paragraphes(mots(160, 'x'), 'Un nouveau chapitre', mots(160, 'y')) }]);
+  assert.ok(deux[1].texte.split(' ').slice(RECOUVREMENT)[0] === 'Un', 'le titre ouvre le morceau suivant');
+  // numéros qui se continuent, pages gardées
+  const suite = decouper([{ page: 7, texte: mots(200, 'z') }], { depart: 5 });
+  assert.deepEqual([suite[0].n, suite[0].page], [5, 7]);
+  assert.deepEqual(decouper([{ page: 1, texte: '   \n\n  ' }]), []);
+});
+
+test('documents : recherche BM25 sans IA en français (accents, pluriels, mots vides) ; 4 morceaux et 1 200 mots au plus', () => {
+  assert.deepEqual(motsUtiles('La dureté des gemmes, c’est l’échelle de Mohs'), ['durete', 'gemme', 'echelle', 'moh']);
+  assert.deepEqual(motsUtiles('LES CRISTAUX'), ['cristau'], 'pluriel retiré, mot vide retiré');
+  const lignes = [
+    { texte: 'La dureté des gemmes se mesure avec l’echelle de Mohs. Le diamant est la gemme la plus dure.', mots: 17 },
+    { texte: 'Le zircon est un mineral a forte dispersion, souvent chauffe.', mots: 10 },
+    { texte: 'Histoire de la joaillerie en France au dix-huitieme siecle.', mots: 9 },
+    { texte: 'Les gemmes colorees : rubis, saphir, emeraude. Les gemmes sont classees par couleur.', mots: 12 },
+  ];
+  const requete = 'Dureté des gemmes';
+  const scores = scoresBM25(requete, lignes);
+  assert.ok(scores[0] > scores[3] && scores[3] > 0 && scores[1] === 0 && scores[2] === 0, JSON.stringify(scores));
+  assert.deepEqual(scoresBM25('des les de la', lignes), [0, 0, 0, 0], 'une requête de mots vides ne remonte rien');
+  assert.deepEqual(meilleursMorceaux(requete, lignes).map((m) => m.texte.slice(0, 8)), ['La duret', 'Les gemm']);
+  const beaucoup = Array.from({ length: 10 }, (_, i) => ({ texte: `gemme ${mots(250, 'w')}`, mots: 250, i }));
+  const gardes = meilleursMorceaux('gemme', beaucoup);
+  assert.equal(gardes.length, 4);
+  assert.ok(gardes.reduce((n, m) => n + m.mots, 0) <= 1200);
+  assert.equal(meilleursMorceaux('gemme', beaucoup, { motsMax: 600 }).length, 2);
+});
+
+test('documents : contrôle des 15 mots identiques (16 refusés, 15 admis, citation courte attribuée tolérée)', () => {
+  const source = 'La cassure conchoïdale est une cassure courbe qui rappelle la surface intérieure de la coquille et que l’on observe surtout sur le quartz et le verre.';
+  const suites = suitesDe([source]);
+  const quinze = source.split(' ').slice(0, 15).join(' ');
+  const seize = source.split(' ').slice(0, 16).join(' ');
+  assert.equal(plusLongueSuite(quinze, source), 15);
+  assert.equal(recopie(quinze + ' autrement dit autre chose.', suites), false, '15 mots : admis');
+  assert.equal(recopie(seize, suites), true, '16 mots : refusé');
+  assert.equal(recopie('Une phrase: ' + SEIZE_ACCENTS(source), suites), true, 'accents, casse et ponctuation ne changent rien');
+  assert.equal(recopie('Le quartz et le verre montrent une cassure courbe, comme une coquille, pense-t-on.', suites), false, 'reformulée');
+  // citation : 15 mots au plus, entre guillemets, avec la source à côté
+  const courte = source.split(' ').slice(0, 14).join(' ');
+  assert.equal(recopie(`Selon l’Institut National de Gemmologie, « ${courte} » ; c’est un repère.`, suiteLongue(source, 14)), false);
+  assert.equal(recopie(`« ${seize} »`, suites), true, 'sans source à côté : refusée');
+  assert.equal(recopie(`Selon l’Institut, « ${seize} »`, suites), true, 'une citation de plus de 15 mots : refusée');
+  assert.equal(recopie(`« ${quinze} » dit l’Institut National de Gemmologie`, suites, 'Institut National de Gemmologie'), false, 'éditeur nommé : citation tolérée');
+  assert.equal(recopie('rien à voir', new Set()), false);
+});
+const SEIZE_ACCENTS = (t) => t.split(' ').slice(0, 17).join(' ').toUpperCase();
+function suiteLongue(source, n) {
+  void n;
+  return suitesDe([source.split(' ').slice(0, 14).join(' ') + ' ' + source.split(' ').slice(0, 3).join(' ')]);
+}
+
+const ADMIN_DOC = 'cle-admin-documents-0123456789';
+const adminDoc = (handler, options = {}) => appel(handler, { env: { DB: db, ADMIN_KEY: ADMIN_DOC }, ip: nouvelleIp(), entetes: { 'x-admin-cle': ADMIN_DOC }, ...options });
+const posterDoc = (corps) => adminDoc(documentsPost, { methode: 'POST', corps });
+const textePages = (...phrases) => phrases.map((texte, i) => ({ page: i + 1, texte }));
+
+test('documents : route admin — 403 sans clé, ajout par paquets, 409 doublon, PDF sans texte, plafonds, liste, activer, lier, supprimer', async () => {
+  toutVoir();
+  const sans = { env: { DB: db, ADMIN_KEY: ADMIN_DOC }, ip: nouvelleIp() };
+  erreurFr(await appel(documentsGet, sans), 403);
+  erreurFr(await appel(documentsPost, { ...sans, methode: 'POST', corps: { titre: 'x', pages: textePages('a') } }), 403);
+  erreurFr(await appel(documentsDelete, { ...sans, methode: 'DELETE', requete: '?id=1' }), 403);
+  const joueur = await creerJoueur();
+  erreurFr(await appel(documentsGet, { ...sans, jeton: joueur.jeton }), 403, undefined);
+
+  const r1 = await posterDoc({ titre: 'Cours un', fichier: 'cours-un.pdf', parcours: 'gemmologie', editeur: 'Institut Test', niveau: 1, pagesTotal: 12, pages: textePages(mots(180, 'alpha'), mots(180, 'beta')) });
+  assert.equal(r1.statut, 200, JSON.stringify(r1.corps));
+  const id = r1.corps.id;
+  assert.ok(r1.corps.morceauxAjoutes >= 2);
+  // second paquet : les numéros se continuent
+  const r2 = await posterDoc({ id, pages: [{ page: 5, texte: mots(200, 'gamma') }] });
+  assert.equal(r2.statut, 200, JSON.stringify(r2.corps));
+  const ns = lignes('SELECT n FROM doc_morceaux WHERE doc_id = ? ORDER BY n', id).map((x) => x.n);
+  assert.deepEqual(ns, ns.map((_, i) => i));
+  assert.equal(lignes('SELECT pages FROM documents WHERE id = ?', id)[0].pages, 12);
+  erreurFr(await posterDoc({ id: 999, pages: textePages(mots(200, 'a')) }), 404);
+  erreurFr(await posterDoc({ titre: 'Cours un bis', fichier: 'cours-un.pdf', pages: textePages(mots(200, 'a')) }), 409);
+  erreurFr(await posterDoc({ titre: 'Vide', fichier: 'vide.pdf', pages: textePages('   ', '\n\n') }), 400, /Pas de texte extractible/);
+  assert.equal(lignes("SELECT * FROM documents WHERE fichier = 'vide.pdf'").length, 0, 'aucun document créé pour un PDF sans texte');
+  erreurFr(await posterDoc({ titre: 'Gros', pages: [{ page: 1, texte: 'x'.repeat(60001) }] }), 413);
+  erreurFr(await posterDoc({ titre: 'Niveau', niveau: 9, pages: textePages(mots(200, 'a')) }), 400, /Niveau/);
+  erreurFr(await posterDoc({ titre: 'Forme', parcours: 'Pas Valide', pages: textePages(mots(200, 'a')) }), 400);
+  erreurFr(await posterDoc({ titre: '', pages: textePages(mots(200, 'a')) }), 400, /Titre/);
+  erreurFr(await posterDoc({ action: 'zut' }), 400);
+  // plafond de 2 Mo par document, 20 Mo au total (remplissage direct)
+  db.base.prepare("INSERT INTO doc_morceaux (doc_id, n, page, texte, mots) VALUES (?, 9000, 1, ?, 1)").run(id, 'é'.repeat(1024 * 1024));
+  erreurFr(await posterDoc({ id, pages: textePages(mots(200, 'a')) }), 413, /2 Mo/);
+  db.base.prepare('DELETE FROM doc_morceaux WHERE n = 9000').run();
+  db.base.prepare("INSERT INTO documents (id, titre, actif) VALUES (77, 'Plein', 1)").run();
+  for (let k = 0; k < 12; k++) db.base.prepare('INSERT INTO doc_morceaux (doc_id, n, page, texte, mots) VALUES (77, ?, 1, ?, 1)').run(k, 'x'.repeat(1800000));
+  erreurFr(await posterDoc({ titre: 'Trop', pages: textePages(mots(200, 'a')) }), 413, /20 Mo/);
+  db.base.prepare('DELETE FROM doc_morceaux WHERE doc_id = 77').run();
+  db.base.prepare('DELETE FROM documents WHERE id = 77').run();
+
+  const liste = (await adminDoc(documentsGet)).corps;
+  assert.equal(liste.documents.length, 1);
+  assert.deepEqual([liste.documents[0].titre, liste.documents[0].editeur, liste.documents[0].niveau, liste.documents[0].parcours, liste.documents[0].actif], ['Cours un', 'Institut Test', 1, 'gemmologie', true]);
+  assert.ok(liste.documents[0].morceaux >= 3 && liste.documents[0].octets > 1000);
+  assert.equal(liste.max, 20 * 1024 * 1024);
+  const maj = await posterDoc({ action: 'modifier', id, actif: false, parcours: null, niveau: 2 });
+  assert.equal(maj.statut, 200, JSON.stringify(maj.corps));
+  assert.deepEqual([maj.corps.documents[0].actif, maj.corps.documents[0].parcours, maj.corps.documents[0].niveau], [false, null, 2]);
+  erreurFr(await posterDoc({ action: 'modifier', id }), 400);
+  erreurFr(await posterDoc({ action: 'modifier', id: 5, actif: true }), 404);
+  const sup = await adminDoc(documentsDelete, { methode: 'DELETE', requete: `?id=${id}` });
+  assert.equal(sup.statut, 200);
+  assert.equal(lignes('SELECT * FROM doc_morceaux').length + lignes('SELECT * FROM documents').length, 0);
+  erreurFr(await adminDoc(documentsDelete, { methode: 'DELETE', requete: `?id=${id}` }), 404);
+  // le Worker connaît la route
+  const viaWorker = await worker.fetch(new Request('https://koios.test/api/documents'), { DB: db, ADMIN_KEY: ADMIN_DOC }, { waitUntil() {} });
+  assert.equal(viaWorker.status, 403);
+});
+
+const PHRASE_LONGUE = 'Les pièces de fer sont fabriquées en atelier puis assemblées sur le chantier avant d’être montées par les compagnons sur toute la structure de la tour Eiffel.';
+async function poserDocuments() {
+  await posterDoc({ titre: 'Cours Tour', fichier: 'cours-tour.pdf', parcours: 'la-tour-eiffel', editeur: 'Institut Test', niveau: null, pages: textePages(`Le vocabulaire de la tour Eiffel : fer puddlé, rivet, atelier. ${PHRASE_LONGUE} ${mots(160, 'doc')}`) });
+  await posterDoc({ titre: 'Livret avancé', fichier: 'livret.pdf', parcours: 'la-tour-eiffel', niveau: 3, pages: textePages(`Le vocabulaire de la tour : vocabulaire vocabulaire vocabulaire spectroscopie avancée. ${mots(160, 'expert')}`) });
+}
+
+test('documents : leçon — morceaux du bon niveau en premier, consignes au rédacteur et au vérificateur, source sans lien, aucune phrase recopiée', async () => {
+  const j = await prepareProgramme();
+  await poserDocuments();
+  const brute = leconBrute();
+  brute.sections.comment[0] = PHRASE_LONGUE;
+  const sc = scenario({ ...partiesStandard(), lecon: [brute] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  const p = r.corps.palier;
+  const demande = sc.appels[0].entree.messages[1].content;
+  assert.ok(demande.includes(CONSIGNE_DOCUMENTS), 'consigne du rédacteur');
+  assert.ok(demande.includes('Appuie-toi d’abord sur les documents de référence ; ne copie jamais de phrases entières ; reformule.'));
+  assert.ok(demande.indexOf('Document de référence, « Institut Test, Cours Tour, p. 1 »') < demande.indexOf('Wikipédia (fr)'), 'documents avant Wikipédia');
+  assert.ok(!demande.includes('expert0'), 'document de niveau 3 absent d’une leçon de niveau 1');
+  const verif = sc.par('verif')[0].entree.messages[1].content;
+  assert.ok(verif.includes(CONSIGNE_VERIF_DOCUMENTS) && verif.includes('Institut Test, Cours Tour, p. 1'), 'le vérificateur reçoit les mêmes morceaux');
+  assert.deepEqual(p.sources[0], ['Institut Test, Cours Tour, p. 1', ''], 'source affichée sans lien');
+  assert.ok(p.sources.slice(1).every((x) => x[1]), 'les pages externes gardent leur lien');
+  // droit d'auteur : la phrase recopiée est retirée
+  const tout = JSON.stringify(p.sections);
+  assert.ok(!tout.includes('assemblées sur le chantier avant d’être montées'), 'phrase de plus de 15 mots identiques retirée');
+  assert.equal(p.verification.retirees, 1);
+  assert.ok(sc.appels.length >= 3);
+  // sans document : rien ne change (aucune consigne)
+  toutVoir();
+  const j2 = await prepareProgramme();
+  const sc2 = scenario(partiesStandard());
+  ok200(await lirePalier(j2, 'la-tour-eiffel', 1, sc2));
+  assert.ok(!sc2.appels[0].entree.messages[1].content.includes('documents de référence'));
+});
+
+test('documents : leçon de niveau 3 — les documents de niveau 3 remontent, un document désactivé jamais', async () => {
+  const j = await prepareProgramme();
+  await poserDocuments();
+  const idLivret = lignes("SELECT id FROM documents WHERE fichier = 'livret.pdf'")[0].id;
+  const sc = scenario(partiesStandard());
+  ok200(await lirePalier(j, 'la-tour-eiffel', 1, sc));
+  const { pagesDeDocuments } = await import('../lib/documents.js');
+  const q = 'vocabulaire tour';
+  const niv1 = await pagesDeDocuments(env, { parcours: 'la-tour-eiffel', requete: q, niveau: 1 });
+  const niv3 = await pagesDeDocuments(env, { parcours: 'la-tour-eiffel', requete: q, niveau: 3 });
+  const sans = await pagesDeDocuments(env, { parcours: 'la-tour-eiffel', requete: q });
+  assert.deepEqual(niv1.map((x) => x.titre), ['Institut Test, Cours Tour, p. 1']);
+  assert.equal(niv3.length, 2);
+  assert.equal(sans.length, 2, 'sans niveau (formation sans programme) : aucun filtre');
+  assert.equal((await pagesDeDocuments(env, { parcours: 'autre', requete: q, niveau: 3 })).length, 0, 'un document lié à une autre formation ne remonte pas');
+  await posterDoc({ action: 'modifier', id: idLivret, actif: false });
+  assert.equal((await pagesDeDocuments(env, { parcours: 'la-tour-eiffel', requete: q, niveau: 4 })).length, 1);
+  await posterDoc({ action: 'modifier', id: idLivret, parcours: null, actif: true });
+  assert.equal((await pagesDeDocuments(env, { parcours: 'quelconque', requete: q, niveau: 4 })).length, 1, 'parcours NULL : utile à tout sujet');
+  assert.deepEqual(await pagesDeDocuments({ DB: undefined }, { parcours: 'x', requete: q }), []);
+});
+
+test('documents : une affirmation soutenue par un seul document reste, marquée « à valider » ; ailleurs elle est retirée', () => {
+  const doc = { langue: 'doc', titre: 'Cours', editeur: null, url: '', texte: 'Le grenat almandin possède une dureté voisine de sept virgule cinq sur l’échelle.' };
+  const web = { langue: 'fr', titre: 'Autre', url: 'https://x', texte: 'Texte sans rapport avec le sujet, il parle de bateaux et de voiles.' };
+  const b = { ...brouillonVide(true), sections: { enBref: ['Le grenat almandin possède une dureté voisine de sept virgule cinq.', 'La tour est bâtie à Paris pour 1889.'], comment: null, pourquoi: null, ouQuand: null } };
+  const mesure = evaluer(b, [{ n: 1, verdict: 'incertain', correction: null }, { n: 2, verdict: 'incertain', correction: null }], 0, () => true, { pages: [doc, web] });
+  assert.equal(mesure.aValider, 1);
+  assert.equal(mesure.retirees, 1, 'la seconde, soutenue par rien, est retirée');
+  assert.deepEqual(mesure.brouillon.sections.enBref, ['Le grenat almandin possède une dureté voisine de sept virgule cinq.']);
+  // appuyée aussi par une page externe : gardée sans réserve
+  const ext = { ...web, texte: doc.texte };
+  assert.equal(evaluer(b, [{ n: 1, verdict: 'incertain', correction: null }], 0, () => true, { pages: [doc, ext] }).aValider, 0);
+});
+
+// --- Lot 10 : progression de niveau (garde-fous sans IA) ----------------------------------
+
+test('niveaux : le prompt donne des limites par niveau ; un terme réservé à un niveau plus avancé ne se définit pas ; sigles sans définition signalés', () => {
+  assert.match(TON_NIVEAU[1], /Limites du niveau novice : aucune formule ni sigle sans définition ; 3 définitions nouvelles au plus ; des mots du quotidien ; des exemples concrets/);
+  assert.match(TON_NIVEAU[2], /Limites du niveau intermédiaire : des méthodes simples/);
+  assert.match(TON_NIVEAU[3], /Limites du niveau avancé : exceptions, chiffres et comparaisons/);
+  assert.match(TON_NIVEAU[4], /Limites du niveau expert : cas limites, critères de décision et limites des méthodes/);
+  const programme = { niveaux: validerProgramme(EXEMPLE_PROGRAMME).valeur.niveaux };
+  const reserves1 = termesReserves(programme, 1);
+  assert.ok(reserves1.length > 5);
+  assert.ok(termeReserve('Fondations du sol', reserves1), 'les fondations sont un module de niveau 2');
+  assert.equal(termeReserve('Rivets', reserves1), null, 'le rivet figure déjà au niveau 1 (objectif du module 2)');
+  assert.equal(termeReserve('Fer puddlé', reserves1), null, 'le fer est vu au niveau 1');
+  assert.equal(termeReserve('Tour', reserves1), null);
+  assert.equal(termesReserves(programme, 4).length, 0);
+  assert.equal(termeReserve('Fondations du sol', termesReserves(programme, 2)), null, 'au niveau 2, il est permis');
+  assert.deepEqual(siglesDe('Le DRX et la formule Al2O3 mesurent l’IR ; Louis XIV, I et II ne sont pas des sigles.').sort(), ['Al2O3', 'DRX', 'IR']);
+
+  const b = { ...brouillonVide(true), sections: { enBref: ['La tour est bâtie à Paris pour l’Exposition de 1889.'], comment: null, pourquoi: null, ouQuand: null },
+    definitions: [{ terme: 'Fondations', definition: 'Massifs de maçonnerie qui portent la tour et répartissent son poids.' }, { terme: 'Fer puddlé', definition: 'Fer obtenu en brassant de la fonte en fusion.' }] };
+  const mesure = evaluer(b, [], 0, () => true, { pages: [], reserves: reserves1, termesConnus: [] });
+  assert.deepEqual(mesure.brouillon.definitions.map((d) => d.terme), ['Fer puddlé'], 'le terme réservé est retiré');
+  assert.ok(mesure.rejets.some((r) => /réservé à un niveau plus avancé/.test(r)));
+  assert.equal(mesure.retirees, 1);
+  // sigles : avertissement d'abord, rejet seulement s'il y en a beaucoup (3)
+  const avec = (phrase, termesConnus = []) => evaluer({ ...b, definitions: [], sections: { ...b.sections, enBref: [phrase] } }, [], 0, () => true, { pages: [], termesConnus, titre: 'La tour' });
+  const un = avec('Le test par DRX donne un résultat sur la tour Eiffel de Paris.');
+  assert.deepEqual([un.avertissements, un.aRefaire], [['Termes sans définition : DRX'], false]);
+  assert.equal(avec('Le test par DRX donne un résultat sur la tour Eiffel de Paris.', ['DRX (diffraction)']).avertissements.length, 0, 'terme déjà défini avant');
+  const trois = avec('Le test DRX, l’analyse FTIR et la mesure UVVIS donnent chacun un résultat à Paris.');
+  assert.equal(trois.aRefaire, true);
+  assert.ok(trois.rejets.some((r) => /Sigles ou formules employés sans définition/.test(r)));
+  // sans parcours à programme (termesConnus absent), aucun contrôle
+  assert.equal(evaluer(b, [], 0, () => true, { pages: [] }).avertissements.length, 0);
+});
+
+test('documents : réécriture avec documents — seules les leçons sans source de document, et seulement si la formation a des documents', async () => {
+  toutVoir();
+  insererProgramme('prog', { titre: 'La tour Eiffel', ouverts: 1, lecons: 3 });
+  const ecrire = (n, sources) => db.base.prepare('INSERT INTO paliers (id, parcours, numero, contenu, vues, cree) VALUES (?, ?, ?, ?, 0, ?)').run(`prog:${n}`, 'prog', n, JSON.stringify({ titre: 'L' + n, sources }), '2026-10-19T08:00:00.000Z');
+  ecrire(1, [['Wikipédia · X', 'https://fr.wikipedia.org/wiki/X']]);
+  ecrire(2, [['Institut Test, Cours, p. 3', ''], ['Wikipédia · X', 'https://fr.wikipedia.org/wiki/X']]);
+  ecrire(3, [['Wikipédia · Y', 'https://fr.wikipedia.org/wiki/Y']]);
+  await assert.rejects(() => reecrire(env, 'prog', { avecDocuments: true }), (e) => e instanceof ErreurHttp && e.statut === 400);
+  await posterDoc({ titre: 'Cours', fichier: 'c.pdf', parcours: 'prog', pages: textePages(mots(200, 'a')) });
+  const r = await reecrire(env, 'prog', { avecDocuments: true });
+  assert.deepEqual(r.faibles, [1, 3]);
+  assert.equal(r.ajoutees, 2);
+  assert.deepEqual(lignes("SELECT numero, type FROM file_attente ORDER BY numero"), [{ numero: 1, type: 'reecriture' }, { numero: 3, type: 'reecriture' }]);
+  // la route admin transmet l'option
+  const rr = await adminAvec(adminPost, { methode: 'POST', corps: { action: 'reecrire', parcours: 'prog', avecDocuments: true }, entetes: { 'x-admin-cle': CLE_ADMIN } });
+  assert.equal(rr.statut, 200, JSON.stringify(rr.corps));
+  assert.deepEqual(rr.corps.faibles, [1, 3]);
+});
+
+test('documents : page admin « Documents », pdf.js épinglé sur cdnjs, service worker sans cache pour cet hôte, importer_pdf sans envoi par défaut', () => {
+  const appJs = readFileSync(new URL('../app/app.js', import.meta.url), 'utf8');
+  assert.match(appJs, /https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js\/3\.11\.174\//, 'version épinglée');
+  assert.ok(appJs.includes('["Documents", panneauDocuments]'));
+  assert.ok(appJs.includes('pas de texte extractible'));
+  assert.ok(!/cdnjs[^"]*\/latest\//.test(appJs));
+  const sw = readFileSync(new URL('../app/sw.js', import.meta.url), 'utf8');
+  assert.ok(sw.includes('url.origin !== self.location.origin') && sw.includes('cdnjs.cloudflare.com') && !/"[^"]*cdnjs[^"]*"/.test(sw.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')), 'jamais en cache hors ligne');
+  const importer = readFileSync(new URL('./importer_pdf.mjs', import.meta.url), 'utf8');
+  assert.ok(importer.includes("pdftotext', ['-layout'") && importer.includes('options.url') && !/cle\s*=\s*['"][A-Za-z0-9]{8,}['"]/.test(importer));
+  assert.ok(importer.includes('pas de texte extractible'));
 });
 
 // --- Exécution -------------------------------------------------------------

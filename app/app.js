@@ -1791,7 +1791,7 @@
         srcs = sourcesPliees(l.sources.length, listeSrc);
       }
       var v = l.verification || {};
-      var noteV = v.statut === "verifie" ? v.note : (v.statut === "seule" && v.ia ? "Rédigé par l’IA " + v.ia[0] + " à partir des sources ci‑dessus (surtout Wikipédia). Aucun second contrôle" + N + ": une seule IA a écrit cette leçon, sans relecture humaine." : v.ia ? "Rédigé par l’IA " + v.ia[0] + " à partir des sources ci‑dessus (surtout Wikipédia), puis contrôlé affirmation par affirmation par l’IA " + v.ia[1] + (v.retirees ? " ; " + pluriel(v.retirees, "affirmation non confirmée a été retirée", "affirmations non confirmées ont été retirées") + "." : ".") + " Pas de relecture humaine." : "Rédigé à partir des sources ci‑dessus.");
+      var noteV = v.statut === "verifie" ? v.note : (v.statut === "seule" && v.ia ? "Rédigé par l’IA " + v.ia[0] + " à partir des sources ci‑dessus (surtout Wikipédia). Aucun second contrôle" + N + ": une seule IA a écrit cette leçon, sans relecture humaine." : v.ia ? "Rédigé par l’IA " + v.ia[0] + " à partir des sources ci‑dessus (surtout Wikipédia), puis contrôlé affirmation par affirmation par l’IA " + v.ia[1] + (v.retirees ? " ; " + pluriel(v.retirees, "affirmation non confirmée a été retirée", "affirmations non confirmées ont été retirées") + "." : ".") + (v.aValider ? " " + pluriel(v.aValider, "affirmation, soutenue par un seul document, est à valider", "affirmations, soutenues par un seul document, sont à valider") + "." : "") + " Pas de relecture humaine." : "Rédigé à partir des sources ci‑dessus.");
       // Question de compréhension
       var bonus = 0, qIndex = (l.questions || []).findIndex(function (q) { return q.type === "qcm"; });
       var verifBloc = null;
@@ -3425,13 +3425,13 @@
     }, function (e) { if (vive()) { alerte.textContent = erreurCompte(e); alerte.hidden = false; } });
     return el("div", { "class": "pile" }, [creditZone, corps, alerte]);
   }
-  /* Page admin : quatre onglets (Génération, Comptes, Codes, Signalements). Un 403 (compte plus admin) ramène à la saisie de la clé. */
+  /* Page admin : cinq onglets (Génération, Comptes, Codes, Signalements, Documents). Un 403 (compte plus admin) ramène à la saisie de la clé. */
   function vueAdmin() {
     if (!profil.compte) { montrer(erreurPage("Connecte‑toi à ton compte pour ouvrir l’espace admin.", "Espace admin"), "profil"); return; }
     if (profil.role !== "admin") return ecranCleAdmin();
     var vive = vivante(), choix = 0;
     var zone = el("div", { "class": "pile" }), onglets = el("div", { "class": "onglets quatre", role: "tablist", "aria-label": "Espace admin" });
-    var boutons = [["Génération", panneauGeneration], ["Comptes", panneauComptes], ["Codes", panneauCodes], ["Signalements", panneauSignalements]].map(function (o, k) {
+    var boutons = [["Génération", panneauGeneration], ["Comptes", panneauComptes], ["Codes", panneauCodes], ["Signalements", panneauSignalements], ["Documents", panneauDocuments]].map(function (o, k) {
       var b = el("button", { type: "button", role: "tab", "aria-selected": k === 0 ? "true" : "false", text: o[0] });
       b.addEventListener("click", function () { afficher(k); });
       onglets.appendChild(b);
@@ -3441,7 +3441,7 @@
       choix += 1; var mien = choix;
       boutons.forEach(function (b, i) { b.setAttribute("aria-selected", i === k ? "true" : "false"); });
       zone.textContent = "";
-      zone.appendChild([panneauGeneration, panneauComptes, panneauCodes, panneauSignalements][k](function () { return vive() && mien === choix; }));
+      zone.appendChild([panneauGeneration, panneauComptes, panneauCodes, panneauSignalements, panneauDocuments][k](function () { return vive() && mien === choix; }));
     }
     montrer(el("div", { "class": "page" }, [
       el("div", { "class": "barre-haut", style: "grid-template-columns:auto 1fr auto" }, [el("a", { "class": "retour-texte", href: "#/profil" }, [icone("retour"), "Profil"]), el("span"), puceXP()]),
@@ -4043,6 +4043,134 @@
     }
     api("GET", "admin?signalements=1", null, 10000).then(function (j) { if (vive()) rendre(j); }, function (e) { if (vive()) dire(alerte, erreurCompte(e)); });
     zone.appendChild(alerte); zone.appendChild(liste);
+    return zone;
+  }
+
+  /* Admin, onglet « Documents » (lot 10A) : PDF de référence des leçons. Le texte est extrait ICI, dans le navigateur, avec pdf.js (cdnjs, version
+     épinglée, chargé seulement à l'ajout), puis envoyé par paquets de 50 ko ; le serveur découpe et indexe. Un PDF d'images n'a pas de texte : on le dit. */
+  var PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/";
+  var chargementPdf = null;
+  function chargerPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (!chargementPdf) chargementPdf = new Promise(function (ok, ko) {
+      var sc = document.createElement("script"); sc.src = PDFJS + "pdf.min.js"; sc.async = true;
+      sc.onload = function () { if (window.pdfjsLib) { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.js"; ok(window.pdfjsLib); } else { chargementPdf = null; ko(new Error("pdf.js indisponible")); } };
+      sc.onerror = function () { chargementPdf = null; ko(new Error("Impossible de charger pdf.js. Vérifie ta connexion.")); };
+      document.head.appendChild(sc);
+    });
+    return chargementPdf;
+  }
+  /* Texte d'une page : lignes par `hasEOL`, ligne vide quand l'écart vertical dépasse une ligne et demie (paragraphe). */
+  function textePagePdf(contenu) {
+    var out = "", y = null;
+    contenu.items.forEach(function (it) {
+      if (typeof it.str !== "string") return;
+      var yi = it.transform ? it.transform[5] : null, h = it.height || 10;
+      if (y !== null && yi !== null && Math.abs(y - yi) > h * 1.6 && out && !/\n$/.test(out)) out += "\n\n";
+      out += it.str + (it.hasEOL ? "\n" : "");
+      if (yi !== null && it.str.trim()) y = yi;
+    });
+    return out.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  /* Pages -> paquets d'environ 50 000 caractères (une page trop longue est coupée, même numéro). */
+  function paquetsDePages(pages) {
+    var paquets = [], cur = [], n = 0, MAXP = 50000;
+    pages.forEach(function (p) {
+      var t = p.texte;
+      while (t.length) {
+        var part = t.slice(0, MAXP); t = t.slice(MAXP);
+        if (n + part.length > MAXP && cur.length) { paquets.push(cur); cur = []; n = 0; }
+        cur.push({ page: p.page, texte: part }); n += part.length;
+      }
+    });
+    if (cur.length) paquets.push(cur);
+    return paquets;
+  }
+  function titreDeFichier(nom) { return nom.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").replace(/\s+/g, " ").trim(); }
+  function octetsLisibles(o) { return o >= 1048576 ? (o / 1048576).toFixed(1).replace(".", ",") + " Mo" : Math.max(1, Math.round(o / 1024)) + " ko"; }
+  function panneauDocuments(vive) {
+    var zone = el("div", { "class": "pile" }), liste = el("div", { "class": "pile serree" }), alerte = alerteVide(), bilan = el("ul", { "class": "liste", hidden: "" });
+    var fichiers = el("input", { type: "file", id: "doc-fichiers", accept: "application/pdf,.pdf", multiple: "", "class": "champ" });
+    var formation = champTexte("doc-formation", "Formation liée (identifiant, vide = tout sujet)", { autocapitalize: "off", spellcheck: "false", placeholder: "gemmologie-et-joaillerie" });
+    var editeur = champTexte("doc-editeur", "Éditeur affiché dans les sources", { placeholder: "Institut National de Gemmologie" });
+    var niveau = el("select", { "class": "champ", id: "doc-niveau" }, [["", "Tous les niveaux"], ["1", "Niveau 1 et plus"], ["2", "Niveau 2 et plus"], ["3", "Niveau 3 et plus"], ["4", "Niveau 4 seulement"]].map(function (o) { return el("option", { value: o[0], text: o[1] }); }));
+    var ajouter = el("button", { "class": "btn", type: "button" }, [el("span", { text: "Ajouter les PDF" }), icone("fleche")]);
+    var barre = el("div", { "class": "barre-det", hidden: "", role: "progressbar", "aria-valuemin": "0", "aria-valuemax": "100", "aria-valuenow": "0" }, [el("i")]);
+    var etatEnvoi = el("p", { "class": "meta", role: "status", hidden: "" });
+    function progres(f, texte) { barre.hidden = false; barre.firstChild.style.transform = "scaleX(" + f + ")"; barre.setAttribute("aria-valuenow", String(Math.round(f * 100))); if (texte) { etatEnvoi.textContent = texte; etatEnvoi.hidden = false; } }
+    function note(texte, ok) { bilan.hidden = false; bilan.appendChild(el("li", {}, [el("span", { "class": ok ? "meta" : "alerte", text: texte })])); }
+    function envoyer() {
+      var fs = Array.prototype.slice.call(fichiers.files || []);
+      dire(alerte, ""); bilan.textContent = ""; bilan.hidden = true;
+      if (!fs.length) { dire(alerte, "Choisis d’abord un ou plusieurs PDF."); return; }
+      ajouter.disabled = true;
+      var ids = formation.input.value.trim(), niv = niveau.value ? parseInt(niveau.value, 10) : null, ed = editeur.input.value.trim();
+      chargerPdfJs().then(function (pdfjs) {
+        var k = 0;
+        function suivant() {
+          if (k >= fs.length) return Promise.resolve();
+          var f = fs[k], rang = k; k += 1;
+          progres(rang / fs.length, f.name + " : lecture du PDF…");
+          return f.arrayBuffer().then(function (buf) { return pdfjs.getDocument({ data: buf }).promise; }).then(function (pdf) {
+            var pages = [], i = 0;
+            function page() {
+              if (i >= pdf.numPages) return Promise.resolve();
+              i += 1; var num = i;
+              progres((rang + (num / pdf.numPages) * 0.5) / fs.length, f.name + " : page " + num + " sur " + pdf.numPages);
+              return pdf.getPage(num).then(function (p) { return p.getTextContent(); }).then(function (c) { var t = textePagePdf(c); if (t) pages.push({ page: num, texte: t }); return page(); });
+            }
+            return page().then(function () {
+              if (!pages.length) { note(f.name + " : pas de texte extractible (PDF fait d’images). Rien n’a été ajouté.", false); return null; }
+              var paquets = paquetsDePages(pages), id = null, j = 0, morceaux = 0;
+              function paquet() {
+                if (j >= paquets.length) return Promise.resolve();
+                var corps = id ? { id: id, pages: paquets[j] } : { titre: titreDeFichier(f.name), fichier: f.name, parcours: ids || null, editeur: ed || null, niveau: niv, pagesTotal: pdf.numPages, pages: paquets[j] };
+                j += 1;
+                progres((rang + 0.5 + 0.5 * (j / paquets.length)) / fs.length, f.name + " : envoi " + j + " sur " + paquets.length);
+                return api("POST", "documents", corps, 60000).then(function (r) { id = r.id; morceaux += r.morceauxAjoutes; return paquet(); });
+              }
+              return paquet().then(function () { note(f.name + " : ajouté, " + pluriel(morceaux, "morceau", "morceaux") + ".", true); });
+            });
+          }).then(suivant, function (e) { note(f.name + " : " + (e.statut === 409 ? "déjà ajouté." : erreurCompte(e)), false); return suivant(); });
+        }
+        return suivant();
+      }).then(function () { progres(1, "Terminé."); fichiers.value = ""; ajouter.disabled = false; if (vive()) charger(); },
+        function (e) { ajouter.disabled = false; dire(alerte, e.message || "Ajout impossible."); });
+    }
+    ajouter.addEventListener("click", envoyer);
+    function modifier(corps) { return api("POST", "documents", Object.assign({ action: "modifier" }, corps), 15000).then(function (j) { if (vive()) rendre(j); }, function (e) { dire(alerte, erreurCompte(e)); }); }
+    function rendre(j) {
+      liste.textContent = "";
+      var ul = el("ul", { "class": "liste" });
+      (j.documents || []).forEach(function (d) {
+        var bascule = el("button", { "class": "btn second petit", type: "button", text: d.actif ? "Désactiver" : "Activer" });
+        bascule.addEventListener("click", function () { bascule.disabled = true; modifier({ id: d.id, actif: !d.actif }); });
+        var sup = el("button", { "class": "btn second petit", type: "button", text: "Supprimer" });
+        sup.addEventListener("click", function () {
+          if (!window.confirm("Supprimer " + guill(d.titre) + " et ses " + pluriel(d.morceaux, "morceau", "morceaux") + F + "?")) return;
+          sup.disabled = true;
+          api("DELETE", "documents?id=" + d.id, null, 15000).then(function (j2) { if (vive()) rendre(j2); }, function (e) { sup.disabled = false; dire(alerte, erreurCompte(e)); });
+        });
+        var lien = el("input", { "class": "champ", type: "text", value: d.parcours || "", autocapitalize: "off", spellcheck: "false", placeholder: "Formation (vide = tout sujet)", "aria-label": "Formation liée à " + d.titre });
+        var lier = el("button", { "class": "btn second petit", type: "button", text: "Lier" });
+        lier.addEventListener("click", function () { lier.disabled = true; modifier({ id: d.id, parcours: lien.value.trim() || null }); });
+        var details = (d.editeur ? d.editeur + " · " : "") + (d.niveau ? "niveau " + d.niveau + " et plus · " : "tous niveaux · ") + pluriel(d.pages || 0, "page", "pages") + " · " + pluriel(d.morceaux, "morceau", "morceaux") + " · " + octetsLisibles(d.octets) + " · " + (d.formation || d.parcours ? "formation " + (d.formation || d.parcours) : "tout sujet");
+        var li = ligneAdmin(d.titre + (d.actif ? "" : " · désactivé"), details, [bascule, sup]);
+        li.appendChild(el("div", { "class": "ligne-doc" }, [lien, lier]));
+        ul.appendChild(li);
+      });
+      liste.appendChild(el("h2", { text: "Documents ajoutés" }));
+      liste.appendChild((j.documents || []).length ? ul : el("p", { "class": "meta", text: "Aucun document pour l’instant." }));
+      liste.appendChild(el("p", { "class": "meta", text: "Place utilisée" + N + ": " + octetsLisibles(j.octets || 0) + " sur " + octetsLisibles(j.max || 0) + ". Les leçons s’appuient d’abord sur ces documents, puis sur Wikipédia et le web. Les textes ne sont jamais montrés tels quels aux joueurs." }));
+    }
+    function charger() { api("GET", "documents", null, 10000).then(function (j) { if (vive()) rendre(j); }, function (e) { if (vive()) dire(alerte, erreurCompte(e)); }); }
+    zone.appendChild(el("div", { "class": "pile" }, [
+      el("label", { "for": "doc-fichiers", "class": "sur", text: "PDF à ajouter" }), fichiers,
+      ligneChamp(formation), ligneChamp(editeur),
+      el("div", { "class": "pile serree" }, [el("label", { "for": "doc-niveau", "class": "sur", text: "Niveau du document" }), niveau]),
+      ajouter, barre, etatEnvoi, bilan, alerte]));
+    zone.appendChild(liste);
+    charger();
     return zone;
   }
 
