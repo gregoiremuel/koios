@@ -43,7 +43,8 @@ async function essai(f, secrets) {
   return sortie;
 }
 
-export const onRequestGet = enveloppe(async ({ request, env }) => {
+export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
+  const env = { ...envServeur, autoriseClaudeServeur: true }; // porteur de DIAG_KEY = administrateur
   // Clé par l'en-tête x-diag-cle (préféré) ou par l'adresse (conservé pour l'instant) ; comparaison à temps constant.
   const cle = request.headers.get('x-diag-cle') || new URL(request.url).searchParams.get('cle') || '';
   if (!(await secretsEgaux(cle, env.DIAG_KEY))) throw new ErreurHttp(404, 'Introuvable.');

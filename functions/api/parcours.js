@@ -155,9 +155,9 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
 
 export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
   await exigerBase(envServeur);
-  const env = envAvecCle(request, envServeur);
-  const joueur = await auth(request, env);
+  const joueur = await auth(request, envServeur);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
+  const env = envAvecCle(request, envServeur, joueur);
   const corps = await lireJSON(request, 2048);
 
   if (corps.prolonger === true) return json({ parcours: await prolonger(env, joueur, corps.id) });

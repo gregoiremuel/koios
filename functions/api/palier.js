@@ -60,7 +60,7 @@ export const onRequestGet = enveloppe(async ({ request, env: envServeur }) => {
   }
 
   // Clé IA personnelle (en-tête x-cle-ia) : lue seulement ici, au moment de générer. Elle passe en premier pour la rédaction ; jamais enregistrée ni renvoyée.
-  env = envAvecCle(request, envServeur);
+  env = envAvecCle(request, envServeur, joueur);
 
   // Un seul chronomètre pour le plan éventuel, les sources, la rédaction et la vérification.
   const horloge = demarrerChrono();

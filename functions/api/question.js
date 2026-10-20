@@ -54,7 +54,7 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
   async function repondre() {
   // Le chrono part avant la lecture des pages : sources, rédaction et recoupements se partagent environ 80 s.
   const horloge = demarrerChrono(80000);
-  const env = envAvecCle(request, envServeur);
+  const env = envAvecCle(request, envServeur, joueur);
 
   const lignePar = await env.DB.prepare('SELECT id, titre, contenu FROM parcours WHERE id = ?').bind(parcoursId).first();
   if (!lignePar) throw new ErreurHttp(404, 'Parcours introuvable.');

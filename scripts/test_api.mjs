@@ -8973,7 +8973,7 @@ test('Mistral (API) : un 429 écarte le modèle 60 s (limite par seconde du pali
 test('Claude (clé du serveur CLAUDE_API_KEY) : actif seulement avec la clé, PREMIER pour la rédaction, vérifié par une autre famille', async () => {
   reinitExt();
   const fam = (l) => l.map((f) => f.famille);
-  const AVEC = { ...TOUS, CLAUDE_API_KEY: CLE_CLAUDE };
+  const AVEC = { ...TOUS, CLAUDE_API_KEY: CLE_CLAUDE, autoriseClaudeServeur: true };
   assert.equal(cleClaude({}), false);
   assert.equal(cleClaude({ CLAUDE_API_KEY: ' ' }), false);
   assert.equal(cleClaude(AVEC), true);
@@ -8995,6 +8995,7 @@ test('Claude (clé du serveur CLAUDE_API_KEY) : actif seulement avec la clé, PR
   const sc = scenario(partiesStandard());
   ext.claude = claudeVers(sc);
   const j = await prepareProgramme();
+  faireAdmin(j); // la clé Claude du serveur ne sert qu'à un compte admin ou à la file de nuit
   ext.claude = claudeVers(sc);
   const r = await appel(palierGet, { env: envDe(sc, { CLAUDE_API_KEY: CLE_CLAUDE }), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1' });
   ok200(r);
@@ -9018,6 +9019,47 @@ test('Claude (clé du serveur CLAUDE_API_KEY) : actif seulement avec la clé, PR
   assert.equal(estIgnore('claude'), true);
   assert.ok(!fam(redacteurs(AVEC)).includes('claude'));
   reinitExt();
+});
+
+test('clé Claude du serveur : jamais pour un joueur ordinaire ; oui pour un admin, la file de nuit et la clé perso', async () => {
+  const compte = () => ext.appels.filter((x) => x.fournisseur === 'claude').length;
+  const sc = scenario(partiesStandard());
+  const j = await prepareProgramme();
+  const serveur = { CLAUDE_API_KEY: CLE_CLAUDE };
+  // Par défaut (aucun drapeau) : pas de Claude du serveur, ni en rédaction ni en vérification.
+  const fam = (l) => l.map((f) => f.famille);
+  assert.ok(!fam(redacteurs({ ...TOUS, ...serveur })).includes('claude'));
+  assert.ok(!fam(tousLesFournisseurs({ ...TOUS, ...serveur })).includes('claude'));
+  assert.ok(!fam(verificateurs({ ...TOUS, ...serveur }, { famille: 'gemini', modele: 'g' })).includes('claude'));
+  // Joueur ordinaire : leçon à la demande, zéro appel à api.anthropic.com.
+  reinitExt(); oublierEpuisements();
+  ext.claude = claudeVers(sc);
+  ok200(await appel(palierGet, { env: envDe(sc, serveur), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=1' }));
+  assert.equal(compte(), 0, 'joueur ordinaire : aucun appel Claude');
+  // Clé perso Claude du joueur : utilisée (c'est la sienne).
+  db.base.prepare("DELETE FROM paliers WHERE id = 'la-tour-eiffel:2'").run();
+  reinitExt(); oublierEpuisements();
+  ext.claude = claudeVers(sc);
+  ok200(await appel(palierGet, { env: envDe(sc, serveur), jeton: j.jeton, entetes: { 'x-cle-ia': 'claude:' + CLE_CLAUDE }, requete: '?parcours=la-tour-eiffel&n=2' }));
+  assert.ok(compte() > 0, 'clé perso : appels Claude');
+  assert.ok(ext.appels.filter((x) => x.fournisseur === 'claude').every((a) => new Headers(a.init.headers).get('x-api-key') === CLE_CLAUDE));
+  // Admin : la clé du serveur sert.
+  faireAdmin(j);
+  db.base.prepare("DELETE FROM paliers WHERE id = 'la-tour-eiffel:3'").run();
+  reinitExt(); oublierEpuisements();
+  ext.claude = claudeVers(sc);
+  ok200(await appel(palierGet, { env: envDe(sc, serveur), jeton: j.jeton, requete: '?parcours=la-tour-eiffel&n=3' }));
+  assert.ok(compte() > 0, 'admin : Claude du serveur');
+  // File de nuit : le drapeau est posé par traiterFile elle-même.
+  ok200(await appel(adminPost, { env: envAdmin(), methode: 'POST', entetes: enteteAdmin, corps: { action: 'debloquer', parcours: 'la-tour-eiffel' } }));
+  reinitExt(); oublierEpuisements();
+  const scN = scenario({ ...partiesStandard(), module: [module2Brut()] });
+  brancher(scN);
+  ext.claude = claudeVers(scN);
+  const b = await traiterFile({ DB: db, AI: scN.ai, ...serveur });
+  assert.ok(b.faites > 0);
+  assert.ok(compte() > 0, 'file de nuit : Claude du serveur');
+  reinitExt(); oublierEpuisements();
 });
 
 test('diagnostic : Claude apparaît en premier (clé présente, état), jamais sa clé', async () => {
@@ -9921,7 +9963,7 @@ test('crédit Claude : coût (0,10 $ / 0,50 $ par million), seuil 0,5 $, jetons 
     assert.ok(!JSON.stringify(g.corps).includes('credit'), 'rien du crédit pour un non-admin');
     erreurFr(await postAdmin({ action: 'credit', montant: 10 }, options), 403);
   }
-  const AVEC = { DB: db, CLAUDE_API_KEY: CLE_CLAUDE, ADMIN_KEY: CLE_ADMIN };
+  const AVEC = { DB: db, CLAUDE_API_KEY: CLE_CLAUDE, ADMIN_KEY: CLE_ADMIN, autoriseClaudeServeur: true };
   const vide = (await adminAvec(adminGet, { jeton: chef.jeton, env: AVEC })).corps.credit;
   assert.deepEqual(vide, { charge: 0, depense: 0, restant: 0, seuil: 0.5, alerte: true, epuise: false });
   erreurFr(await postAdmin({ action: 'credit', montant: 'dix' }, { jeton: chef.jeton, env: AVEC }), 400);

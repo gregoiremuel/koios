@@ -9,10 +9,11 @@ import {
   ID_PARCOURS, decoderParcours, demarrerChrono, genererQuizDirect, questionsDuQuiz,
 } from '../../lib/paliers.js';
 
-export const onRequestPost = enveloppe(async ({ request, env }) => {
-  await exigerBase(env);
-  const joueur = await auth(request, env);
+export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
+  await exigerBase(envServeur);
+  const joueur = await auth(request, envServeur);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
+  const env = joueur.role === 'admin' ? { ...envServeur, autoriseClaudeServeur: true } : envServeur;
   const corps = await lireJSON(request, 2048);
 
   if (typeof corps.parcours !== 'string' || !ID_PARCOURS.test(corps.parcours)) {

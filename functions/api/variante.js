@@ -16,9 +16,9 @@ const VERIFIE = /^v-[a-z]{2}$/;
 
 export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
   await exigerBase(envServeur);
-  const env = envAvecCle(request, envServeur); // clé IA personnelle facultative (en-tête x-cle-ia)
-  const joueur = await auth(request, env);
+  const joueur = await auth(request, envServeur);
   if (!joueur) throw new ErreurHttp(401, 'Connexion requise.');
+  const env = envAvecCle(request, envServeur, joueur); // clé IA personnelle facultative (en-tête x-cle-ia)
   const corps = await lireJSON(request, 2048);
 
   if (typeof corps.parcours !== 'string' || !ID_PARCOURS.test(corps.parcours)) {
