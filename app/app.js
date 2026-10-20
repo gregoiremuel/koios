@@ -3714,38 +3714,44 @@
      et de ses sources, recoupée par une autre IA) s'affiche en carte. La question reste une donnée : le texte est inséré avec textContent. */
   function blocQuestion(p, n) {
     var declencheur = el("button", { "class": "btn second", type: "button", "aria-expanded": "false", "aria-controls": "question-panneau" }, [icone("aide"), el("span", { text: "Poser une question" })]);
-    var panneau = el("div", { "class": "pile serree", id: "question-panneau", hidden: "" });
-    var champ = el("input", { "class": "champ", id: "question-champ", type: "text", maxlength: "200", autocomplete: "off", placeholder: "Une question sur cette leçon", "aria-label": "Ta question sur cette leçon (200 caractères au plus)" });
-    var compteur = el("p", { "class": "meta", text: "0" + N + "/" + N + "200" });
-    var envoyer = el("button", { "class": "btn second", type: "button" }, [el("span", { text: "Envoyer la question" })]);
+    var panneau = el("form", { "class": "pile serree", id: "question-panneau", hidden: "", novalidate: "" });
+    var etiquette = el("label", { "class": "meta", "for": "question-champ", text: "Ta question sur cette leçon" });
+    var champ = el("input", { "class": "champ", id: "question-champ", type: "text", maxlength: "200", autocomplete: "off", placeholder: "Une question sur cette leçon", "aria-describedby": "question-compteur" });
+    var compteur = el("p", { "class": "meta", id: "question-compteur", text: "0" + N + "/" + N + "200" });
+    var envoyer = el("button", { "class": "btn second", type: "submit" }, [el("span", { text: "Envoyer la question" })]);
     var alerte = alerteVide();
-    var reponse = el("div", { "class": "carte", role: "status", "aria-live": "polite", hidden: "" });
+    /* Zone annoncée : visible et vide au départ (une région vivante doit exister avant d'être remplie). La carte s'y glisse avec la réponse. */
+    var zone = el("div", { role: "status", "aria-live": "polite" });
     declencheur.addEventListener("click", function () {
       var ouvre = panneau.hidden;
       panneau.hidden = !ouvre; declencheur.setAttribute("aria-expanded", ouvre ? "true" : "false");
       if (ouvre) champ.focus();
     });
     champ.addEventListener("input", function () { compteur.textContent = champ.value.length + N + "/" + N + "200"; });
-    envoyer.addEventListener("click", function () {
+    panneau.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (envoyer.disabled) return;
       var q = champ.value.trim();
       if (q.length < 5) { dire(alerte, "Écris ta question en quelques mots."); return; }
       if (!enLigne()) { dire(alerte, "Connecte-toi à ton compte pour poser une question."); return; }
-      dire(alerte, ""); reponse.hidden = true; envoyer.disabled = true; envoyer.firstChild.textContent = "Le Rival cherche…";
+      dire(alerte, ""); zone.textContent = ""; envoyer.disabled = true; envoyer.firstChild.textContent = "Le Rival cherche…";
       api("POST", "question", { parcours: p.id, numero: n, question: q }, 100000).then(function (r) {
         envoyer.disabled = false; envoyer.firstChild.textContent = "Envoyer la question";
-        reponse.textContent = "";
-        reponse.appendChild(el("p", { "class": "meta", text: "Ta question" }));
-        reponse.appendChild(el("p", { text: q }));
-        reponse.appendChild(el("p", { "class": "meta", text: "Réponse du Rival" }));
-        reponse.appendChild(el("p", { text: r.reponse }));
-        if (r.trouve) reponse.appendChild(el("p", { "class": "meta", text: "Tirée de la leçon et de ses sources, recoupée par une autre IA." }));
-        reponse.hidden = false;
+        var carte = el("div", { "class": "carte", tabindex: "-1" });
+        carte.appendChild(el("p", { "class": "meta", text: "Ta question" }));
+        carte.appendChild(el("p", { text: q }));
+        carte.appendChild(el("p", { "class": "meta", text: "Réponse du Rival" }));
+        carte.appendChild(el("p", { text: r.reponse }));
+        if (r.trouve) carte.appendChild(el("p", { "class": "meta", text: "Tirée de la leçon et de ses sources, recoupée par une autre IA." }));
+        zone.appendChild(carte);
+        carte.focus();
       }, function (e) {
         envoyer.disabled = false; envoyer.firstChild.textContent = "Envoyer la question";
-        dire(alerte, messageErreur(e, "Tu as posé toutes tes questions du jour. Réessaie demain."));
+        /* 429 : on affiche le message du serveur (quota du compte ou plafond de tout le monde), qui dit déjà lequel des deux. */
+        dire(alerte, typo(e.statut === 429 && e.message ? e.message : messageErreur(e, "Tu as posé toutes tes questions du jour. Réessaie demain.")));
       });
     });
-    [champ, compteur, envoyer, alerte, reponse].forEach(function (x) { panneau.appendChild(x); });
+    [etiquette, champ, compteur, envoyer, alerte, zone].forEach(function (x) { panneau.appendChild(x); });
     return el("section", { "class": "question pile serree" }, [declencheur, panneau]);
   }
 

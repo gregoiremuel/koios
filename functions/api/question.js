@@ -3,7 +3,7 @@
 // réponse de l'IA à partir de la leçon et des extraits Wikipédia en cache, recoupée par une autre famille d'IA, puis enregistrée.
 // Clé personnelle x-cle-ia acceptée. La question n'est jamais journalisée ni exécutée comme consigne.
 import {
-  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, quota, quotaJoueur,
+  ErreurHttp, auth, enveloppe, envAvecCle, exigerBase, json, lireJSON, quota, quotaJoueur, rendreQuota,
 } from '../../lib/api.js';
 import {
   ID_PARCOURS, PALIER_MAX, decoderParcours, demarrerChrono, pagesDeReferenceCachees,
@@ -37,7 +37,23 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
   if (!(await quotaJoueur(envServeur, joueur, 'question:joueur:' + joueur.id, QUESTIONS_PAR_JOUR))) {
     throw new ErreurHttp(429, `Tu as déjà posé ${QUESTIONS_PAR_JOUR} questions aujourd’hui. Reviens demain.`);
   }
-  if (!(await quota(envServeur, 'question:total', 500))) throw new ErreurHttp(429, 'Le Rival est débordé aujourd’hui. Reviens demain.');
+  if (!(await quota(envServeur, 'question:total', 500))) throw new ErreurHttp(429, 'Le Rival a atteint sa limite du jour pour tout le monde. Reviens demain.');
+  const cleJoueur = 'question:joueur:' + joueur.id;
+  // Une question qui finit en 502 (rien de produit) ne compte dans aucun quota.
+  const rendre = async () => {
+    if (joueur.role !== 'admin') await rendreQuota(envServeur, cleJoueur);
+    await rendreQuota(envServeur, 'question:total');
+  };
+  try {
+    return await repondre();
+  } catch (e) {
+    if (e instanceof ErreurHttp && e.statut === 502) await rendre();
+    throw e;
+  }
+
+  async function repondre() {
+  // Le chrono part avant la lecture des pages : sources, rédaction et recoupements se partagent environ 80 s.
+  const horloge = demarrerChrono(80000);
   const env = envAvecCle(request, envServeur);
 
   const lignePar = await env.DB.prepare('SELECT id, titre, contenu FROM parcours WHERE id = ?').bind(parcoursId).first();
@@ -50,6 +66,7 @@ export const onRequestPost = enveloppe(async ({ request, env: envServeur }) => {
   ]);
   const pages = [...specifiques, ...reference].filter((p, i, t) => t.findIndex((q) => q.langue === p.langue && q.titre === p.titre) === i).slice(0, 4);
 
-  const r = await repondreQuestion(env, { cle, parcours: parcoursId, numero, titre, lecon, pages, question, horloge: demarrerChrono() });
+  const r = await repondreQuestion(env, { cle, parcours: parcoursId, numero, titre, lecon, pages, question, horloge });
   return json({ reponse: r.reponse, trouve: r.trouve, verifie: r.verifie, cache: false });
+  }
 });

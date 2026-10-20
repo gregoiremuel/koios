@@ -278,3 +278,6 @@ CREATE TABLE IF NOT EXISTS questions_cache (
   ia TEXT,
   cree TEXT
 );
+
+-- Retire d'un coup les réponses d'une leçon réécrite.
+CREATE INDEX IF NOT EXISTS idx_questions_cache_lecon ON questions_cache(parcours, numero);
