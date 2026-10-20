@@ -63,7 +63,9 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     }
     const demande = [{ role: 'system', content: PROMPT_VERIFICATION }, { role: 'user', content: messageVerification(pages, textes) }];
     const sorties = [];
-    for (const f of verificateurs(env, { famille: 'claude', modele: 'claude-haiku-5-5' })) {
+    const gem = new URL(request.url).searchParams.get('gem');
+    const envV = gem && /^[a-z0-9.-]{3,40}$/.test(gem) ? { ...env, GEMINI_MODELE: gem } : env;
+    for (const f of verificateurs(envV, { famille: 'claude', modele: 'claude-haiku-5-5' }).filter((x) => !gem || x.famille === 'gemini')) {
       const debut = Date.now();
       const brut = { nom: f.nom, famille: f.famille };
       try {
