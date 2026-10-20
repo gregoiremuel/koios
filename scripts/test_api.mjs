@@ -50,7 +50,7 @@ import {
   licenceLibre, requeteImage, texteDeHtml,
 } from '../lib/images.js';
 import {
-  EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
+  FORMAT_LECON, EXEMPLE_ETAPE, EXEMPLE_LECON, EXEMPLE_MODULE, EXEMPLE_PALIER, EXEMPLE_PROGRAMME, EXEMPLE_PROLONGEMENT, MESSAGE_FIN, MOTS_INTERDITS,
   PALIER_MAX, PROMPT_ETAPE, PROMPT_LECON, PROMPT_LECON_A, PROMPT_LECON_A_COURT, PROMPT_LECON_B, PROMPT_LECON_B_COURT, PROMPT_PROGRAMME_COURT, PROMPT_MODULE, PROMPT_PALIER, PROMPT_PROGRAMME, PROMPT_PROLONGER, PROMPT_QUIZ, PROMPT_VARIANTE, PROMPT_VERIFICATION, CONSIGNES_VARIANTE, validerVariante,
   TON_MAITRISE, TON_NIVEAU, aplatir, contientInterdit, decoderParcours, decouperPhrases, evaluer, lireIdPalier, lireIdQuiz,
   modulesDe, referenceDe, tonDuNiveau, titreMaitrise, validerEtape, validerModule, validerProgramme, validerProlongement, validerQuestion, validerQuiz,
@@ -58,6 +58,7 @@ import {
   SECTIONS_BASE, SEUIL_LECON, soutenue, sujetDefini, validerVerdicts,
 } from '../lib/paliers.js';
 import '../app/logique.js';
+import { TYPES_VISUELS, anneeDe, aplatirVisuel, validerVisuel, validerVisuels } from '../lib/visuels.js';
 import { onRequestPost as variantePost } from '../functions/api/variante.js';
 import worker from '../worker.js';
 import { onRequestGet as etatGet } from '../functions/api/etat.js';
@@ -2177,7 +2178,7 @@ const MODULES_EXEMPLE = EXEMPLE_PROGRAMME.niveaux.flatMap((n) => n.modules); // 
 const NB_MODULES = MODULES_EXEMPLE.length;
 const TITRE_MODULE_1 = typographierTexte(MODULES_EXEMPLE[0].titre); // « Qu’est-ce que la tour Eiffel ? », espace fine avant « ? »
 const CLES_PARCOURS = ['id', 'titre', 'resume', 'image', 'etapes', 'sources', 'programme', 'modulesTotal'];
-const CLES_LECON = ['id', 'parcours', 'numero', 'etape', 'niveau', 'module', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions', 'sources', 'verification'];
+const CLES_LECON = ['id', 'parcours', 'numero', 'etape', 'niveau', 'module', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'piege', 'visuels', 'format', 'questions', 'sources', 'verification'];
 const CLES_PALIER = ['id', 'parcours', 'numero', 'etape', 'titre', 'image', 'sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'questions', 'sources', 'verification'];
 
 // --- Fournisseurs ---
@@ -3461,7 +3462,7 @@ test('prompts du programme, du module et de la leçon : JSON strict, 4 niveaux, 
     'Ne redéfinis pas ces termes', 'consigne de ton', 'sections', 'enBref', 'definitions', 'questions', '"qcm"', '"vraifaux"', 'jamais du texte',
     'quelqu’un qui découvre le sujet', 'n’emploie jamais de jargon non expliqué', 'soit défini dans « definitions » de cette leçon, soit dans la liste des termes déjà vus',
     'une analogie ou un exemple concret', 'avant', '« Avant de commencer »', 'de 0 à 3 rappels', 'exemple', '1 à 3 phrases', 'cartes', 'de 2 à 4 cartes de révision',
-    '"recto"', '"verso"', 'enBref (l’essentiel) vaut une liste de 2 à 3 phrases', 'une liste de 2 à 6 phrases', 'liste de 2 à 6 objets', 'Une seule définition est permise']) {
+    '"recto"', '"verso"', 'enBref (l’essentiel) vaut une liste de 2 à 3 phrases', 'une liste de 2 à 6 phrases', 'liste de 3 à 6 objets', 'Une seule définition est permise']) {
     assert.ok(norme(PROMPT_LECON).includes(norme(t)), t);
   }
   // Prolongement : 3 à 5 modules d'un niveau « Maîtrise », sans rien répéter.
@@ -3582,7 +3583,7 @@ test('validerRedaction en mode leçon : aRetenir obligatoire (2 à 4 phrases), m
   const lecon = (fn) => { const b = leconBrute(); fn(b); return validerRedaction(b, { lecon: true }); };
   const r = validerRedaction(leconBrute(), { lecon: true });
   assert.ok(r.valeur, r.raison);
-  assert.deepEqual(Object.keys(r.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions']);
+  assert.deepEqual(Object.keys(r.valeur), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'piege', 'visuels', 'questions']);
   assert.deepEqual(r.valeur.aRetenir, EXEMPLE_LECON.aRetenir);
   assert.deepEqual(r.valeur.avant, EXEMPLE_LECON.avant);
   assert.equal(r.valeur.exemple, EXEMPLE_LECON.exemple);
@@ -3597,7 +3598,7 @@ test('validerRedaction en mode leçon : aRetenir obligatoire (2 à 4 phrases), m
   refus(lecon((b) => { b.aRetenir = ['Courte.', 'Une phrase assez longue pour passer.']; }), '1 phrase valide sur 2');
   refus(lecon((b) => { b.aRetenir = ['x'.repeat(161), 'y'.repeat(161)]; }), 'phrases trop longues');
   refus(lecon((b) => { b.aRetenir = ['Bienvenue dans la tour de fer de Paris.', 'Une phrase assez longue pour passer.']; }), 'mot promotionnel');
-  assert.equal(lecon((b) => { b.aRetenir = Array.from({ length: 6 }, (_, i) => 'Une phrase assez longue numéro ' + i + '.'); }).valeur.aRetenir.length, 4, '4 gardées au plus');
+  assert.equal(lecon((b) => { b.aRetenir = Array.from({ length: 6 }, (_, i) => 'Une phrase assez longue numéro ' + i + '.'); }).valeur.aRetenir.length, 5, '5 gardées au plus');
   assert.equal(lecon((b) => { b.aRetenir = ['Une phrase assez longue pour passer.', 'Courte.', 'Une autre phrase assez longue pour passer.']; }).valeur.aRetenir.length, 2, 'les phrases invalides sont écartées');
   assert.equal(lecon((b) => { b.aRetenir = ['Une phrase assez longue pour passer.', 'Une phrase assez longue pour passer.']; }).raison !== undefined, true, 'doublons');
   // mnemo : 20 à 200 caractères, sinon null ; absent -> null.
@@ -3680,7 +3681,7 @@ test('evaluer en mode leçon : un « à retenir » non confirmé est retiré, un
   assert.equal(sansMnemo.brouillon.mnemo, null);
   assert.deepEqual(sansMnemo.brouillon.aRetenir, EXEMPLE_LECON.aRetenir);
   assert.equal(sansMnemo.retirees, 1);
-  assert.deepEqual(Object.keys(sansMnemo.brouillon), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'questions']);
+  assert.deepEqual(Object.keys(sansMnemo.brouillon), ['sections', 'definitions', 'frise', 'chiffres', 'notions', 'histoire', 'aRetenir', 'mnemo', 'avant', 'exemple', 'cartes', 'objectif', 'rappel', 'piege', 'visuels', 'questions']);
   const tout = ev([18, 19, 20, 21]);
   assert.deepEqual([tout.brouillon.aRetenir, tout.brouillon.mnemo, tout.retirees, tout.viable], [[], null, 4, true]);
   // Rappels, exemple et cartes viennent après les questions (29 premières affirmations inchangées) : 30 et 31 = rappels,
@@ -4520,12 +4521,12 @@ test('leçon (parcours à programme) : forme, niveau et module, « à retenir »
   assert.ok(!/\n36\. /.test(v));
   assert.deepEqual(JSON.parse(lignes('SELECT contenu FROM paliers')[0].contenu), p);
   assert.deepEqual(quotasPalier(), [{ cle: 'palier:joueur:' + j.id, n: 1 }, { cle: 'palier:total', n: 1 }]);
-  // Budget de la leçon : deux appels de 2 200 jetons au plus (3 500 pour un palier de l'ancien format), vérification de 400.
+  // Budget de la leçon : deux appels de 3 000 jetons au plus (3 500 pour un palier de l'ancien format), vérification de 400.
   const jetons = [];
   const scJ = scenario(partiesStandard());
   const ai = { run: (modele, entree) => { jetons.push(entree.max_tokens); return scJ.ai.run(modele, entree); } };
   ok200(await lirePalier(j, 'la-tour-eiffel', 2, scJ, { AI: ai }));
-  assert.deepEqual(jetons, [2200, 2200, 700], 'deux moitiés de 2 200 jetons, vérification de 700');
+  assert.deepEqual(jetons, [3000, 3000, 700], 'deux moitiés de 3 000 jetons, vérification de 700');
 });
 
 test('leçon : les termes déjà définis par les leçons précédentes sont fournis (200 au plus, noms seulement), pas les suivantes', async () => {
@@ -4959,9 +4960,9 @@ const avecDelaisCourts = async (fn) => {
 test('leçon en deux moitiés : A (sections, avant, exemple, définitions…) et B (frise, chiffres, notions, cartes, questions)', async () => {
   const brut = leconBrute();
   const a = validerMoitieA(brut).valeur;
-  assert.deepEqual(Object.keys(a).sort(), ['aRetenir', 'avant', 'definitions', 'exemple', 'histoire', 'mnemo', 'objectif', 'rappel', 'sections']);
+  assert.deepEqual(Object.keys(a).sort(), ['aRetenir', 'avant', 'definitions', 'exemple', 'histoire', 'mnemo', 'objectif', 'piege', 'rappel', 'sections']);
   const b = validerMoitieB(brut).valeur;
-  assert.deepEqual(Object.keys(b).sort(), ['cartes', 'chiffres', 'frise', 'notions', 'questions']);
+  assert.deepEqual(Object.keys(b).sort(), ['cartes', 'chiffres', 'frise', 'notions', 'questions', 'visuels']);
   assert.equal(b.questions.length, 4);
   // A : sections et définitions obligatoires ; le reste ne bloque jamais.
   assert.ok(validerMoitieA({ ...brut, sections: { enBref: ['Une seule phrase assez longue.'] } }).raison);
@@ -8724,7 +8725,7 @@ test('admin « reecrire » : met en file les leçons partiel > 20 % ou « à rev
   for (const [n, v] of Object.entries(verif)) {
     insererPalierTest('la-tour-eiffel', Number(n));
     const c = JSON.parse(lignes('SELECT contenu FROM paliers WHERE numero = ?', Number(n))[0].contenu);
-    db.base.prepare('UPDATE paliers SET contenu = ?, vues = ? WHERE numero = ?').run(JSON.stringify({ ...c, verification: { ia: ['a', 'b'], ...v } }), 7, Number(n));
+    db.base.prepare('UPDATE paliers SET contenu = ?, vues = ? WHERE numero = ?').run(JSON.stringify({ ...c, format: FORMAT_LECON, verification: { ia: ['a', 'b'], ...v } }), 7, Number(n));
   }
   const avant = (n) => lignes('SELECT contenu FROM paliers WHERE numero = ?', n)[0].contenu;
   const [c2, c4, c5] = [avant(2), avant(4), avant(5)];
@@ -10816,6 +10817,349 @@ test('aucun mot de passe, phrase de secours, code ni jeton dans les journaux ou 
   for (const ligne of journal) for (const s of secrets) assert.ok(!ligne.includes(s), 'secret dans le journal : ' + ligne.slice(0, 80));
   const sources = ['compte.js', 'amis.js', 'admin.js'].map((f) => readFileSync(new URL('../functions/api/' + f, import.meta.url), 'utf8')).join('\n');
   assert.ok(!/console\.(log|warn|error|info)/.test(sources), 'les routes de comptes n’écrivent rien dans les journaux');
+});
+
+// --- Lot 9 : visuels par programme (validation, vérification, rendu SVG), leçons plus riches, format ---------------------------------
+
+const MOHS = {
+  type: 'echelle', titre: 'Dureté de Mohs', unite: '',
+  points: [['Talc', 1], ['Gypse', 2], ['Calcite', 3], ['Fluorine', 4], ['Apatite', 5], ['Orthose', 6], ['Quartz', 7], ['Topaze', 8], ['Corindon', 9], ['Diamant', 10]].map(([etiquette, valeur]) => ({ etiquette, valeur })),
+};
+const COURBE = {
+  type: 'courbe', titre: 'Population de Paris', x: { nom: 'Année', unite: '' }, y: { nom: 'Habitants', unite: 'millions' },
+  series: [{ nom: 'Paris intra-muros', points: [[1900, 2.7], [1950, 2.8], [2000, 2.1]] }, { nom: 'Agglomération', points: [[1900, 3.3], [1950, 5.4], [2000, 9.7]] }],
+};
+const FRISE = { type: 'frise', titre: 'Le chantier', evenements: [{ date: '1887', texte: 'Début du chantier' }, { date: '1889', texte: 'Inauguration de la tour' }, { date: '1930', texte: 'Le Chrysler Building la dépasse' }] };
+const BARRES = { type: 'barres', titre: 'Hauteurs', unite: 'm', barres: [{ etiquette: 'Tour Eiffel', valeur: 330 }, { etiquette: 'Arc de triomphe', valeur: 50 }] };
+const TABLEAU = { type: 'tableau', titre: 'Pierres', colonnes: ['Pierre', 'Dureté'], lignes: [['Quartz', '7'], ['Diamant', 10]] };
+const SCHEMA = { type: 'schema', titre: 'Du minerai au bijou', noeuds: [{ id: 'a', texte: 'Extraction' }, { id: 'b', texte: 'Taille' }, { id: 'c', texte: 'Sertissage' }], liens: [{ de: 'a', vers: 'b', texte: 'puis' }, { de: 'b', vers: 'c' }, { de: 'a', vers: 'c', texte: 'direct' }] };
+const CARTE = { type: 'carte_mentale', centre: 'Le diamant', branches: [{ texte: 'Dureté', sous: ['10 sur l’échelle de Mohs'] }, { texte: 'Les 4 C', sous: ['Carat', 'Pureté', 'Couleur', 'Taille'] }] };
+const TOUS_VISUELS = [MOHS, COURBE, FRISE, BARRES, TABLEAU, SCHEMA, CARTE];
+
+test('visuels (serveur) : les sept types valides passent, normalisés', async () => {
+  assert.deepEqual(TYPES_VISUELS, ['echelle', 'courbe', 'barres', 'tableau', 'frise', 'schema', 'carte_mentale']);
+  for (const v of TOUS_VISUELS) {
+    const ok = validerVisuel(structuredClone(v));
+    assert.ok(ok, 'devrait passer : ' + v.type);
+    assert.equal(ok.type, v.type);
+  }
+  assert.equal(validerVisuel(MOHS).points.length, 10);
+  assert.deepEqual(validerVisuel(TABLEAU).lignes[1], ['Diamant', '10'], 'un nombre de tableau devient du texte');
+  assert.equal(anneeDe('44 av. J.-C.'), -44);
+  assert.equal(anneeDe('12 mars 1889'), 12, 'premier nombre : les dates sont données en années');
+  assert.equal(anneeDe('sans chiffre'), null);
+});
+
+test('visuels (serveur) : tailles, textes, nombres et ordre sont bornés ; un visuel invalide est retiré, jamais la liste', async () => {
+  const modif = (base, f) => { const v = structuredClone(base); f(v); return validerVisuel(v); };
+  assert.equal(validerVisuel(null), null);
+  assert.equal(validerVisuel('echelle'), null);
+  assert.equal(validerVisuel({ type: 'camembert', titre: 'x' }), null, 'type inconnu');
+  assert.equal(validerVisuel({ type: '__proto__' }), null);
+  assert.equal(validerVisuel({ type: 'constructor', titre: 'x' }), null);
+  // textes : 60 caractères, aucun HTML
+  assert.equal(modif(MOHS, (v) => { v.titre = 'x'.repeat(61); }), null, 'titre trop long');
+  assert.equal(modif(MOHS, (v) => { v.titre = '<b>Mohs</b>'; }), null, 'HTML refusé');
+  assert.equal(modif(MOHS, (v) => { v.points[0].etiquette = '<script>alert(1)</script>'; }), null);
+  assert.equal(modif(MOHS, (v) => { v.points[0].etiquette = 'Talc & co'; }), null, 'esperluette refusée');
+  assert.equal(modif(MOHS, (v) => { v.points[0].etiquette = ''; }), null);
+  assert.equal(modif(MOHS, (v) => { v.points[0].etiquette = 12; }), null);
+  // nombres : finis, bornés, numériques
+  for (const mauvais of [Infinity, NaN, '7', null, 1e13]) assert.equal(modif(MOHS, (v) => { v.points[3].valeur = mauvais; }), null, 'valeur ' + mauvais);
+  assert.equal(modif(MOHS, (v) => { v.points[3].valeur = 0; }), null, 'échelle strictement croissante');
+  assert.equal(modif(MOHS, (v) => { v.points.length = 2; }), null, 'au moins 3 points');
+  assert.equal(modif(MOHS, (v) => { v.points.push({ etiquette: 'Onze', valeur: 11 }); }), null, '10 points au plus');
+  // courbe
+  assert.equal(modif(COURBE, (v) => { v.series[0].points[1][0] = 1900; }), null, 'x strictement croissant');
+  assert.equal(modif(COURBE, (v) => { v.series[0].points[1] = [1950]; }), null);
+  assert.equal(modif(COURBE, (v) => { v.series = []; }), null);
+  assert.equal(modif(COURBE, (v) => { v.series = [v.series[0], v.series[0], v.series[0], v.series[0]]; }), null, '3 séries au plus');
+  assert.equal(modif(COURBE, (v) => { v.y = 'Habitants'; }), null);
+  assert.equal(modif(COURBE, (v) => { v.series[0].points = Array.from({ length: 13 }, (_, i) => [i, i]); }), null, '12 points au plus');
+  // barres : 2 à 8, jamais négatives
+  assert.equal(modif(BARRES, (v) => { v.barres[0].valeur = -1; }), null);
+  assert.equal(modif(BARRES, (v) => { v.barres = Array.from({ length: 9 }, (_, i) => ({ etiquette: 'b' + i, valeur: i })); }), null, '8 barres au plus');
+  // tableau : 6 lignes, 4 colonnes, lignes de la bonne largeur
+  assert.equal(modif(TABLEAU, (v) => { v.lignes = Array.from({ length: 7 }, () => ['a', 'b']); }), null, '6 lignes au plus');
+  assert.equal(modif(TABLEAU, (v) => { v.colonnes = ['a', 'b', 'c', 'd', 'e']; v.lignes = [['1', '2', '3', '4', '5']]; }), null, '4 colonnes au plus');
+  assert.equal(modif(TABLEAU, (v) => { v.lignes[0] = ['seul']; }), null, 'ligne trop courte');
+  assert.equal(modif(TABLEAU, (v) => { v.lignes[0][1] = { x: 1 }; }), null);
+  // frise : 8 événements, dates croissantes
+  assert.equal(modif(FRISE, (v) => { v.evenements.reverse(); }), null, 'dates décroissantes');
+  assert.equal(modif(FRISE, (v) => { v.evenements = Array.from({ length: 9 }, (_, i) => ({ date: String(1900 + i), texte: 'e' + i })); }), null, '8 événements au plus');
+  assert.equal(modif(FRISE, (v) => { v.evenements[0].date = 'jadis'; }), null, 'date sans année');
+  assert.ok(modif(FRISE, (v) => { v.evenements = [{ date: '44 av. J.-C.', texte: 'César' }, { date: '476', texte: 'Fin de l’Empire' }]; }), 'avant J.-C. puis après');
+  // schéma : 8 nœuds, liens vers des identifiants connus
+  assert.equal(modif(SCHEMA, (v) => { v.liens[0].vers = 'zz'; }), null, 'lien vers un nœud inconnu');
+  assert.equal(modif(SCHEMA, (v) => { v.liens[0].vers = 'a'; }), null, 'lien d’un nœud vers lui-même');
+  assert.equal(modif(SCHEMA, (v) => { v.noeuds[1].id = 'a'; }), null, 'identifiants uniques');
+  assert.equal(modif(SCHEMA, (v) => { v.noeuds[1].id = 'A b'; }), null);
+  assert.equal(modif(SCHEMA, (v) => { v.noeuds = Array.from({ length: 9 }, (_, i) => ({ id: 'n' + i, texte: 't' + i })); v.liens = []; }), null, '8 nœuds au plus');
+  // carte mentale : 6 branches, 4 sous-textes
+  assert.equal(modif(CARTE, (v) => { v.branches = Array.from({ length: 7 }, (_, i) => ({ texte: 'b' + i, sous: [] })); }), null, '6 branches au plus');
+  assert.equal(modif(CARTE, (v) => { v.branches[0].sous = ['a', 'b', 'c', 'd', 'e']; }), null, '4 sous-textes au plus');
+  // liste : les invalides sont écartés, 2 gardés au plus, jamais d'exception
+  assert.deepEqual(validerVisuels(null), []);
+  assert.deepEqual(validerVisuels('x'), []);
+  const liste = validerVisuels([{ type: 'echelle' }, MOHS, null, FRISE, BARRES]);
+  assert.deepEqual(liste.map((v) => v.type), ['echelle', 'frise'], 'invalide écarté, 2 au plus');
+});
+
+test('visuels (serveur) : aplatissement en affirmations pour le vérificateur', async () => {
+  assert.ok(aplatirVisuel(validerVisuel(MOHS)).includes('Dureté de Mohs : Diamant = 10'));
+  assert.equal(aplatirVisuel(validerVisuel(MOHS)).length, 10);
+  const c = aplatirVisuel(validerVisuel(COURBE));
+  assert.equal(c.length, 2);
+  assert.match(c[1], /Agglomération\) : Année 1900 donne Habitants 3,?3 millions/.source ? /Agglomération\) : Année 1900 donne Habitants 3\.3 millions/ : /./);
+  assert.ok(aplatirVisuel(validerVisuel(FRISE)).includes('Le chantier : 1889, Inauguration de la tour'));
+  assert.ok(aplatirVisuel(validerVisuel(SCHEMA)).includes('Du minerai au bijou : Extraction mène à Taille (puis)'));
+  assert.ok(aplatirVisuel(validerVisuel(TABLEAU))[1].includes('Dureté 10'));
+  assert.ok(aplatirVisuel(validerVisuel(CARTE))[1].includes('Carat, Pureté'));
+  for (const v of TOUS_VISUELS) for (const t of aplatirVisuel(validerVisuel(v))) assert.ok(typeof t === 'string' && t.length > 5 && !/[<>]/.test(t));
+});
+
+const leconAvecVisuels = (extra = {}) => ({ ...leconBrute(), piege: 'On croit que plus un matériau est dur, plus il résiste aux chocs. Faux : le diamant peut se fendre.', visuels: [MOHS], ...extra });
+
+test('visuels : la moitié B les valide, un visuel invalide est écarté sans toucher la leçon ; la moitié A lit le piège', async () => {
+  const b = validerMoitieB(leconAvecVisuels({ visuels: [MOHS, { type: 'echelle', titre: '<i>x</i>', points: [] }, FRISE] })).valeur;
+  assert.deepEqual(b.visuels.map((v) => v.type), ['echelle', 'frise']);
+  assert.equal(b.questions.length, 4);
+  assert.deepEqual(validerMoitieB(leconAvecVisuels({ visuels: 'mohs' })).valeur.visuels, []);
+  assert.deepEqual(validerMoitieB(leconAvecVisuels(), { court: true }).valeur.visuels, [], 'version courte : pas de visuels');
+  assert.match(validerMoitieA(leconAvecVisuels()).valeur.piege, /^On croit que plus un matériau/);
+  assert.equal(validerMoitieA(leconAvecVisuels({ piege: 'Court.' })).valeur.piege, null, 'piège trop court : écarté');
+  assert.equal(validerMoitieA(leconAvecVisuels({ piege: 12 })).valeur.piege, null);
+  assert.equal(validerMoitieA(leconBrute()).valeur.piege, null, 'ancien contenu sans piège');
+  assert.equal(validerRedaction(leconAvecVisuels(), { lecon: true }).valeur.visuels.length, 1);
+});
+
+test('visuels : vérifiés comme des affirmations, placés après le reste ; faux ou incertain, ils sont retirés sans forcer la réécriture', async () => {
+  const brouillon = validerRedaction(leconAvecVisuels(), { lecon: true }).valeur;
+  const unites = aplatir(brouillon);
+  const textes = unites.flatMap((u) => u.textes);
+  assert.equal(textes.length, TOTAL_LECON + 1 + 10, '35 + piège + 10 repères de Mohs');
+  assert.match(textes[35], /^Piège fréquent : On croit/);
+  assert.equal(textes[36], 'Visuel (echelle) Dureté de Mohs : Talc = 1');
+  assert.equal(textes[45], 'Visuel (echelle) Dureté de Mohs : Diamant = 10');
+  assert.equal(textes[20], 'Moyen mnémotechnique : ' + EXEMPLE_LECON.mnemo, 'la numérotation des autres affirmations ne bouge pas');
+  const opts = { pages: [{ texte: 'Dureté de Mohs : talc 1, diamant 10.' }], proteger: true, titre: 'Tour', sectionsBase: [], seuil: 0.2 };
+  const viable = (b) => b.questions.length >= 1;
+  const tout = evaluer(brouillon, [], 2, viable, opts);
+  assert.equal(tout.brouillon.visuels.length, 1);
+  assert.equal(tout.affirmations, TOTAL_LECON + 1, 'les visuels ne comptent pas dans le ratio');
+  // une valeur fausse : le visuel est retiré, la leçon reste, aucune réécriture demandée
+  const faux = evaluer(brouillon, [{ n: 46, verdict: 'faux', correction: 'Le diamant vaut 10.' }], 2, viable, opts);
+  assert.deepEqual(faux.brouillon.visuels, []);
+  assert.equal(faux.retirees, 0);
+  assert.equal(faux.aRefaire, false);
+  assert.ok(faux.brouillon.piege, 'le piège reste');
+  // incertain : retiré même si les extraits soutiennent le texte
+  const incertain = evaluer(brouillon, [{ n: 37, verdict: 'incertain', correction: null }], 2, viable, opts);
+  assert.deepEqual(incertain.brouillon.visuels, []);
+  // le piège non confirmé disparaît ; corrigé, il est remplacé
+  assert.equal(evaluer(brouillon, [{ n: 36, verdict: 'faux', correction: null }], 2, viable, opts).brouillon.piege, null);
+  assert.equal(evaluer(brouillon, [{ n: 36, verdict: 'faux', correction: 'Piège : le diamant peut se fendre malgré sa dureté.' }], 2, viable, opts).brouillon.piege, 'le diamant peut se fendre malgré sa dureté.');
+});
+
+test('leçon (génération) : piège, visuels et format dans le contenu ; un visuel non confirmé est retiré, la leçon reste', async () => {
+  const j = await prepareProgramme();
+  const sc = scenario({ ...partiesStandard(), lecon: [leconAvecVisuels()] });
+  const r = await lirePalier(j, 'la-tour-eiffel', 1, sc);
+  ok200(r);
+  const p = r.corps.palier;
+  assert.deepEqual(Object.keys(p), CLES_LECON);
+  assert.equal(p.format, FORMAT_LECON);
+  assert.equal(p.visuels.length, 1);
+  assert.equal(p.visuels[0].type, 'echelle');
+  assert.match(p.piege, /^On croit que plus un matériau/);
+  const demande = sc.appels[0].entree.messages[0].content + sc.appels[1].entree.messages[0].content;
+  assert.ok(demande.includes('piege :') && demande.includes('visuels :'));
+  // le vérificateur rejette une ligne du visuel (n° 40) : visuel retiré, leçon publiée, statut inchangé
+  const sc2 = scenario({ ...partiesStandard(), lecon: [leconAvecVisuels()], verif: [verifNumeros(40)] });
+  const r2 = await lirePalier(j, 'la-tour-eiffel', 2, sc2);
+  ok200(r2);
+  assert.deepEqual(r2.corps.palier.visuels, []);
+  assert.equal(r2.corps.palier.verification.statut, 'recoupe');
+  assert.equal(r2.corps.palier.questions.length, 4);
+  // une leçon sans visuel ni piège garde la même forme
+  const r3 = await lirePalier(j, 'la-tour-eiffel', 3, scenario(partiesStandard()));
+  assert.deepEqual([r3.corps.palier.piege, r3.corps.palier.visuels, r3.corps.palier.format], [null, [], FORMAT_LECON]);
+});
+
+test('prompts du lot 9B : leçon plus riche, piège, visuels, niveaux qui se sentent', async () => {
+  const norme = (t) => t.toLowerCase().replace(/’/g, '\'');
+  for (const t of ['comment fait 4 à 6 phrases courtes', 'pourquoi est obligatoire', 'deux exemples concrets', 'liste de 3 à 6 objets', 'liste de 3 à 5 phrases',
+    'piege :', 'Aucune phrase de plus de 25 mots', 'le niveau doit se sentir', 'visuels :', '"echelle"', '"courbe"', '"barres"', '"tableau"', '"frise"', '"schema"', '"carte_mentale"',
+    'Tu ne dessines rien', '60 caractères au plus', 'Dureté de Mohs']) {
+    assert.ok(norme(PROMPT_LECON).includes(norme(t)), t);
+  }
+  assert.ok(PROMPT_LECON_A.includes('- piege :') && !PROMPT_LECON_A.includes('- visuels :'));
+  assert.ok(PROMPT_LECON_B.includes('- visuels :') && !PROMPT_LECON_B.includes('- piege :'));
+  assert.ok(!PROMPT_LECON_A_COURT.includes('piege') && !PROMPT_LECON_B_COURT.includes('visuels'));
+  assert.ok(PROMPT_VERIFICATION.includes('Piège fréquent') && PROMPT_VERIFICATION.includes('Visuel (type)'));
+  assert.match(PROMPT_VERIFICATION, /Trois verdicts/, 'le vérificateur garde ses 3 verdicts');
+  assert.ok(TON_NIVEAU[4].includes('Le niveau doit se sentir') && TON_NIVEAU[2].includes('premiers chiffres'));
+  assert.equal(FORMAT_LECON, 2);
+});
+
+test('admin « reecrire » : les leçons de format ancien (sans champ format) d’une formation par niveaux sont aussi mises en file', async () => {
+  await prepareProgramme();
+  const poster = (corps) => appel(adminPost, { env: envAdmin(), methode: 'POST', entetes: enteteAdmin, corps });
+  for (const n of [1, 2, 3]) insererPalierTest('la-tour-eiffel', n);
+  const maj = (n, f) => {
+    const c = JSON.parse(lignes('SELECT contenu FROM paliers WHERE numero = ?', n)[0].contenu);
+    db.base.prepare('UPDATE paliers SET contenu = ? WHERE numero = ?').run(JSON.stringify(f(c)), n);
+  };
+  const ok = { ia: ['a', 'b'], statut: 'recoupe', affirmations: 35, retirees: 0 };
+  maj(1, (c) => ({ ...c, verification: ok }));                         // format ancien (aucun champ)
+  maj(2, (c) => ({ ...c, format: 1, verification: ok }));              // format 1 explicite
+  maj(3, (c) => ({ ...c, format: FORMAT_LECON, verification: ok }));   // format courant
+  const r = await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' });
+  ok200(r);
+  assert.deepEqual(r.corps.faibles, [1, 2]);
+  assert.deepEqual(lignes('SELECT type, numero, etat FROM file_attente ORDER BY numero'), [{ type: 'reecriture', numero: 1, etat: 'attente' }, { type: 'reecriture', numero: 2, etat: 'attente' }]);
+  // la réécriture produit le format courant ; la leçon n'est plus candidate
+  const sc = scenario({ ...partiesStandard(), lecon: [leconAvecVisuels()] });
+  brancher(sc);
+  assert.equal((await traiterFile({ DB: db, AI: sc.ai })).faites, 2);
+  assert.equal(JSON.parse(lignes('SELECT contenu FROM paliers WHERE numero = 1')[0].contenu).format, FORMAT_LECON);
+  assert.deepEqual((await poster({ action: 'reecrire', parcours: 'la-tour-eiffel' })).corps.faibles, []);
+});
+
+// Faux document minimal : assez pour faire tourner app/visuels.js hors navigateur et inspecter ce qu'il construit.
+function fauxDocument() {
+  const noeud = (tag, ns) => {
+    const n = { tag, ns, attrs: {}, enfants: [], texte: null };
+    n.setAttribute = (k, v) => { n.attrs[k] = String(v); };
+    n.removeAttribute = (k) => { delete n.attrs[k]; };
+    n.appendChild = (c) => { n.enfants.push(c); return c; };
+    Object.defineProperty(n, 'textContent', { get: () => (n.texte !== null ? n.texte : n.enfants.map((e) => e.textContent).join('')), set: (t) => { n.texte = String(t); } });
+    return n;
+  };
+  return {
+    createElement: (t) => noeud(t, 'html'),
+    createElementNS: (ns, t) => noeud(t, ns),
+    createTextNode: (t) => ({ tag: '#text', attrs: {}, enfants: [], textContent: String(t) }),
+  };
+}
+function chargerVisuels() {
+  const ctx = vm.createContext({ console });
+  ctx.window = ctx;
+  ctx.document = fauxDocument();
+  vm.runInContext(readFileSync(new URL('../app/visuels.js', import.meta.url), 'utf8'), ctx, { filename: 'visuels.js' });
+  return ctx.Visuels;
+}
+function parcourir(n, f) {
+  f(n);
+  for (const e of n.enfants || []) parcourir(e, f);
+}
+
+test('visuels (app) : rendu SVG des sept types, sans script ni HTML, avec description complète et tableau alternatif', async () => {
+  const V = chargerVisuels();
+  for (const brut of TOUS_VISUELS) {
+    const v = validerVisuel(structuredClone(brut));
+    const fig = V.visuel(v);
+    assert.ok(fig, 'rendu : ' + v.type);
+    assert.equal(fig.tag, 'figure');
+    const noeuds = [];
+    parcourir(fig, (n) => noeuds.push(n));
+    const balises = noeuds.map((n) => n.tag);
+    assert.ok(!balises.some((t) => /^(script|iframe|object|embed|style|foreignObject)$/i.test(t)), 'aucune balise active : ' + v.type);
+    for (const n of noeuds) {
+      for (const k of Object.keys(n.attrs)) assert.ok(!/^on/i.test(k), 'aucun gestionnaire : ' + k);
+      for (const val of Object.values(n.attrs)) assert.ok(!/javascript:|<script/i.test(val));
+    }
+    if (v.type === 'tableau') {
+      assert.ok(balises.includes('table') && balises.includes('th') && !balises.includes('svg'));
+      continue;
+    }
+    const svg = noeuds.find((n) => n.tag === 'svg');
+    assert.equal(svg.attrs.role, 'img');
+    assert.ok(svg.attrs['aria-label'].length > 40, 'description en phrases : ' + v.type);
+    assert.ok(/^\d+ \d+ 340 \d+$/.test(svg.attrs.viewBox.replace(/^0 0 /, '0 0 ').replace(/^(\d+) (\d+) /, '$1 $2 ')) || /^0 0 340 \d+$/.test(svg.attrs.viewBox), 'viewBox de 340 de large');
+    for (const t of noeuds.filter((n) => n.tag === 'text')) assert.ok(Number(t.attrs['font-size']) >= 14, 'texte de 14 px au moins');
+    assert.ok(balises.includes('table'), 'tableau alternatif : ' + v.type);
+    const table = noeuds.find((n) => n.tag === 'table');
+    assert.equal(table.attrs.class, 'sr');
+    assert.ok(noeuds.some((n) => n.tag === 'th' && n.attrs.scope === 'col'));
+    // aucune couleur en dur : tout passe par les classes du design
+    assert.ok(!noeuds.some((n) => 'fill' in n.attrs && n.attrs.fill !== 'none') && !noeuds.some((n) => 'stroke' in n.attrs), 'pas de couleur en ligne : ' + v.type);
+  }
+  const mohs = V.visuel(validerVisuel(MOHS));
+  const svgMohs = (() => { let s; parcourir(mohs, (n) => { if (n.tag === 'svg') s = n; }); return s; })();
+  assert.match(svgMohs.attrs['aria-label'], /Échelle.*Dureté de Mohs.*Diamant, 10/);
+  const textes = []; parcourir(mohs, (n) => { if (n.tag === 'text') textes.push(n.texte); });
+  assert.ok(textes.includes('Diamant') && textes.includes('10'));
+  const fleches = []; parcourir(V.visuel(validerVisuel(SCHEMA)), (n) => { if (n.tag === 'polygon') fleches.push(n); });
+  assert.equal(fleches.length, 3, 'une flèche par lien');
+});
+
+test('visuels (app) : des données hostiles restent du texte (aucune balise créée), des données absurdes ne cassent rien', async () => {
+  const V = chargerVisuels();
+  const hostile = V.visuel({ type: 'barres', titre: '<script>alert(1)</script>', unite: '<img src=x onerror=alert(1)>', barres: [{ etiquette: '<script>x</script>', valeur: 3 }, { etiquette: '"><svg onload=alert(1)>', valeur: 5 }] });
+  assert.ok(hostile);
+  const balises = []; const texte = [];
+  parcourir(hostile, (n) => { balises.push(n.tag); if (n.tag === 'text' || n.tag === 'figcaption' || n.tag === 'td') texte.push(n.textContent); });
+  assert.ok(!balises.includes('script') && !balises.includes('img'), 'aucune balise venue des données');
+  assert.ok(texte.some((t) => t.includes('<script>')), 'le texte reste littéral');
+  for (const absurde of [null, undefined, 'x', 3, {}, { type: 'echelle' }, { type: 'courbe', titre: 'x' }, { type: 'tableau', titre: 'x' }, { type: 'schema', titre: 'x', noeuds: [], liens: [] }, { type: 'frise', titre: 'x', evenements: 'a' }]) {
+    assert.doesNotThrow(() => V.visuel(absurde));
+    assert.equal(V.visuel(absurde), null);
+  }
+  // un texte très long sans espace est coupé, jamais débordant
+  const long = V.visuel(validerVisuel({ type: 'barres', titre: 'Longueurs', unite: '', barres: [{ etiquette: 'x'.repeat(60), valeur: 1 }, { etiquette: 'y', valeur: 2 }] }));
+  const lignes = []; parcourir(long, (n) => { if (n.tag === 'text') lignes.push(n.texte); });
+  assert.ok(lignes.every((l) => l.length <= 30));
+});
+
+test('carte du module (app) : générée sans IA à partir du plan, états fait, en cours, ouvert et verrouillé', async () => {
+  const V = chargerVisuels();
+  const plan = {
+    titre: 'Gemmologie',
+    niveaux: [
+      { titre: 'Bases : les repères', modules: [{ numero: 1, titre: 'A', etat: 'fait' }, { numero: 2, titre: 'B', etat: 'cours' }, { numero: 3, titre: 'C', etat: 'ferme' }] },
+      { titre: 'Intermédiaire : la taille', modules: [{ numero: 4, titre: 'D', etat: 'ferme' }, { numero: 5, titre: 'E', etat: 'ferme' }] },
+    ],
+    courant: { titre: 'B', lecons: [{ numero: 1, fait: true }, { numero: 2, fait: false }, { numero: 3, fait: false }] },
+  };
+  const fig = V.carteModule(plan);
+  assert.ok(fig);
+  const noeuds = []; parcourir(fig, (n) => noeuds.push(n));
+  const svg = noeuds.find((n) => n.tag === 'svg');
+  assert.equal(svg.attrs.role, 'img');
+  assert.match(svg.attrs['aria-label'], /Carte de la formation Gemmologie.*module 1 fait.*module 2 en cours.*module 3 verrouillé.*1 leçons faites sur 3/);
+  const cercles = noeuds.filter((n) => n.tag === 'circle').map((n) => n.attrs.class);
+  assert.deepEqual(cercles, ['v-m v-m-fait', 'v-m v-m-cours', 'v-m v-m-ferme', 'v-m v-m-ferme', 'v-m v-m-ferme', 'v-m v-m-fait', 'v-m v-m-ouvert', 'v-m v-m-ouvert']);
+  for (const t of noeuds.filter((n) => n.tag === 'text')) assert.ok(Number(t.attrs['font-size']) >= 14);
+  assert.ok(!noeuds.some((n) => n.tag === 'script'));
+  assert.ok(noeuds.some((n) => n.tag === 'text' && n.texte === 'Bases : les repères · 1/3 modules'));
+  assert.equal(V.carteModule(null), null);
+  assert.equal(V.carteModule({ niveaux: [] }), null);
+  assert.ok(V.carteModule({ titre: 'x', niveaux: plan.niveaux, courant: null }), 'sans module en cours');
+});
+
+test('visuels : jamais d’insertion de HTML (visuels.js, fonctions ajoutées à app.js), chargé par la page et gardé hors ligne', async () => {
+  const visuelsJs = readFileSync(new URL('../app/visuels.js', import.meta.url), 'utf8');
+  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/.test(visuelsJs), 'visuels.js n’insère aucun HTML');
+  const appJs = readFileSync(new URL('../app/app.js', import.meta.url), 'utf8');
+  for (const nom of ['function blocVisuels', 'function carteDuModule']) {
+    const debut = appJs.indexOf(nom);
+    assert.ok(debut > 0, nom);
+    const corps = appJs.slice(debut, appJs.indexOf('\n  }\n', debut));
+    assert.ok(!/innerHTML|"html"/.test(corps), nom + ' n’insère aucun HTML');
+  }
+  // affichage entre « Comment » et « Exemple »
+  assert.match(appJs, /secEls\.comment,\s*blocVisuels\(l\.visuels\),\s*exemple,/);
+  assert.ok(/<script src="visuels\.js"><\/script>/.test(readFileSync(new URL('../app/index.html', import.meta.url), 'utf8')));
+  assert.ok(readFileSync(new URL('../app/sw.js', import.meta.url), 'utf8').includes('"/visuels.js"'));
+  // les anciennes leçons (sans visuels ni piège) restent affichables : champs lus avec garde
+  assert.ok(/Array\.isArray\(liste\)/.test(appJs.slice(appJs.indexOf('function blocVisuels'), appJs.indexOf('function blocVisuels') + 400)));
+  assert.ok(/typeof l\.piege === "string"/.test(appJs));
+  // style : couleurs du design seulement dans les règles des visuels
+  const css = readFileSync(new URL('../app/style.css', import.meta.url), 'utf8');
+  const bloc = css.slice(css.indexOf('/* Lot 9A'), css.indexOf('@media print'));
+  assert.ok(bloc.length > 500);
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(bloc.replace(/#fff\b/gi, '')), 'aucune couleur en dur (hors blanc)');
 });
 
 // --- Exécution -------------------------------------------------------------
