@@ -2,6 +2,7 @@
 
 Une ligne par piège rencontré, la plus récente en haut.
 
+- 2026-10-20 : si `app/version.js` ne change pas, les téléphones gardent l'ancienne coquille. Avant chaque mise en ligne, lancer `node scripts/version.mjs` (il écrit un horodatage dans `app/version.js`). Le service worker prend aussi `index.html`, `app.js`, `logique.js` et `style.css` en réseau d'abord.
 - 2026-10-18 : la v2 « librairie ludique » a été jugée trop enfantine (gros boutons en capitales, émojis, confettis, mascotte). Pour un public adulte : typographie de livre, traits fins, icônes au trait, Rival en annotation de marge, contenu en mode formation.
 - 2026-10-18 : `verifier.py` ne lisait pas les textes injectés en JavaScript ; il lit maintenant les chaînes entre guillemets des scripts.
 

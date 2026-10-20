@@ -37,13 +37,15 @@ CREATE TABLE IF NOT EXISTS brouillons (
   cree TEXT
 );
 
+-- `traite` : 1 une fois la leçon réécrite. Une base plus ancienne reçoit la colonne par ALTER (migrerBase dans lib/api.js).
 CREATE TABLE IF NOT EXISTS signalements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   joueur TEXT,
   chapitre TEXT,
   exercice INTEGER,
   message TEXT,
-  cree TEXT
+  cree TEXT,
+  traite INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS quotas (

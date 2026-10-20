@@ -88,38 +88,64 @@ async function listerComptes(env, params) {
   };
 }
 
-// Signalements de leçons regroupés par leçon (au plus 100 leçons). Le message est « <motif>|<texte> ».
+// Signalements de leçons non traités, regroupés par leçon (au plus 20 leçons). Le message est « <motif>|<texte> ».
+// Cinq requêtes D1 au plus, quel que soit le nombre de leçons (les détails se lisent par paquets avec IN).
 async function listerSignalements(env) {
   const { results } = await env.DB.prepare(
     `SELECT chapitre, exercice, COUNT(DISTINCT joueur) AS joueurs, MAX(cree) AS dernier FROM signalements
-     WHERE chapitre LIKE 'lecon:%' GROUP BY chapitre, exercice ORDER BY joueurs DESC, dernier DESC LIMIT 100`,
+     WHERE chapitre LIKE 'lecon:%' AND traite = 0 GROUP BY chapitre, exercice ORDER BY joueurs DESC, dernier DESC LIMIT 20`,
   ).all();
-  const lecons = [];
-  for (const r of results || []) {
+  const groupes = results || [];
+  if (!groupes.length) return { lecons: [] };
+  const paires = groupes.map(() => '(?, ?)').join(', ');
+  const parPaire = groupes.flatMap((r) => [r.chapitre, r.exercice]);
+  const parParcours = groupes.flatMap((r) => [r.chapitre.slice('lecon:'.length), r.exercice]);
+  const ids = [...new Set(groupes.map((r) => r.chapitre.slice('lecon:'.length)))];
+  const { results: lignes } = await env.DB.prepare(
+    `SELECT chapitre, exercice, message FROM signalements WHERE traite = 0 AND (chapitre, exercice) IN (VALUES ${paires}) ORDER BY id`,
+  ).bind(...parPaire).all();
+  const { results: paliers } = await env.DB.prepare(
+    `SELECT parcours, numero, contenu FROM paliers WHERE (parcours, numero) IN (VALUES ${paires})`,
+  ).bind(...parParcours).all();
+  const { results: formations } = await env.DB.prepare(
+    `SELECT id, titre FROM parcours WHERE id IN (${ids.map(() => '?').join(', ')})`,
+  ).bind(...ids).all();
+  const { results: taches } = await env.DB.prepare(
+    `SELECT parcours, numero, etat FROM file_attente WHERE type = 'reecriture' AND (parcours, numero) IN (VALUES ${paires})`,
+  ).bind(...parParcours).all();
+  const cle = (a, b) => a + '\u0000' + b;
+  const messagesDe = new Map();
+  for (const l of lignes || []) {
+    const k = cle(l.chapitre, l.exercice);
+    if (!messagesDe.has(k)) messagesDe.set(k, []);
+    if (messagesDe.get(k).length < 20) messagesDe.get(k).push(l.message);
+  }
+  const palierDe = new Map((paliers || []).map((p) => [cle(p.parcours, p.numero), p.contenu]));
+  const formationDe = new Map((formations || []).map((f) => [f.id, f.titre]));
+  const tacheDe = new Map((taches || []).map((t) => [cle(t.parcours, t.numero), t.etat]));
+  const lecons = groupes.map((r) => {
     const parcours = r.chapitre.slice('lecon:'.length);
-    const { results: lignes } = await env.DB.prepare('SELECT message, cree FROM signalements WHERE chapitre = ? AND exercice = ? ORDER BY id LIMIT 20').bind(r.chapitre, r.exercice).all();
     const motifs = { fait: 0, pas_clair: 0, autre: 0 };
     const messages = [];
-    for (const l of lignes || []) {
-      const [motif, ...reste] = String(l.message).split('|');
+    for (const m of messagesDe.get(cle(r.chapitre, r.exercice)) || []) {
+      const [motif, ...reste] = String(m).split('|');
       if (Object.hasOwn(motifs, motif)) motifs[motif] += 1;
       const texte = reste.join('|').trim();
       if (texte) messages.push(texte.slice(0, 300));
     }
     let titre = null;
-    const palier = await env.DB.prepare('SELECT contenu FROM paliers WHERE parcours = ? AND numero = ?').bind(parcours, r.exercice).first();
+    const contenu = palierDe.get(cle(parcours, r.exercice));
     try {
-      titre = palier ? JSON.parse(palier.contenu).titre || null : null;
+      titre = contenu ? JSON.parse(contenu).titre || null : null;
     } catch {
       titre = null;
     }
-    const formation = await env.DB.prepare('SELECT titre FROM parcours WHERE id = ?').bind(parcours).first();
-    const tache = await env.DB.prepare(`SELECT etat FROM file_attente WHERE parcours = ? AND type = 'reecriture' AND numero = ?`).bind(parcours, r.exercice).first();
-    lecons.push({
-      parcours, numero: r.exercice, titre, formation: formation ? formation.titre : null, joueurs: r.joueurs, motifs, messages: messages.slice(0, 5),
-      dernier: r.dernier, enFile: !!tache && (tache.etat === 'attente' || tache.etat === 'en_cours'),
-    });
-  }
+    const etat = tacheDe.get(cle(parcours, r.exercice));
+    return {
+      parcours, numero: r.exercice, titre, formation: formationDe.get(parcours) || null, joueurs: r.joueurs, motifs, messages: messages.slice(0, 5),
+      dernier: r.dernier, enFile: etat === 'attente' || etat === 'en_cours',
+    };
+  });
   return { lecons };
 }
 

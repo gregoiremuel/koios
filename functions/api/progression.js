@@ -3,7 +3,7 @@ import {
   ErreurHttp, auth, enveloppe, exigerBase, json, lireJSON, pseudoValide,
 } from '../../lib/api.js';
 import { compterFaits } from '../../lib/groupes.js';
-import { plafonnerParJour, plafondsPaliers, xpPlausible } from '../../lib/xp.js';
+import { plafonnerParJour, plafondsPaliers, raisonCoupe, xpPlausible } from '../../lib/xp.js';
 
 const TONS = ['taquin', 'sobre'];
 const MAX_OCTETS = 64 * 1024;
@@ -59,8 +59,11 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
   const parcoursEnvoyes = etat.parcours && typeof etat.parcours === 'object' && !Array.isArray(etat.parcours) ? etat.parcours : null;
   const plafonds = await plafondsPaliers(env, parcoursEnvoyes ? Object.keys(parcoursEnvoyes) : []);
   const avant = await env.DB.prepare('SELECT points FROM joueurs WHERE id = ?').bind(joueur.id).first();
-  const demande = Math.min(bornerXp(etat.xp), xpPlausible(etat, plafonds));
-  const points = await plafonnerParJour(env, joueur.id, avant && avant.points ? avant.points : 0, demande);
+  const dejaAcceptee = avant && avant.points ? avant.points : 0;
+  const envoyee = bornerXp(etat.xp);
+  const demande = Math.min(envoyee, Math.max(dejaAcceptee, xpPlausible(etat, plafonds))); // jamais sous l'XP déjà acceptée
+  const points = await plafonnerParJour(env, joueur.id, dejaAcceptee, demande);
+  const raison = raisonCoupe(envoyee, demande, points);
   const propre = Object.hasOwn(etat, 'xp') ? { ...etat, xp: points } : { ...etat };
   if (parcoursEnvoyes) {
     propre.parcours = {};
@@ -83,5 +86,5 @@ export const onRequestPut = enveloppe(async ({ request, env }) => {
   )
     .bind(pseudo, ton, JSON.stringify(propre), points, valides, new Date().toISOString(), joueur.id)
     .run();
-  return json({ ok: true, xp: points });
+  return json(raison ? { ok: true, xp: points, raison } : { ok: true, xp: points });
 });

@@ -36,7 +36,20 @@ function reseauPuisCache(e, requete) {
   });
 }
 
-/* Coquille : la copie gardée tout de suite, remise à jour en arrière-plan ; sinon le réseau. */
+/* Coquille (page, app.js, logique.js, style.css) : réseau d'abord, copie gardée en secours, sinon « Hors ligne ». Une mise à jour du code
+   arrive donc dès qu'il y a du réseau. Les autres fichiers (icônes, polices, manifeste) : copie gardée tout de suite, remise à jour derrière. */
+var RESEAU_D_ABORD = ["/", "/index.html", "/app.js", "/logique.js", "/style.css"];
+function horsLigne() { return new Response("Hors ligne", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } }); }
+function coquilleReseau(e, requete) {
+  return fetch(requete).then(function (rep) {
+    if (rep && rep.ok) { var copie = rep.clone(); e.waitUntil(caches.open(CACHE_APP).then(function (c) { return c.put(requete, copie); }).catch(function () { /* sans effet */ })); }
+    return rep;
+  }, function () {
+    return caches.open(CACHE_APP).then(function (c) { return c.match(requete); }).then(function (gardee) { return gardee || horsLigne(); });
+  });
+}
+
+/* Autres fichiers de la coquille : la copie gardée tout de suite, remise à jour en arrière-plan ; sinon le réseau. */
 function coquille(e, requete) {
   return caches.open(CACHE_APP).then(function (c) {
     return c.match(requete).then(function (gardee) {
@@ -45,7 +58,7 @@ function coquille(e, requete) {
         return rep;
       });
       if (gardee) { reseau.catch(function () { /* hors ligne : la copie gardée suffit */ }); return gardee; }
-      return reseau;
+      return reseau.catch(horsLigne);
     });
   });
 }
@@ -58,8 +71,9 @@ self.addEventListener("fetch", function (e) {
   if (url.pathname === "/api/palier" || (url.pathname === "/api/parcours" && url.searchParams.has("id"))) { e.respondWith(reseauPuisCache(e, r)); return; }
   if (url.pathname.indexOf("/api/") === 0) return;
   if (r.mode === "navigate") {
-    e.respondWith(fetch(r).catch(function () { return caches.open(CACHE_APP).then(function (c) { return c.match("/"); }); }));
+    e.respondWith(fetch(r).catch(function () { return caches.open(CACHE_APP).then(function (c) { return c.match("/"); }); }).then(function (rep) { return rep || horsLigne(); }));
     return;
   }
+  if (RESEAU_D_ABORD.indexOf(url.pathname) !== -1) { e.respondWith(coquilleReseau(e, r)); return; }
   e.respondWith(coquille(e, r));
 });

@@ -199,8 +199,9 @@
     minuterieSync = setTimeout(function () {
       var envoye = etat.xp || 0;
       api("PUT", "progression", { pseudo: profil.pseudo, ton: "sobre", etat: etat }).then(function (j) {
-        /* Anti-triche : le serveur ramène l'XP à ce que l'état prouve (et à un plafond par jour). On s'aligne sur sa valeur. */
-        if (j && typeof j.xp === "number" && j.xp < envoye) {
+        /* Anti-triche : le serveur ramène l'XP à ce que l'état prouve. On ne retire de l'XP que pour « plausible » ; le plafond du jour
+           freine le rythme côté serveur, jamais le total affiché (la fusion garde le maximum). */
+        if (j && typeof j.xp === "number" && j.xp < envoye && j.raison === "plausible") {
           etat.xp = Math.max(0, (etat.xp || 0) - (envoye - j.xp)); S.ecrire("koios.etat", etat);
           Array.prototype.forEach.call(document.querySelectorAll(".xp"), majPuce);
         }
@@ -502,16 +503,18 @@
   /* Une session refusée (401) : on revient à l'écran de connexion, la progression reste sur ce téléphone. */
   function perdreSession() {
     profil = null;
-    try { localStorage.removeItem("koios.profil"); } catch (e) { /* mémoire seule */ }
+    ["koios.profil", "koios.etat"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* mémoire seule */ } });
+    etat = { version: 2, xp: 0, parcours: {}, erreurs: [], jours: {}, maj: 0, reussies: {}, cartes: {}, revisions: {}, faits: {}, badges: null }; // rien du compte précédent ne reste, même en mémoire
+    viderCacheHorsLigne();
     toast("Ta session a expiré. Reconnecte-toi.");
     route();
   }
   /* Quitte ce compte sur ce téléphone : profil et progression locale partent (la progression reste sur le serveur). */
   function oublierCompteLocal() {
-    viderCacheHorsLigne(); // les leçons gardées pour le hors ligne ne restent pas sur un téléphone prêté
     ["koios.profil", "koios.etat", "koios.admin"].forEach(function (k) { try { localStorage.removeItem(k); } catch (e) { /* mémoire seule */ } });
     location.hash = "#/";
-    location.reload();
+    /* Les leçons gardées pour le hors ligne ne restent pas sur un téléphone prêté : on attend leur effacement avant de recharger. */
+    viderCacheHorsLigne().then(function () { location.reload(); });
   }
   function majProfilCompte(c) {
     if (!profil || !c) return;
@@ -3739,7 +3742,7 @@
         dire(alerte, e.statut === 429 ? "Tu as fait " + pluriel(LIMITES.signalements, "signalement", "signalements") + " aujourd’hui. Réessaie demain." : messageErreur(e));
       });
     });
-    panneau.appendChild(el("p", { "class": "meta", text: "Qu’est-ce qui ne va pas" + N + "?" }));
+    panneau.appendChild(el("p", { "class": "meta", text: "Qu’est-ce qui ne va pas" + F + "?" }));
     [seg, champ, envoyer, alerte].forEach(function (x) { panneau.appendChild(x); });
     return el("section", { "class": "signal pile serree" }, [declencheur, panneau, merci]);
   }
@@ -3790,6 +3793,7 @@
       segments = L.segmentsVoix(parties, 200);
       if (!segments.length) { statut.hidden = false; statut.textContent = "Rien à lire pour l’instant."; return; }
       demarrer(0);
+      pause.focus(); // « Écouter la leçon » se cache : le focus passe à « Pause » (déjà visible, demarrer a appelé afficher)
     });
     pause.addEventListener("click", function () {
       if (mode === "lecture") { jeton += 1; mode = "pause"; synth.cancel(); afficher(); } else if (mode === "pause") demarrer(courant);
@@ -3826,7 +3830,7 @@
     return el("div", { "class": "test-niveau pile serree" }, [
       el("h3", {}, [icone("diplome"), "Test de fin de niveau"]),
       el("p", { "class": "meta", text: phrase }),
-      lienAvance(base + "/test/" + niv.numero, reussi ? "Refaire le test" : "Passer le test", reussi ? "btn second" : "btn"),
+      lienAvance(base + "/test/" + niv.numero, reussi ? "Refaire le test" : "Passer le test", "btn second"),
       reussi ? lien("#/certificat/" + encodeURIComponent(p.id) + "/" + niv.numero, "Voir mon certificat", "lien") : null]);
   }
 
@@ -3949,7 +3953,7 @@
           enteteRetour(base, "Formation"),
           el("div", { "class": "pile serree" }, [el("span", { "class": "sur", text: "Dossier de voyage" }), el("h1", { text: p.titre }),
             el("p", { "class": "meta", text: pluriel(r.lecons.length, "leçon lue", "leçons lues") + (date ? " · " + date : "") })]),
-          r.manquantes ? el("p", { "class": "alerte no-print", role: "status", text: pluriel(r.manquantes, "leçon n’a pas pu être chargée", "leçons n’ont pas pu être chargées") + " (hors ligne" + N + "?). Ouvre-la une fois en ligne." }) : null,
+          r.manquantes ? el("p", { "class": "alerte no-print", role: "status", text: pluriel(r.manquantes, "leçon n’a pas pu être chargée", "leçons n’ont pas pu être chargées") + " (hors ligne" + F + "?). Ouvre-la une fois en ligne." }) : null,
           imprimer, doc
         ]), null, "Dossier · " + p.titre);
       });
@@ -4002,7 +4006,10 @@
     api("GET", "etat", null, 5000).then(function (j) { serveur.base = !!j.base; serveur.ia = !!j.ia; return synchroniser(); }, function () {});
   });
   majBandeauHorsLigne();
-  function viderCacheHorsLigne() { try { if (window.caches) window.caches.delete("koios-lecons"); } catch (e) { /* rien à vider */ } }
+  /* Vide le cache des leçons gardées pour le hors ligne. Renvoie une promesse, toujours tenue : à attendre avant de recharger la page. */
+  function viderCacheHorsLigne() {
+    try { return window.caches ? window.caches.delete("koios-lecons").then(function () {}, function () {}) : Promise.resolve(); } catch (e) { return Promise.resolve(); }
+  }
   if ("serviceWorker" in navigator) window.addEventListener("load", function () { navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(null, function () { /* sans service worker, l'app marche comme avant */ }); });
 
   function route() {

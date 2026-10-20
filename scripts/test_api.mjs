@@ -6,7 +6,8 @@
 
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 import {
@@ -66,7 +67,7 @@ import { onRequestGet as amisGet, onRequestPost as amisPost } from '../functions
 import { onRequestGet as progressionGet, onRequestPut as progressionPut } from '../functions/api/progression.js';
 import { onRequestGet as cercleGet } from '../functions/api/cercle.js';
 import { onRequestPost as librePost } from '../functions/api/libre.js';
-import { onRequestPost as signalementPost } from '../functions/api/signalement.js';
+import { REECRITURES_AUTO_PAR_JOUR, onRequestPost as signalementPost } from '../functions/api/signalement.js';
 import { onRequestGet as sujetsGet } from '../functions/api/sujets.js';
 import { onRequestGet as sujetGet, onRequestPost as sujetPost } from '../functions/api/sujet.js';
 import { onRequestGet as chapitreIaGet } from '../functions/api/chapitre-ia.js';
@@ -363,7 +364,7 @@ test('progression : PUT calcule points (XP plausible) et valides (paliers termin
     ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp: valeur, reussies: reussiesPour(300), ...reste } } }));
     return lignes('SELECT points FROM joueurs')[0].points;
   };
-  assert.equal(await xp(5e9), 300);
+  assert.equal(await xp(5e9), 320, 'jamais sous l’XP déjà acceptée (320), même si l’état n’en prouve que 300');
   assert.equal(await xp(-40), 0);
   assert.equal(await xp('500'), 0);
   assert.equal(await xp(null), 0);
@@ -417,7 +418,7 @@ test('anti-triche : un téléphone qui envoie 999999 XP est ramené à la valeur
   const j = await creerJoueur('Tricheur');
   const etat = { version: 2, xp: 999999, parcours: { 'les-phares': { fait: 3, xp: 999999 } } };
   const r = await envoyerEtat(j, etat);
-  assert.deepEqual(r.corps, { ok: true, xp: 3 * XP_LECON }, 'trois leçons écrites et faites : 45 XP');
+  assert.deepEqual(r.corps, { ok: true, xp: 3 * XP_LECON, raison: 'plausible' }, 'trois leçons écrites et faites : 45 XP');
   assert.deepEqual(lignes('SELECT points FROM joueurs')[0], { points: 45 });
   const lu = (await appel(progressionGet, { jeton: j.jeton })).corps.etat;
   assert.equal(lu.xp, 45);
@@ -437,8 +438,10 @@ test('anti-triche : plafond de gain par jour et par compte, repart le lendemain'
   const j = await creerJoueur('Rapide');
   const suivi = (n) => ({ xp: n * 15, parcours: { long: { fait: n } } });
   assert.equal((await envoyerEtat(j, suivi(10))).corps.xp, 150);
-  // 200 leçons = 3 000 XP plausibles, mais pas plus de 1 500 de gain dans la journée.
-  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, 150 + XP_JOUR_MAX - 150, 'plafond : XP du début de journée (0) + 1 500');
+  // 200 leçons = 3 000 XP plausibles, mais pas plus de 600 de gain dans la journée.
+  const plafonne = (await envoyerEtat(j, suivi(200))).corps;
+  assert.deepEqual(plafonne, { ok: true, xp: XP_JOUR_MAX, raison: 'plafondJour' }, 'plafond : XP du début de journée (0) + 600 ; la raison est le plafond du jour, pas « plausible »');
+  assert.equal(XP_JOUR_MAX, 600);
   assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, XP_JOUR_MAX, 'renvoyer ne change rien');
   assert.equal(lignes('SELECT points FROM joueurs')[0].points, XP_JOUR_MAX);
   // Un autre compte a son propre plafond.
@@ -446,9 +449,24 @@ test('anti-triche : plafond de gain par jour et par compte, repart le lendemain'
   assert.equal((await envoyerEtat(autre, suivi(200))).corps.xp, XP_JOUR_MAX);
   // Le lendemain : le début de journée devient l'XP déjà acceptée.
   db.base.prepare("UPDATE quotas SET jour = '2000-01-01' WHERE cle LIKE 'xpdebut:%'").run();
-  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, 3000);
+  assert.equal((await envoyerEtat(j, suivi(200))).corps.xp, 2 * XP_JOUR_MAX);
   // Sans base, le plafond n'est pas appelé : la fonction pure est sans effet de bord.
   assert.equal(await plafonnerParJour(env, j.id, 100, 99999, new Date('2030-01-01T10:00:00Z')), 100 + XP_JOUR_MAX);
+});
+
+test('anti-triche : seules les clés « palier#index » valides comptent dans reussies ; l’XP déjà acceptée n’est jamais retirée', async () => {
+  toutVider();
+  const j = await creerJoueur('Cles');
+  const propres = { 'les-phares:1#0': 1, 'quiz:x#12': 1 };
+  const sales = { ...propres, 'sans-dieze': 1, '#3': 1, 'a#b': 1, 'a#-1': 1, ['x'.repeat(90) + '#1']: 1, 'a b#1': 1 };
+  assert.equal(xpPlausible({ reussies: sales }), 2 * XP_QUESTION);
+  assert.equal((await envoyerEtat(j, { xp: 500, reussies: sales })).corps.xp, 2 * XP_QUESTION);
+  // XP déjà acceptée (20) : un état qui prouve moins ne la fait pas baisser, et rien n'est « coupé » à tort.
+  const r = (await envoyerEtat(j, { xp: 400, reussies: propres })).corps;
+  assert.deepEqual(r, { ok: true, xp: 2 * XP_QUESTION, raison: 'plausible' });
+  assert.equal(lignes('SELECT points FROM joueurs')[0].points, 2 * XP_QUESTION);
+  // Un envoi honnête sous le total accepté ne déclenche aucune raison.
+  assert.deepEqual((await envoyerEtat(j, { xp: 20, reussies: propres })).corps, { ok: true, xp: 20 });
 });
 
 test('progression : PUT change pseudo et ton, valide les deux, garde l’ancien sinon', async () => {
@@ -7389,9 +7407,42 @@ test('hors ligne : les leçons déjà lues s’ouvrent sans réseau, les autres 
   }
   // La coquille de l'app sert hors ligne ; la navigation retombe sur la page d'accueil gardée.
   assert.equal(await (await sw.aller('/app.js')).rep.text(), 'contenu /app.js');
-  await assert.rejects(sw.aller('/inconnu-jamais-vu.js'), 'un fichier jamais vu échoue proprement hors ligne');
+  const inconnu = await sw.aller('/inconnu-jamais-vu.js');
+  assert.equal(inconnu.rep.status, 503, 'un fichier jamais vu répond « Hors ligne », sans planter');
+  assert.equal(await inconnu.rep.text(), 'Hors ligne');
   const navigation = await sw.evenement('fetch', { request: { method: 'GET', url: 'https://koios.test/', mode: 'navigate' } });
   assert.equal(await (await navigation.reponse).text(), 'contenu /', 'la page d’accueil gardée s’ouvre hors ligne');
+});
+
+test('hors ligne : la coquille (page, app.js, logique.js, style.css) passe par le réseau d’abord, la copie gardée sert de secours', async () => {
+  const sw = monterSW({ version: '3.0.0' });
+  await sw.evenement('install');
+  for (const f of ['/app.js', '/logique.js', '/style.css']) {
+    assert.equal(await (await sw.aller(f)).rep.text(), 'contenu ' + f);
+    sw.reseau.reponses[f] = () => new Response('nouveau ' + f, { status: 200 });
+    assert.equal(await (await sw.aller(f)).rep.text(), 'nouveau ' + f, f + ' : le réseau passe avant la copie gardée');
+  }
+  sw.reseau.enLigne = false;
+  assert.equal(await (await sw.aller('/app.js')).rep.text(), 'nouveau /app.js', 'hors ligne : la dernière copie gardée');
+  sw.caches.get('koios-app-3.0.0').delete('https://koios.test/style.css');
+  const rien = await sw.aller('/style.css');
+  assert.equal(rien.rep.status, 503);
+  assert.equal(await rien.rep.text(), 'Hors ligne', 'rien en cache : réponse « Hors ligne »');
+});
+
+test('version : scripts/version.mjs écrit un horodatage neuf dans app/version.js', async () => {
+  const chemin = new URL('../app/version.js', import.meta.url);
+  const avant = readFileSync(chemin, 'utf8');
+  try {
+    const { execFileSync } = await import('node:child_process');
+    await new Promise((r) => setTimeout(r, 1100));
+    execFileSync(process.execPath, [fileURLToPath(new URL('./version.mjs', import.meta.url))]);
+    const apres = readFileSync(chemin, 'utf8');
+    assert.match(apres, /self\.KOIOS_VERSION = "\d{4}\.\d{2}\.\d{2}-\d{6}";/);
+    assert.notEqual(apres, avant);
+  } finally {
+    writeFileSync(chemin, avant);
+  }
 });
 
 test('hors ligne : le bandeau et l’enregistrement du service worker sont branchés dans l’app', () => {
@@ -8715,6 +8766,8 @@ test('admin « reecrire » : met en file les leçons partiel > 20 % ou « à rev
   assert.equal(exp.corps.lecons.find((x) => x.numero === 3).verification.aRevoir, true);
 });
 
+// Le compte a lu les `fait` premières leçons de la formation (état gardé côté serveur).
+const aLuLecons = (joueur, fait, parcours = 'la-tour-eiffel') => db.base.prepare('UPDATE joueurs SET etat = ? WHERE id = ?').run(JSON.stringify({ version: 2, parcours: { [parcours]: { fait } } }), joueur.id);
 const signalerLecon = (joueur, corps) => appel(signalementPost, { methode: 'POST', jeton: joueur && joueur.jeton, corps: { type: 'lecon', parcours: 'la-tour-eiffel', numero: 1, motif: 'fait', ...corps } });
 
 test('signalement de leçon : champs vérifiés, leçon existante, un seul par leçon et par compte, 5 par jour', async () => {
@@ -8730,6 +8783,14 @@ test('signalement de leçon : champs vérifiés, leçon existante, un seul par l
   erreurFr(await signalerLecon(a, { numero: 99 }), 404, /introuvable/);
   erreurFr(await signalerLecon(a, { parcours: 'inconnu' }), 404);
   assert.equal(lignes('SELECT * FROM signalements').length, 0);
+  // Il faut avoir lu la leçon (état parcours[id].fait >= numéro) : sans état, ou avec une leçon plus loin, 403.
+  erreurFr(await signalerLecon(a, {}), 403, /Lis la leçon/);
+  aLuLecons(a, 0);
+  erreurFr(await signalerLecon(a, {}), 403, /Lis la leçon/);
+  aLuLecons(a, 1);
+  erreurFr(await signalerLecon(a, { numero: 2 }), 403, /Lis la leçon/);
+  aLuLecons(a, 6);
+  assert.equal(lignes('SELECT * FROM signalements').length, 0);
   const ok = await signalerLecon(a, { message: '  La date\n est fausse. ' });
   assert.deepEqual(ok.corps, { ok: true, enFile: false });
   assert.deepEqual(lignes('SELECT joueur, chapitre, exercice, message FROM signalements'), [{ joueur: a.id, chapitre: 'lecon:la-tour-eiffel', exercice: 1, message: 'fait|La date est fausse.' }]);
@@ -8740,15 +8801,17 @@ test('signalement de leçon : champs vérifiés, leçon existante, un seul par l
   erreurFr(await signalerLecon(a, { numero: 6 }), 429, /5 signalements/);
   assert.equal(lignes('SELECT * FROM signalements').length, 5);
   const b = await creerJoueur('Bob');
+  aLuLecons(b, 6);
   assert.equal((await signalerLecon(b, { numero: 6, motif: 'autre', message: 'Trop vague' })).statut, 200, 'chaque compte a son quota');
   // L'ancien signalement d'exercice marche toujours.
   assert.equal((await appel(signalementPost, { methode: 'POST', jeton: a.jeton, corps: { chapitre: 'hg-01', exercice: 1, message: 'faux' } })).statut, 200);
 });
 
-test('signalement de leçon : 3 joueurs différents mettent la leçon en file de réécriture ; l’admin les voit et peut les ignorer ; la réécriture les efface', async () => {
+test('signalement de leçon : 3 joueurs différents mettent la leçon en file de réécriture ; l’admin les voit et peut les ignorer ; la réécriture les marque traités', async () => {
   await prepareProgramme();
   for (const k of [1, 2]) insererPalierTest('la-tour-eiffel', k);
   const [a, b, c, d] = [await creerJoueur('A'), await creerJoueur('B'), await creerJoueur('C'), await creerJoueur('D')];
+  for (const x of [a, b, c, d]) aLuLecons(x, 2);
   assert.equal((await signalerLecon(a, { motif: 'fait', message: 'Date fausse' })).corps.enFile, false);
   assert.equal((await signalerLecon(b, { motif: 'pas_clair' })).corps.enFile, false);
   assert.equal(lignes("SELECT * FROM file_attente WHERE type = 'reecriture'").length, 0, 'deux ne suffisent pas');
@@ -8778,12 +8841,51 @@ test('signalement de leçon : 3 joueurs différents mettent la leçon en file de
   assert.equal(ig.corps.retires, 1);
   assert.deepEqual(ig.corps.lecons.map((x) => x.numero), [1]);
   assert.equal(lignes('SELECT * FROM file_attente').length, 1);
-  // La réécriture (cron) efface les signalements de la leçon réécrite.
+  // La réécriture (cron) marque « traités » les signalements de la leçon réécrite, sans les effacer.
   const sc = scenario(partiesStandard());
   brancher(sc);
   assert.equal((await traiterFile({ DB: db, AI: sc.ai })).faites, 1);
-  assert.equal(lignes("SELECT * FROM signalements WHERE chapitre LIKE 'lecon:%'").length, 0);
+  assert.deepEqual(lignes("SELECT traite, COUNT(*) AS n FROM signalements WHERE chapitre LIKE 'lecon:%' GROUP BY traite"), [{ traite: 1, n: 4 }]);
   assert.deepEqual((await lire()).corps.lecons, []);
+  // Après la réécriture, seuls les NOUVEAUX signalants comptent : deux ne suffisent pas, le troisième remet en file.
+  assert.equal((await signalerLecon(a, { motif: 'pas_clair' })).corps.enFile, false, 'a peut resignaler la nouvelle version');
+  assert.equal((await signalerLecon(b, { motif: 'fait' })).corps.enFile, false, 'seulement 2 signalants non traités');
+  assert.equal(lignes("SELECT * FROM file_attente WHERE etat = 'attente'").length, 0);
+  assert.equal((await signalerLecon(c, { motif: 'fait' })).corps.enFile, true);
+  assert.equal(lignes("SELECT * FROM file_attente WHERE etat = 'attente'").length, 1);
+});
+
+test('signalement de leçon : plafond global de réécritures automatiques par jour', async () => {
+  await prepareProgramme();
+  insererPalierTest('la-tour-eiffel', 1);
+  const [a, b, c] = [await creerJoueur('A'), await creerJoueur('B'), await creerJoueur('C')];
+  for (const x of [a, b, c]) aLuLecons(x, 1);
+  db.base.prepare('INSERT INTO quotas (cle, n, jour) VALUES (?, ?, ?)').run('reecriture-auto', REECRITURES_AUTO_PAR_JOUR, new Date().toISOString().slice(0, 10));
+  await signalerLecon(a, {});
+  await signalerLecon(b, {});
+  assert.equal((await signalerLecon(c, {})).corps.enFile, false, 'plafond du jour atteint : pas de mise en file automatique');
+  assert.equal(lignes("SELECT * FROM file_attente WHERE type = 'reecriture'").length, 0);
+  assert.equal(lignes('SELECT * FROM signalements').length, 3, 'les signalements restent enregistrés');
+  assert.equal(REECRITURES_AUTO_PAR_JOUR, 5);
+});
+
+test('admin signalements : au plus 20 leçons, cinq requêtes D1 au plus quel que soit le nombre de leçons', async () => {
+  await prepareProgramme();
+  for (let k = 1; k <= 25; k++) {
+    insererPalierTest('la-tour-eiffel', k);
+    for (const [i, joueur] of ['x1', 'x2'].entries()) {
+      db.base.prepare('INSERT INTO signalements (joueur, chapitre, exercice, message, cree, traite) VALUES (?, ?, ?, ?, ?, 0)').run(joueur, 'lecon:la-tour-eiffel', k, 'fait|m' + i, '2026-10-20T10:00:0' + i);
+    }
+  }
+  db.base.prepare('INSERT INTO signalements (joueur, chapitre, exercice, message, cree, traite) VALUES (?, ?, ?, ?, ?, 1)').run('x3', 'lecon:la-tour-eiffel', 1, 'fait|vieux', '2026-10-01');
+  const envCompte = { ...envAdmin() };
+  const base = envCompte.DB;
+  let requetes = 0;
+  envCompte.DB = new Proxy(base, { get: (cible, nom) => (nom === 'prepare' ? (sql) => { if (/FROM signalements|FROM paliers|FROM parcours|FROM file_attente/.test(sql)) requetes += 1; return cible.prepare(sql); } : cible[nom]) });
+  const r = await appel(adminGet, { env: envCompte, entetes: enteteAdmin, requete: '?signalements=1' });
+  assert.equal(r.corps.lecons.length, 20);
+  assert.ok(requetes <= 10, `${requetes} requêtes`);
+  assert.ok(r.corps.lecons.every((x) => x.joueurs === 2 && x.titre === 'Palier ' + x.numero && x.messages.length === 2), 'les signalements traités ne comptent plus');
 });
 
 test('rédacteur : une leçon n’a qu’un seul modèle pour les parties A et B (jamais de mélange), le meilleur disponible', async () => {
@@ -10436,6 +10538,16 @@ test('migrerBase : une base d’avant les comptes reçoit les colonnes et les in
   const concurrente = { DB: { prepare: (sql) => (/^ALTER/.test(sql) ? { run: async () => { throw new Error('duplicate column name: prenom'); } } : ancienne.prepare(sql)) } };
   ancienne.base.exec('DROP INDEX idx_joueurs_google_sub');
   await migrerBase(concurrente);
+});
+
+test('migrerBase : une table signalements d’avant reçoit la colonne traite (0 pour l’existant) ; deuxième passage sans effet', async () => {
+  const ancienne = fauxD1();
+  ancienne.base.exec(`CREATE TABLE joueurs (id TEXT PRIMARY KEY)`);
+  ancienne.base.exec(`CREATE TABLE signalements (id INTEGER PRIMARY KEY AUTOINCREMENT, joueur TEXT, chapitre TEXT, exercice INTEGER, message TEXT, cree TEXT)`);
+  ancienne.base.prepare("INSERT INTO signalements (joueur, chapitre, exercice, message, cree) VALUES ('j', 'lecon:a', 1, 'fait|x', 'now')").run();
+  await migrerBase({ DB: ancienne });
+  await migrerBase({ DB: ancienne });
+  assert.deepEqual(ancienne.base.prepare('SELECT traite FROM signalements').all().map((r) => r.traite), [0]);
 });
 
 // --- Journaux ---------------------------------------------------------------------------------------------------
