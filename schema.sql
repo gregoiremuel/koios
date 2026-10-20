@@ -267,3 +267,14 @@ CREATE TABLE IF NOT EXISTS invitations (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_joueurs_pseudo_cle ON joueurs(pseudo_cle) WHERE pseudo_cle IS NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_joueurs_google_sub ON joueurs(google_sub) WHERE google_sub IS NOT NULL;
+
+-- Réponses vérifiées à « Pose une question » : clé = parcours|numéro|question normalisée.
+CREATE TABLE IF NOT EXISTS questions_cache (
+  cle TEXT PRIMARY KEY,
+  parcours TEXT,
+  numero INTEGER,
+  reponse TEXT,
+  trouve INTEGER,
+  ia TEXT,
+  cree TEXT
+);

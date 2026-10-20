@@ -178,7 +178,7 @@
     var c = cle || (profil && profil.id ? profil.id + "." + profil.cle : null);
     if (c) h.Authorization = "Bearer " + c;
     var perso = cleIA();
-    if (perso && ((methode === "POST" && /^(parcours|variante|quiz-general)(\?|$)/.test(chemin)) || (methode === "GET" && /^palier\?/.test(chemin)))) h["x-cle-ia"] = perso.f + ":" + perso.c;
+    if (perso && ((methode === "POST" && /^(parcours|variante|quiz-general|question)(\?|$)/.test(chemin)) || (methode === "GET" && /^palier\?/.test(chemin)))) h["x-cle-ia"] = perso.f + ":" + perso.c;
     if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
     return fetch("/api/" + chemin, { method: methode, headers: h, body: corps ? JSON.stringify(corps) : undefined, signal: ctrl ? ctrl.signal : undefined })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { clearTimeout(t); if (!r.ok) { var e = new Error(j.erreur || ("Erreur " + r.status)); e.statut = r.status; throw e; } return j; }); },
@@ -1874,6 +1874,7 @@
         emplacement,
         article,
         verifBloc, finir, rangeeNav,
+        p.verifie ? null : blocQuestion(p, n),
         p.verifie ? null : blocSignalement(p, n)
       ]), null, l.titre);
       if (imageOk(l.image)) poserPhoto(l.image);
@@ -3708,6 +3709,45 @@
 
   /* ---------- Routeur ---------- */
   /* ---------- Lot 7 : signalement, test et certificat de fin de niveau, voix, dossier de voyage, hors ligne ---------- */
+
+  /* « Poser une question » sous la leçon : bouton secondaire qui déplie un champ de 200 caractères. La réponse (3 à 5 phrases, tirée de la leçon
+     et de ses sources, recoupée par une autre IA) s'affiche en carte. La question reste une donnée : le texte est inséré avec textContent. */
+  function blocQuestion(p, n) {
+    var declencheur = el("button", { "class": "btn second", type: "button", "aria-expanded": "false", "aria-controls": "question-panneau" }, [icone("aide"), el("span", { text: "Poser une question" })]);
+    var panneau = el("div", { "class": "pile serree", id: "question-panneau", hidden: "" });
+    var champ = el("input", { "class": "champ", id: "question-champ", type: "text", maxlength: "200", autocomplete: "off", placeholder: "Une question sur cette leçon", "aria-label": "Ta question sur cette leçon (200 caractères au plus)" });
+    var compteur = el("p", { "class": "meta", text: "0" + N + "/" + N + "200" });
+    var envoyer = el("button", { "class": "btn second", type: "button" }, [el("span", { text: "Envoyer la question" })]);
+    var alerte = alerteVide();
+    var reponse = el("div", { "class": "carte", role: "status", "aria-live": "polite", hidden: "" });
+    declencheur.addEventListener("click", function () {
+      var ouvre = panneau.hidden;
+      panneau.hidden = !ouvre; declencheur.setAttribute("aria-expanded", ouvre ? "true" : "false");
+      if (ouvre) champ.focus();
+    });
+    champ.addEventListener("input", function () { compteur.textContent = champ.value.length + N + "/" + N + "200"; });
+    envoyer.addEventListener("click", function () {
+      var q = champ.value.trim();
+      if (q.length < 5) { dire(alerte, "Écris ta question en quelques mots."); return; }
+      if (!enLigne()) { dire(alerte, "Connecte-toi à ton compte pour poser une question."); return; }
+      dire(alerte, ""); reponse.hidden = true; envoyer.disabled = true; envoyer.firstChild.textContent = "Le Rival cherche…";
+      api("POST", "question", { parcours: p.id, numero: n, question: q }, 100000).then(function (r) {
+        envoyer.disabled = false; envoyer.firstChild.textContent = "Envoyer la question";
+        reponse.textContent = "";
+        reponse.appendChild(el("p", { "class": "meta", text: "Ta question" }));
+        reponse.appendChild(el("p", { text: q }));
+        reponse.appendChild(el("p", { "class": "meta", text: "Réponse du Rival" }));
+        reponse.appendChild(el("p", { text: r.reponse }));
+        if (r.trouve) reponse.appendChild(el("p", { "class": "meta", text: "Tirée de la leçon et de ses sources, recoupée par une autre IA." }));
+        reponse.hidden = false;
+      }, function (e) {
+        envoyer.disabled = false; envoyer.firstChild.textContent = "Envoyer la question";
+        dire(alerte, messageErreur(e, "Tu as posé toutes tes questions du jour. Réessaie demain."));
+      });
+    });
+    [champ, compteur, envoyer, alerte, reponse].forEach(function (x) { panneau.appendChild(x); });
+    return el("section", { "class": "question pile serree" }, [declencheur, panneau]);
+  }
 
   /* Signaler une erreur dans une leçon : lien discret en bas de la leçon, qui déplie un motif et un champ court. 5 par jour et par compte ;
      trois joueurs différents sur la même leçon la mettent en file de réécriture (côté serveur). */
