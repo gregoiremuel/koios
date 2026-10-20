@@ -32,6 +32,7 @@ import * as cleIa from './functions/api/cle-ia.js';
 import * as compte from './functions/api/compte.js';
 import * as amis from './functions/api/amis.js';
 import * as question from './functions/api/question.js';
+import * as documents from './functions/api/documents.js';
 import { traiterFile } from './lib/nuit.js';
 
 const ROUTES = {
@@ -39,7 +40,7 @@ const ROUTES = {
   etat, joueur, progression, cercle, libre, signalement,
   sujets, sujet, 'chapitre-ia': chapitreIa, melange, duel, duels, image: imageRoute,
   parcours, palier, quiz, 'quiz-direct': quizDirect, glossaire, fiche,
-  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, variante, admin, 'cle-ia': cleIa, compte, amis, question,
+  'quiz-general': quizGeneral, jour, tournoi, groupe, partie, variante, admin, 'cle-ia': cleIa, compte, amis, question, documents,
 };
 
 function erreur(statut, message) {

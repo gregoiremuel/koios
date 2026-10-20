@@ -281,3 +281,28 @@ CREATE TABLE IF NOT EXISTS questions_cache (
 
 -- Retire d'un coup les réponses d'une leçon réécrite.
 CREATE INDEX IF NOT EXISTS idx_questions_cache_lecon ON questions_cache(parcours, numero);
+
+-- Documents de référence (lot 10) : PDF ajoutés par l'admin, lus par programme (jamais par l'IA en entier). `parcours` NULL = utile à tout sujet ;
+-- `editeur` : texte libre affiché devant le titre dans les sources ; `niveau` (1 à 4, NULL = tous) : une leçon n'y puise que si son niveau est au moins égal.
+CREATE TABLE IF NOT EXISTS documents (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  parcours TEXT,
+  titre TEXT,
+  fichier TEXT,
+  pages INTEGER,
+  cree TEXT,
+  actif INTEGER DEFAULT 1,
+  editeur TEXT,
+  niveau INTEGER
+);
+
+-- Morceaux de 150 à 250 mots (recouvrement de 20 mots), `mots` = nombre de mots.
+CREATE TABLE IF NOT EXISTS doc_morceaux (
+  doc_id INTEGER,
+  n INTEGER,
+  page INTEGER,
+  texte TEXT,
+  mots INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_doc_morceaux ON doc_morceaux(doc_id, n);

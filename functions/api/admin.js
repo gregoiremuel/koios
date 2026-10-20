@@ -20,6 +20,7 @@
 //   GET  /api/admin?signalements=1 : leçons signalées par des lecteurs (parcours, numéro, titres, nombre de joueurs, motifs, messages, `enFile` si
 //                                       une réécriture est en file), les plus signalées d'abord. POST {action: 'ignorer_signalements', parcours, numero} :
 //                                       efface les signalements de cette leçon (pas de réécriture).
+//                                       Avec `avecDocuments: true` : les leçons écrites sans document de référence, d'une formation qui a des documents actifs.
 //   POST /api/admin {action: 'pause' | 'reprendre' | 'vider'} : suspend, relance ou vide la file.
 //   POST /api/admin {action: 'jour', valeur: true | false} : autorise (ou non) le travail en journée ; sans lui, seule la nuit (0 h à 5 h 59 UTC).
 //                                       L'état est renvoyé par GET et POST dans `jour`.
@@ -49,7 +50,7 @@ async function exigerCle(request, env) {
 }
 
 // Session d'un compte admin (sans clé), sinon la clé. Un compte bloqué n'ouvre rien par sa session, mais la clé reste valable.
-async function exigerAdmin(request, env) {
+export async function exigerAdmin(request, env) {
   let joueur = null;
   try {
     joueur = await auth(request, env);
@@ -232,7 +233,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     return json({ ok: true, ajoutees, ...(await etatFile(env, corps.parcours)) });
   }
   if (corps.action === 'reecrire') {
-    const { ajoutees, faibles } = await reecrire(env, corps.parcours, { formatAncien: corps.formatAncien === true });
+    const { ajoutees, faibles } = await reecrire(env, corps.parcours, { formatAncien: corps.formatAncien === true, avecDocuments: corps.avecDocuments === true });
     return json({ ok: true, ajoutees, faibles, ...(await etatFile(env, corps.parcours)) });
   }
   if (corps.action === 'ignorer_signalements') {
