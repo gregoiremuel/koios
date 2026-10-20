@@ -49,6 +49,7 @@ async function creer(env, { id, lundi, theme, fin }) {
 
 export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
+  const lecteur = await authOptionnelle(request, env);
   const lundi = lundiDe(jourUtc());
   const fin = finDeSemaine(lundi);
   const theme = themeDeLaSemaine(lundi);
@@ -64,7 +65,6 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     if (!ligne) return json({ tournoi: null });
   }
 
-  const lecteur = await authOptionnelle(request, env);
   const scores = lire(ligne.scores);
   // Le classement ne montre que toi et tes amis (les rangs restent ceux de tous les joueurs).
   const visibles = lecteur ? new Set([lecteur.id, ...(await idsAmis(env, lecteur.id))]) : new Set();

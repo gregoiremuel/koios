@@ -20,7 +20,7 @@
 import {
   ErreurHttp, aleatoire, auth, enveloppe, exigerBase, hacherMdp, json, lireJSON, quota, secretsEgaux,
 } from '../../lib/api.js';
-import { cleDePseudo, normaliserPhrase } from '../../lib/comptes.js';
+import { cleDePseudo, normaliserCode } from '../../lib/comptes.js';
 import {
   debloquer, definirJournee, definirPause, etatFile, exporterLecons, reecrire, viderFile,
 } from '../../lib/nuit.js';
@@ -138,7 +138,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     const cible = await compteCible(env, corps);
     const code = aleatoire(8);
     const expire = new Date(Date.now() + 86400000).toISOString();
-    await env.DB.prepare('UPDATE joueurs SET reinit_hash = ?, reinit_fin = ? WHERE id = ?').bind(await hacherMdp(normaliserPhrase(code)), expire, cible.id).run();
+    await env.DB.prepare('UPDATE joueurs SET reinit_hash = ?, reinit_fin = ? WHERE id = ?').bind(await hacherMdp(normaliserCode(code)), expire, cible.id).run();
     return json({ ok: true, pseudo: cible.pseudo, code, expire });
   }
   if (corps.action === 'creer_code') {
@@ -152,7 +152,7 @@ export const onRequestPost = enveloppe(async ({ request, env }) => {
     return json({ ok: true, code, bonus, jours, usages });
   }
   if (corps.action === 'revoquer_code') {
-    const code = normaliserPhrase(corps.code);
+    const code = normaliserCode(corps.code);
     const ecrit = code ? await env.DB.prepare('UPDATE codes SET revoque = 1 WHERE code = ?').bind(code).run() : null;
     if (!(ecrit && ecrit.meta && ecrit.meta.changes === 1)) throw new ErreurHttp(404, 'Ce code n’existe pas.');
     return json({ ok: true, ...(await listerCodes(env)) });

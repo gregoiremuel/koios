@@ -5,11 +5,14 @@
 // Lancer : node scripts/test_api.mjs
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 import {
-  ErreurHttp, TABLES, enveloppe, initBase, quota, sha256Hex,
+  COLONNES_COMPTE, ErreurHttp, TABLES, bonusActif, egalConstant, enveloppe, hacherMdp, initBase, migrerBase, quota, quotaJoueur, sha256Hex,
+  verifierContreLeurre, verifierMdp,
 } from '../lib/api.js';
+import { MOTS_SECOURS, normaliserPhrase, phraseDeSecours, pseudoCompte } from '../lib/comptes.js';
 import { EXEMPLE, MODELES, PROMPT_SYSTEME, extraireObjet, validerChapitre } from '../lib/libre.js';
 import {
   EXEMPLE_CHAPITRE, EXEMPLE_PLAN, PROMPT_CHAPITRE, PROMPT_PLAN, assemblerChapitre, slug, validerChapitreIA,
@@ -157,7 +160,7 @@ function erreurFr(r, statut, extrait) {
   assert.equal(r.statut, statut, JSON.stringify(r.corps));
   assert.match(r.type, /application\/json/);
   assert.equal(typeof r.corps.erreur, 'string');
-  if (extrait) assert.match(r.corps.erreur, extrait);
+  if (extrait instanceof RegExp) assert.match(r.corps.erreur, extrait); // une chaîne en 3e argument n'est qu'un commentaire
 }
 
 // --- Sans base -------------------------------------------------------------
@@ -719,7 +722,7 @@ test('libre : 5 par jour par joueur, 60 par jour au total', async () => {
 const texteWiki = (sujet, n = 600) => `${sujet} est décrit ici pour les tests. `.repeat(Math.ceil(n / 30)).slice(0, n);
 const wiki = { appels: [], pages: {}, pagesEn: {}, langliens: {}, recherche: null, rechercheEn: null, panne: null, avance: 0 };
 // Fournisseurs externes simulés (GLM, Unsplash, Commons) : chacun est une fonction (url, init) -> Response, ou null (non prévu).
-const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null, cerebras: null, mistral: null, claude: null };
+const ext = { appels: [], glm: null, unsplash: null, commons: null, gemini: null, grok: null, groq: null, cerebras: null, mistral: null, claude: null, google: null };
 // Horloge simulée : `Date.now` avance de `horloge.t` (les tests de délais).
 const horloge = { t: 0, vrai: Date.now.bind(Date) };
 Date.now = () => horloge.vrai() + horloge.t;
@@ -754,6 +757,7 @@ function reinitExt() {
   ext.cerebras = null;
   ext.mistral = null;
   ext.claude = null;
+  ext.google = null;
   oublierEpuisements();
   horloge.t = 0;
 }
@@ -776,7 +780,7 @@ const bloquer = (init) => new Promise((resolu, rejete) => {
     rejete(init.signal.reason);
   });
 });
-const FOURNISSEURS = { 'api.z.ai': 'glm', 'open.bigmodel.cn': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.cerebras.ai': 'cerebras', 'api.mistral.ai': 'mistral', 'api.anthropic.com': 'claude', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons' };
+const FOURNISSEURS = { 'api.z.ai': 'glm', 'open.bigmodel.cn': 'glm', 'generativelanguage.googleapis.com': 'gemini', 'api.x.ai': 'grok', 'api.groq.com': 'groq', 'api.cerebras.ai': 'cerebras', 'api.mistral.ai': 'mistral', 'api.anthropic.com': 'claude', 'api.unsplash.com': 'unsplash', 'commons.wikimedia.org': 'commons', 'oauth2.googleapis.com': 'google' };
 globalThis.fetch = async (url, init = {}) => {
   const u = new URL(String(url));
   if (FOURNISSEURS[u.hostname]) {
@@ -8602,6 +8606,1309 @@ test('diagnostic : Claude apparaît en premier (clé présente, état), jamais s
   assert.equal(r3.corps.claudeCle, false);
   assert.ok(!r3.corps.resultats.some((x) => x.famille === 'claude'));
   reinitExt();
+});
+
+// =============================================================================
+// Lot 6 : comptes, admin, codes d'amis, vie privée
+// =============================================================================
+
+const MDP = 'un mot de passe solide';
+const postCompte = (corps, options = {}) => appel(comptePost, { methode: 'POST', ip: nouvelleIp(), corps, ...options });
+async function creerCompte(pseudo = 'greg', { prenom = 'Grégoire', nom = 'Muel', mdp = MDP, ip, jeton } = {}) {
+  const r = await appel(comptePost, { methode: 'POST', ip: ip || nouvelleIp(), jeton, corps: { action: 'inscrire', prenom, nom, pseudo, mdp } });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  return { ...r.corps, mdp, jeton: `${r.corps.id}.${r.corps.cle}` };
+}
+const connexion = (pseudo, mdp = MDP, options = {}) => postCompte({ action: 'connecter', pseudo, mdp }, options);
+const ligneJoueur = (id) => lignes('SELECT * FROM joueurs WHERE id = ?', id)[0];
+// Tout le contenu des tables sous forme de texte : pour vérifier qu'un secret ou un identifiant n'y est plus.
+const toutLeTexte = () => JSON.stringify(
+  lignes("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").map((t) => lignes(`SELECT * FROM ${t.name}`)),
+);
+const sansSecret = (corps) => {
+  const texte = JSON.stringify(corps);
+  assert.ok(!/pbkdf2/.test(texte), 'aucun hash dans la réponse');
+  assert.ok(!/"[a-z_]*(hash|secours_hash|reinit)[a-z_]*"\s*:/i.test(texte), 'aucune clé de hash dans la réponse');
+};
+// Un compte promu admin directement dans la base (la promotion par clé est testée à part).
+const faireAdmin = (compte) => db.base.prepare("UPDATE joueurs SET role = 'admin' WHERE id = ?").run(compte.id);
+const unJourEnMs = 86400000;
+
+// --- Mots de passe et phrase de secours ---------------------------------------------------------------------
+
+test('mot de passe : PBKDF2 « pbkdf2$100000$sel$hash », sel différent à chaque fois, vérification juste, hash illisible jamais valable', async () => {
+  const a = await hacherMdp('un mot de passe solide');
+  const b = await hacherMdp('un mot de passe solide');
+  assert.match(a, /^pbkdf2\$100000\$[0-9a-f]{32}\$[0-9a-f]{64}$/);
+  assert.notEqual(a, b, 'le sel est aléatoire');
+  assert.ok(!a.includes('solide'));
+  assert.equal(await verifierMdp('un mot de passe solide', a), true);
+  assert.equal(await verifierMdp('un mot de passe solidE', a), false);
+  assert.equal(await verifierMdp('', a), false);
+  assert.equal(await verifierMdp(undefined, a), false);
+  assert.equal(await verifierMdp('x'.repeat(200), a), false);
+  // Accents : la forme composée et la forme décomposée sont le même mot de passe.
+  const accents = await hacherMdp('Café crème 2026');
+  assert.equal(await verifierMdp('Café crème 2026', accents), true);
+  // Un hash absent, tronqué, avec trop d'itérations ou d'un autre format ne valide rien.
+  for (const mauvais of [null, undefined, '', 'pbkdf2$100000$zz$zz', a.replace('100000', '100001'), a.replace('100000', '999999'), a.replace('pbkdf2', 'sha1'), a.slice(0, -1), 42]) {
+    assert.equal(await verifierMdp('un mot de passe solide', mauvais), false, String(mauvais));
+  }
+  assert.equal(await verifierContreLeurre('un mot de passe solide'), false);
+});
+
+test('phrase de secours : 12 mots d’une liste fixe de 256 mots, tirage différent à chaque fois, comparaison sans casse ni accents', async () => {
+  assert.equal(MOTS_SECOURS.length, 256);
+  assert.equal(new Set(MOTS_SECOURS).size, 256);
+  assert.ok(MOTS_SECOURS.every((m) => /^[a-z]{3,10}$/.test(m)), 'des mots simples, sans accent');
+  const phrases = new Set();
+  for (let i = 0; i < 20; i++) {
+    const p = phraseDeSecours();
+    const mots = p.split(' ');
+    assert.equal(mots.length, 12);
+    assert.ok(mots.every((m) => MOTS_SECOURS.includes(m)));
+    phrases.add(p);
+  }
+  assert.equal(phrases.size, 20);
+  assert.equal(normaliserPhrase('  Café   LUNE,  étoile '), 'cafe lune etoile');
+  assert.equal(normaliserPhrase(42), '');
+});
+
+test('pseudo de compte : 3 à 20 caractères, lettres, chiffres, _ . -, minuscules pour l’unicité, pseudos réservés refusés', async () => {
+  assert.deepEqual(pseudoCompte('Greg_M.9-x'), { pseudo: 'Greg_M.9-x', cle: 'greg_m.9-x' });
+  assert.deepEqual(pseudoCompte('  Éloïse '), { pseudo: 'Éloïse', cle: 'éloïse' });
+  for (const mauvais of ['ab', 'a'.repeat(21), 'deux mots', 'a@b.fr', 'x<y', '😀😀😀', '', '   ', null, 12, ['abc'], 'Грег']) {
+    assert.throws(() => pseudoCompte(mauvais), (e) => e instanceof ErreurHttp && e.statut === 400, String(mauvais));
+  }
+  assert.equal(pseudoCompte('a'.repeat(20)).pseudo.length, 20);
+  for (const reserve of ['admin', 'ADMIN', 'Koios', 'Koîos', 'support']) {
+    assert.throws(() => pseudoCompte(reserve), (e) => e instanceof ErreurHttp && e.statut === 409, reserve);
+  }
+});
+
+// --- Inscription -------------------------------------------------------------------------------------------
+
+test('compte inscrire : crée le compte, renvoie une session et la phrase de secours une seule fois, ne garde que des hash', async () => {
+  toutVider();
+  const ip = '192.0.2.77';
+  const r = await postCompte({ action: 'inscrire', prenom: ' Grégoire ', nom: 'Muel', pseudo: 'Greg_M', mdp: MDP }, { ip });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  assert.deepEqual(Object.keys(r.corps).sort(), ['cle', 'id', 'nom', 'phrase', 'prenom', 'pseudo', 'role']);
+  assert.match(r.corps.id, /^[a-z0-9]{12}$/);
+  assert.match(r.corps.cle, /^[a-z0-9]{32}$/);
+  assert.deepEqual([r.corps.pseudo, r.corps.prenom, r.corps.nom, r.corps.role], ['Greg_M', 'Grégoire', 'Muel', 'joueur']);
+  assert.equal(r.corps.phrase.split(' ').length, 12);
+  const j = ligneJoueur(r.corps.id);
+  assert.equal(j.pseudo_cle, 'greg_m');
+  assert.equal(j.cle_hash, null, 'pas d’ancienne clé de profil');
+  assert.equal(j.role, 'joueur');
+  assert.equal(j.bloque, 0);
+  assert.match(j.mdp_hash, /^pbkdf2\$100000\$/);
+  assert.match(j.secours_hash, /^pbkdf2\$100000\$/);
+  assert.equal(await verifierMdp(MDP, j.mdp_hash), true);
+  assert.equal(await verifierMdp(normaliserPhrase(r.corps.phrase), j.secours_hash), true);
+  // La session : seule l'empreinte de la clé est gardée.
+  assert.deepEqual(lignes('SELECT cle_hash, joueur_id FROM sessions'), [{ cle_hash: await sha256Hex(r.corps.cle), joueur_id: r.corps.id }]);
+  // Ni le mot de passe, ni la phrase, ni la clé, ni l'IP ne sont gardés en clair.
+  const tout = toutLeTexte();
+  for (const secret of [MDP, r.corps.phrase, r.corps.cle, ip]) assert.ok(!tout.includes(secret), 'secret stocké en clair');
+  assert.deepEqual(lignes('SELECT cle FROM quotas').map((q) => q.cle), ['inscrire:' + (await sha256Hex(ip))]);
+  // La session ouvre les routes protégées.
+  assert.equal((await appel(progressionGet, { jeton: `${r.corps.id}.${r.corps.cle}` })).statut, 200);
+});
+
+test('compte inscrire : champs invalides refusés en 400 sans rien créer, corps illisible 400, trop gros 413', async () => {
+  toutVider();
+  const bon = { action: 'inscrire', prenom: 'Greg', nom: 'Muel', pseudo: 'greg', mdp: MDP };
+  for (const mauvais of [
+    { pseudo: 'ab' }, { pseudo: 'a'.repeat(21) }, { pseudo: 'avec espace' }, { pseudo: 'x@y' }, { pseudo: 12 }, { pseudo: undefined },
+    { prenom: '' }, { prenom: '   ' }, { prenom: 'x'.repeat(41) }, { prenom: 5 }, { prenom: undefined },
+    { nom: '' }, { nom: 'x'.repeat(41) }, { nom: null }, { nom: undefined },
+    { mdp: 'court' }, { mdp: '123456789' }, { mdp: 'x'.repeat(129) }, { mdp: 1234567890 }, { mdp: undefined },
+  ]) {
+    erreurFr(await postCompte({ ...bon, ...mauvais }), 400);
+  }
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+  assert.equal(lignes('SELECT * FROM sessions').length, 0);
+  // Dix caractères au plus pile, 128 au plus pile : acceptés.
+  assert.equal((await postCompte({ ...bon, mdp: '0123456789' })).statut, 200);
+  assert.equal((await postCompte({ ...bon, pseudo: 'autre', mdp: 'é'.repeat(128) })).statut, 200);
+  erreurFr(await appel(comptePost, { methode: 'POST', brut: '{pas du json' }), 400);
+  erreurFr(await appel(comptePost, { methode: 'POST', brut: '[1]' }), 400);
+  erreurFr(await appel(comptePost, { methode: 'POST', corps: { action: 'inscrire', mdp: 'x'.repeat(5000) } }), 413);
+  erreurFr(await postCompte({ action: 'inconnue' }), 400, /Action inconnue/);
+  erreurFr(await postCompte({}), 400, /Action inconnue/);
+  erreurFr(await postCompte({ action: 'inscrire', prenom: 'G', nom: 'M', pseudo: 'koios', mdp: MDP }), 409, /réservé/);
+});
+
+test('compte inscrire : doublon de pseudo refusé (sans tenir compte de la casse), l’index unique tient même en cas de course', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  for (const pseudo of ['Greg', 'greg', 'GREG', 'gReG']) {
+    erreurFr(await postCompte({ action: 'inscrire', prenom: 'Un', nom: 'Autre', pseudo, mdp: MDP }), 409, /déjà pris/);
+  }
+  assert.equal(lignes('SELECT * FROM joueurs').length, 1);
+  assert.equal(ligneJoueur(a.id).pseudo, 'Greg');
+  // Deux inscriptions simultanées : une seule passe, l'autre reçoit 409 (et non un 503).
+  const [x, y] = await Promise.all([1, 2].map(() => postCompte({ action: 'inscrire', prenom: 'U', nom: 'N', pseudo: 'course', mdp: MDP })));
+  assert.deepEqual([x.statut, y.statut].sort(), [200, 409]);
+  assert.equal(lignes("SELECT * FROM joueurs WHERE pseudo_cle = 'course'").length, 1);
+  // L'index unique, lui, refuse aussi une écriture directe ; les profils sans compte (pseudo_cle nul) peuvent se répéter.
+  assert.throws(() => db.base.prepare("INSERT INTO joueurs (id, pseudo_cle) VALUES ('zzzzzzzzzzzz', 'greg')").run(), /UNIQUE/);
+  db.base.prepare("INSERT INTO joueurs (id, pseudo) VALUES ('aaaaaaaaaaaa', 'Greg')").run();
+  db.base.prepare("INSERT INTO joueurs (id, pseudo) VALUES ('bbbbbbbbbbbb', 'Greg')").run();
+});
+
+test('compte inscrire : 20 inscriptions par jour et par IP, la 21e reçoit 429 ; une autre IP passe', async () => {
+  toutVider();
+  const ip = '192.0.2.150';
+  for (let i = 0; i < 20; i++) {
+    const r = await postCompte({ action: 'inscrire', prenom: 'P', nom: 'N', pseudo: 'joueur' + i, mdp: MDP }, { ip });
+    assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  }
+  erreurFr(await postCompte({ action: 'inscrire', prenom: 'P', nom: 'N', pseudo: 'de-trop', mdp: MDP }, { ip }), 429);
+  assert.equal((await postCompte({ action: 'inscrire', prenom: 'P', nom: 'N', pseudo: 'ailleurs', mdp: MDP }, { ip: '192.0.2.151' })).statut, 200);
+  assert.equal(lignes("SELECT * FROM joueurs WHERE pseudo_cle = 'de-trop'").length, 0);
+});
+
+test('compte inscrire : avec la clé d’un ancien profil, le profil est complété (progression gardée) et son ancienne clé ne marche plus', async () => {
+  toutVider();
+  const ancien = await creerJoueur('Vieux');
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: ancien.jeton, corps: { etat: { xp: 320, parcours: { a: { fait: [1, 2, 3] } } } } }));
+  const r = await postCompte({ action: 'inscrire', prenom: 'Vieux', nom: 'Profil', pseudo: 'vieux', mdp: MDP }, { jeton: ancien.jeton });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  assert.equal(r.corps.id, ancien.id, 'même profil');
+  assert.equal(lignes('SELECT * FROM joueurs').length, 1);
+  const j = ligneJoueur(ancien.id);
+  assert.deepEqual([j.points, j.valides, j.pseudo, j.pseudo_cle, j.cle_hash], [320, 3, 'vieux', 'vieux', null]);
+  const nouveau = `${r.corps.id}.${r.corps.cle}`;
+  const p = await appel(progressionGet, { jeton: nouveau });
+  assert.equal(p.corps.etat.xp, 320, 'la progression est gardée');
+  erreurFr(await appel(progressionGet, { jeton: ancien.jeton }), 401); // l'ancienne clé est révoquée
+  // Un compte ne peut pas en créer un deuxième.
+  erreurFr(await postCompte({ action: 'inscrire', prenom: 'V', nom: 'P', pseudo: 'deuxieme', mdp: MDP }, { jeton: nouveau }), 409, /déjà un compte/);
+  // Une clé périmée ou fausse est ignorée : c'est une inscription ordinaire.
+  const neuf = await postCompte({ action: 'inscrire', prenom: 'N', nom: 'N', pseudo: 'neuf', mdp: MDP }, { jeton: ancien.jeton });
+  assert.equal(neuf.statut, 200);
+  assert.notEqual(neuf.corps.id, ancien.id);
+  // Un profil bloqué ne peut pas s'inscrire.
+  const bloque = await creerJoueur('Bloque');
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(bloque.id);
+  erreurFr(await postCompte({ action: 'inscrire', prenom: 'B', nom: 'B', pseudo: 'bloque', mdp: MDP }, { jeton: bloque.jeton }), 403);
+});
+
+// --- Connexion -------------------------------------------------------------------------------------------
+
+test('compte connecter : bon mot de passe -> nouvelle session par appareil ; pseudo sans casse ; la réponse ne contient aucun hash', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const r1 = await connexion('greg');
+  const r2 = await connexion('  GREG ');
+  for (const r of [r1, r2]) {
+    assert.equal(r.statut, 200, JSON.stringify(r.corps));
+    assert.deepEqual(Object.keys(r.corps).sort(), ['cle', 'id', 'nom', 'prenom', 'pseudo', 'role']);
+    assert.equal(r.corps.id, a.id);
+    sansSecret(r.corps);
+  }
+  assert.notEqual(r1.corps.cle, r2.corps.cle);
+  assert.equal(lignes('SELECT * FROM sessions').length, 3, 'une session par appareil');
+  for (const jeton of [a.jeton, `${r1.corps.id}.${r1.corps.cle}`, `${r2.corps.id}.${r2.corps.cle}`]) assert.equal((await appel(progressionGet, { jeton })).statut, 200);
+  assert.ok(ligneJoueur(a.id).vu, 'dernière activité notée');
+});
+
+test('compte connecter : mauvais mot de passe et pseudo inconnu reçoivent la même réponse 401', async () => {
+  toutVider();
+  await creerCompte('Greg');
+  const faux = await connexion('greg', 'pas le bon mot de passe');
+  const inconnu = await connexion('personne', MDP);
+  const vide = await connexion('', '');
+  const types = await postCompte({ action: 'connecter', pseudo: { a: 1 }, mdp: ['x'] });
+  for (const r of [faux, inconnu, vide, types]) erreurFr(r, 401, /Pseudo ou mot de passe incorrect/);
+  assert.deepEqual(faux.corps, inconnu.corps);
+  assert.equal(lignes('SELECT * FROM sessions').length, 1, 'aucune session créée par un échec');
+});
+
+test('compte connecter : 10 échecs par jour par pseudo et par IP, puis 429 même avec le bon mot de passe ; autre IP et autre pseudo non touchés', async () => {
+  toutVider();
+  await creerCompte('Greg');
+  await creerCompte('Autre');
+  const ip = '192.0.2.201';
+  for (let i = 0; i < 10; i++) erreurFr(await connexion('greg', 'mauvais mot de passe ' + i, { ip }), 401);
+  erreurFr(await connexion('greg', MDP, { ip }), 429, /Trop d’essais/);
+  erreurFr(await connexion('Greg', MDP, { ip }), 429, 'la casse ne contourne pas la limite');
+  assert.equal((await connexion('autre', MDP, { ip })).statut, 200, 'un autre pseudo depuis la même IP');
+  assert.equal((await connexion('greg', MDP, { ip: '192.0.2.202' })).statut, 200, 'le même pseudo depuis une autre IP');
+  // Un pseudo qui n'existe pas est limité de la même façon (pas d'indice sur son existence).
+  for (let i = 0; i < 10; i++) erreurFr(await connexion('fantome', 'x' + i, { ip }), 401);
+  erreurFr(await connexion('fantome', MDP, { ip }), 429);
+  // Les compteurs portent l'empreinte de l'IP, jamais l'adresse.
+  const cles = lignes("SELECT cle FROM quotas WHERE cle LIKE 'echec:%'").map((q) => q.cle);
+  assert.ok(cles.length >= 3);
+  assert.ok(!cles.some((c) => c.includes('192.0.2')), 'IP en clair');
+  assert.ok(cles.some((c) => c.includes(sha256Court(ip))), 'empreinte de l’IP');
+  // Le lendemain, le compteur repart à zéro.
+  db.base.prepare("UPDATE quotas SET jour = '2000-01-01' WHERE cle LIKE 'echec:%'").run();
+  assert.equal((await connexion('greg', MDP, { ip })).statut, 200);
+});
+
+test('compte connecter : 100 échecs par jour par pseudo, toutes IP confondues (devinette répartie) ; une réussite efface le compteur de l’IP', async () => {
+  toutVider();
+  await creerCompte('Greg');
+  db.base.prepare("INSERT INTO quotas (cle, n, jour) VALUES ('echec:conn:greg', 100, ?)").run(aujourdhui());
+  erreurFr(await connexion('greg', MDP, { ip: '192.0.2.210' }), 429);
+  assert.equal((await connexion('autre-pseudo', MDP, { ip: '192.0.2.210' })).statut, 401);
+  toutVider();
+  await creerCompte('Greg');
+  const ip = '192.0.2.211';
+  for (let i = 0; i < 9; i++) erreurFr(await connexion('greg', 'mauvais ' + i, { ip }), 401);
+  assert.equal((await connexion('greg', MDP, { ip })).statut, 200);
+  assert.equal(lignes("SELECT * FROM quotas WHERE cle LIKE 'echec:conn:greg:%'").length, 0, 'compteur de l’IP effacé');
+  for (let i = 0; i < 9; i++) erreurFr(await connexion('greg', 'encore mauvais ' + i, { ip }), 401);
+  assert.equal((await connexion('greg', MDP, { ip })).statut, 200, 'neuf nouveaux échecs ne bloquent pas');
+});
+
+const sha256Court = (ip) => createHash('sha256').update(ip).digest('hex');
+
+test('compte bloqué : 403 partout (routes à connexion et routes ouvertes), seulement après le bon mot de passe à la connexion', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const ami = await creerCompte('Ami');
+  assert.equal((await appel(progressionGet, { jeton: a.jeton })).statut, 200);
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(a.id);
+  const duel = db.base.prepare("INSERT INTO duels (id, createur, questions, scores, cree) VALUES ('abcd1234', ?, '[]', '[]', '2026-10-20')");
+  duel.run(ami.id);
+  const cas = [
+    [progressionGet, {}], [progressionPut, { methode: 'PUT', corps: { etat: {} } }], [cercleGet, {}], [duelsGet, {}], [compteGet, {}],
+    [amisGet, {}], [amisPost, { methode: 'POST', corps: { action: 'inviter' } }], [signalementPost, { methode: 'POST', corps: { chapitre: 'a', exercice: 0, message: 'x' } }],
+    [librePost, { methode: 'POST', corps: { sujet: 'Les phares' }, env: { DB: db, AI: fauxAI([enReponse(valide())]) } }],
+    [duelGet, { requete: '?id=abcd1234' }], [partieGet, { requete: '?id=ABCDEF' }], [groupeGet, { requete: '?id=abcd1234' }], [tournoiGet, {}],
+    [groupePost, { methode: 'POST', corps: { nom: 'Les phares', parcours: 'phares' } }],
+    [comptePost, { methode: 'POST', corps: { action: 'mdp', ancien: MDP, nouveau: 'un autre mot de passe' } }],
+    [comptePost, { methode: 'POST', corps: { action: 'supprimer', mdp: MDP } }],
+  ];
+  for (const [handler, options] of cas) erreurFr(await appel(handler, { ...options, jeton: a.jeton }), 403, /bloqué/);
+  // Connexion : mauvais mot de passe -> 401 (rien n'est révélé), bon mot de passe -> 403.
+  erreurFr(await connexion('greg', 'mauvais mot de passe'), 401);
+  erreurFr(await connexion('greg'), 403, /bloqué/);
+  // Il ne peut ni se faire passer par secours, ni s'inscrire avec sa clé.
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: 'un nouveau mot de passe' }), 403, /bloqué/);
+  assert.equal(await verifierMdp(MDP, ligneJoueur(a.id).mdp_hash), true, 'mot de passe inchangé');
+  // Débloqué, tout repart (sa session existe encore).
+  db.base.prepare('UPDATE joueurs SET bloque = 0 WHERE id = ?').run(a.id);
+  assert.equal((await appel(progressionGet, { jeton: a.jeton })).statut, 200);
+  // Un ami ne voit pas non plus un compte bloqué dans sa liste.
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(a.id, ami.id);
+  assert.equal((await appel(amisGet, { jeton: ami.jeton })).corps.amis.length, 1);
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(a.id);
+  assert.equal((await appel(amisGet, { jeton: ami.jeton })).corps.amis.length, 0);
+  assert.equal((await appel(cercleGet, { jeton: ami.jeton })).corps.joueurs.length, 1);
+});
+
+// --- Sessions ---------------------------------------------------------------------------------------------
+
+test('session : clé et identifiant doivent aller ensemble, 180 jours d’inactivité au plus, activité notée au plus une fois par heure', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Autre');
+  // La clé d'un autre compte, ou un identifiant qui ne va pas avec elle : 401.
+  erreurFr(await appel(progressionGet, { jeton: `${b.id}.${a.cle}` }), 401);
+  erreurFr(await appel(progressionGet, { jeton: `${a.id}.${b.cle}` }), 401);
+  erreurFr(await appel(progressionGet, { jeton: `${a.id}.${'0'.repeat(32)}` }), 401);
+  // Expiration.
+  const cleHash = await sha256Hex(a.cle);
+  const il = (jours) => new Date(Date.now() - jours * unJourEnMs).toISOString();
+  db.base.prepare('UPDATE sessions SET vu = ? WHERE cle_hash = ?').run(il(179), cleHash);
+  assert.equal((await appel(progressionGet, { jeton: a.jeton })).statut, 200, 'à 179 jours : encore valable');
+  assert.ok(Date.parse(lignes('SELECT vu FROM sessions WHERE cle_hash = ?', cleHash)[0].vu) > Date.now() - 60000, 'l’activité repousse l’expiration');
+  db.base.prepare('UPDATE sessions SET vu = ? WHERE cle_hash = ?').run(il(181), cleHash);
+  erreurFr(await appel(progressionGet, { jeton: a.jeton }), 401);
+  assert.equal(lignes('SELECT * FROM sessions WHERE cle_hash = ?', cleHash).length, 0, 'session expirée effacée');
+  // Pas d'écriture à chaque requête : la date ne bouge pas dans l'heure.
+  const k = await sha256Hex(b.cle);
+  const recent = new Date(Date.now() - 600000).toISOString();
+  db.base.prepare('UPDATE sessions SET vu = ? WHERE cle_hash = ?').run(recent, k);
+  await appel(progressionGet, { jeton: b.jeton });
+  assert.equal(lignes('SELECT vu FROM sessions WHERE cle_hash = ?', k)[0].vu, recent);
+  // Vingt appareils au plus par compte : les plus anciennes sessions partent.
+  for (let i = 0; i < 22; i++) assert.equal((await connexion('autre')).statut, 200);
+  assert.equal(lignes('SELECT * FROM sessions WHERE joueur_id = ?', b.id).length, 20);
+});
+
+test('session : un ancien profil garde sa clé tant qu’il n’a pas de compte ; sessions et anciennes clés se vérifient à temps constant', async () => {
+  toutVider();
+  const ancien = await creerJoueur('Vieux');
+  assert.equal((await appel(progressionGet, { jeton: ancien.jeton })).statut, 200);
+  const g = (await appel(compteGet, { jeton: ancien.jeton })).corps;
+  assert.equal(g.compte, false);
+  assert.equal(g.pseudo, 'Vieux');
+  assert.equal(g.motDePasse, false);
+  // Le code compare des empreintes de même longueur avec le même outil que ADMIN_KEY.
+  assert.equal(egalConstant('a'.repeat(64), 'a'.repeat(64)), true);
+  assert.equal(egalConstant('a'.repeat(64), 'a'.repeat(63) + 'b'), false);
+  assert.equal(egalConstant('a', 'ab'), false);
+  assert.equal(egalConstant(null, null), false);
+  const source = readFileSync(new URL('../lib/api.js', import.meta.url), 'utf8');
+  assert.ok(source.includes('ecart |= a.charCodeAt(i) ^ b.charCodeAt(i)'), 'comparaison sans sortie anticipée');
+});
+
+test('compte deconnecter : efface la session de cet appareil seulement, répond 200 même sans session', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const autre = await connexion('greg');
+  const jetonAutre = `${autre.corps.id}.${autre.corps.cle}`;
+  const r = await postCompte({ action: 'deconnecter' }, { jeton: a.jeton });
+  assert.deepEqual(r.corps, { ok: true });
+  erreurFr(await appel(progressionGet, { jeton: a.jeton }), 401);
+  assert.equal((await appel(progressionGet, { jeton: jetonAutre })).statut, 200, 'l’autre appareil reste connecté');
+  assert.deepEqual((await postCompte({ action: 'deconnecter' })).corps, { ok: true });
+  assert.deepEqual((await postCompte({ action: 'deconnecter' }, { jeton: `${a.id}.${'z'.repeat(32)}` })).corps, { ok: true });
+  assert.equal(lignes('SELECT * FROM sessions').length, 1);
+  // La clé d'une session ne peut pas effacer la session d'un autre compte.
+  const b = await creerCompte('Autre');
+  await postCompte({ action: 'deconnecter' }, { jeton: `${a.id}.${b.cle}` });
+  assert.equal((await appel(progressionGet, { jeton: b.jeton })).statut, 200);
+});
+
+// --- GET compte ---------------------------------------------------------------------------------------------
+
+test('compte GET : profil du compte sans aucun hash ; 401 sans session ; config publique : Google seulement si GOOGLE_CLIENT_ID existe', async () => {
+  toutVider();
+  const a = await creerCompte('Greg', { prenom: 'Grégoire', nom: 'Muel' });
+  const r = await appel(compteGet, { jeton: a.jeton });
+  assert.equal(r.statut, 200);
+  assert.deepEqual(r.corps, { compte: true, pseudo: 'Greg', prenom: 'Grégoire', nom: 'Muel', role: 'joueur', google: false, motDePasse: true, cree: r.corps.cree, bonus: 0, codes: [] });
+  sansSecret(r.corps);
+  assert.ok(!JSON.stringify(r.corps).includes(a.id), 'pas d’identifiant');
+  erreurFr(await appel(compteGet), 401);
+  erreurFr(await appel(compteGet, { jeton: `${a.id}.${'z'.repeat(32)}` }), 401);
+  assert.deepEqual((await appel(compteGet, { requete: '?config=1' })).corps, { google: null });
+  assert.deepEqual((await appel(compteGet, { requete: '?config=1', env: { DB: db, GOOGLE_CLIENT_ID: 'id-client.apps.googleusercontent.com' } })).corps, { google: 'id-client.apps.googleusercontent.com' });
+  assert.deepEqual((await appel(compteGet, { requete: '?config=1', env: { DB: undefined } })).corps, { google: null }, 'la config ne demande pas la base');
+});
+
+test('progression : le pseudo d’un compte ne se change pas par la synchronisation (il est unique) ; celui d’un ancien profil si', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { pseudo: 'Usurpateur', ton: 'sobre', etat: { xp: 5 } } }));
+  assert.deepEqual((await appel(progressionGet, { jeton: a.jeton })).corps, { pseudo: 'Greg', ton: 'sobre', etat: { xp: 5 } });
+  assert.equal(ligneJoueur(a.id).pseudo_cle, 'greg');
+});
+
+// --- Phrase de secours -------------------------------------------------------------------------------------
+
+test('compte secours : la phrase (sans casse ni accents) donne un nouveau mot de passe, efface toutes les sessions et ouvre une nouvelle', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const autre = await connexion('greg'); // un deuxième appareil
+  const NOUVEAU = 'le tout nouveau mot de passe';
+  const phrase = a.phrase.toUpperCase().replace(/ /g, '  ');
+  const r = await postCompte({ action: 'secours', pseudo: 'GREG', phrase, nouveauMdp: NOUVEAU });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  assert.deepEqual(Object.keys(r.corps).sort(), ['cle', 'id', 'nom', 'prenom', 'pseudo', 'role']);
+  sansSecret(r.corps);
+  // Anciennes sessions effacées (tous les appareils), nouvelle session valable.
+  erreurFr(await appel(progressionGet, { jeton: a.jeton }), 401);
+  erreurFr(await appel(progressionGet, { jeton: `${autre.corps.id}.${autre.corps.cle}` }), 401);
+  assert.equal((await appel(progressionGet, { jeton: `${r.corps.id}.${r.corps.cle}` })).statut, 200);
+  assert.equal(lignes('SELECT * FROM sessions').length, 1);
+  // L'ancien mot de passe ne marche plus, le nouveau oui ; la phrase reste valable (même phrase, pas de rotation).
+  erreurFr(await connexion('greg', MDP), 401);
+  assert.equal((await connexion('greg', NOUVEAU)).statut, 200);
+  assert.equal((await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: 'encore un autre mot de passe' })).statut, 200);
+  assert.ok(!toutLeTexte().includes(NOUVEAU));
+});
+
+test('compte secours : mauvaise phrase, phrase d’un autre compte, pseudo inconnu -> même 401 ; nouveau mot de passe trop court -> 400 sans compter', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Autre');
+  const NOUVEAU = 'le tout nouveau mot de passe';
+  const refus = [
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: 'une phrase fausse', nouveauMdp: NOUVEAU }),
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: b.phrase, nouveauMdp: NOUVEAU }),
+    await postCompte({ action: 'secours', pseudo: 'inconnu', phrase: a.phrase, nouveauMdp: NOUVEAU }),
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: '', nouveauMdp: NOUVEAU }),
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: 12, nouveauMdp: NOUVEAU }),
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: MDP, nouveauMdp: NOUVEAU }), // le mot de passe n'est pas la phrase
+  ];
+  for (const r of refus) erreurFr(r, 401, /Pseudo ou phrase de secours incorrect/);
+  assert.equal(await verifierMdp(MDP, ligneJoueur(a.id).mdp_hash), true, 'mot de passe inchangé');
+  assert.equal(lignes('SELECT * FROM sessions WHERE joueur_id = ?', a.id).length, 1, 'sessions intactes');
+  for (const court of ['court', '', undefined, 'x'.repeat(129), 1234567890]) {
+    erreurFr(await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: court }), 400);
+  }
+  assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'echec:secours:greg'")[0].n, 5, 'seuls les vrais essais ratés comptent (pas les 400)');
+  assert.equal(lignes("SELECT n FROM quotas WHERE cle = 'echec:secours:inconnu'")[0].n, 1);
+});
+
+test('compte secours : 10 échecs par jour par pseudo et par IP, puis 429 même avec la bonne phrase ; la connexion a son propre compteur', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const ip = '192.0.2.220';
+  const NOUVEAU = 'le tout nouveau mot de passe';
+  for (let i = 0; i < 10; i++) erreurFr(await postCompte({ action: 'secours', pseudo: 'greg', phrase: 'phrase fausse ' + i, nouveauMdp: NOUVEAU }, { ip }), 401);
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: NOUVEAU }, { ip }), 429, /Trop d’essais/);
+  assert.equal(await verifierMdp(MDP, ligneJoueur(a.id).mdp_hash), true);
+  // Dix mots de passe faux plus tôt n'empêchaient pas le secours : les deux compteurs sont séparés.
+  assert.equal((await connexion('greg', MDP, { ip })).statut, 200);
+  // Une autre IP peut utiliser la phrase.
+  assert.equal((await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: NOUVEAU }, { ip: '192.0.2.221' })).statut, 200);
+  // Et inversement : trop de mots de passe faux ne bloquent pas le secours.
+  const ip2 = '192.0.2.222';
+  for (let i = 0; i < 10; i++) erreurFr(await connexion('greg', 'faux ' + i, { ip: ip2 }), 401);
+  erreurFr(await connexion('greg', NOUVEAU, { ip: ip2 }), 429);
+  assert.equal((await postCompte({ action: 'secours', pseudo: 'greg', phrase: a.phrase, nouveauMdp: 'et un dernier mot de passe' }, { ip: ip2 })).statut, 200);
+});
+
+// --- Changer le mot de passe, supprimer ------------------------------------------------------------------------
+
+test('compte mdp : change le mot de passe, garde cette session, efface les autres ; ancien faux 401 ; 10 échecs par jour puis 429', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const autre = await connexion('greg');
+  const NOUVEAU = 'un autre mot de passe encore';
+  erreurFr(await postCompte({ action: 'mdp', ancien: MDP, nouveau: NOUVEAU }), 401, /Connexion requise/);
+  for (const court of ['court', '', undefined, 'x'.repeat(129)]) erreurFr(await postCompte({ action: 'mdp', ancien: MDP, nouveau: court }, { jeton: a.jeton }), 400);
+  erreurFr(await postCompte({ action: 'mdp', ancien: 'faux mot de passe', nouveau: NOUVEAU }, { jeton: a.jeton }), 401, /Mot de passe incorrect/);
+  erreurFr(await postCompte({ action: 'mdp', nouveau: NOUVEAU }, { jeton: a.jeton }), 401);
+  assert.equal(await verifierMdp(MDP, ligneJoueur(a.id).mdp_hash), true);
+  const r = await postCompte({ action: 'mdp', ancien: MDP, nouveau: NOUVEAU }, { jeton: a.jeton });
+  assert.deepEqual(r.corps, { ok: true });
+  assert.equal(await verifierMdp(NOUVEAU, ligneJoueur(a.id).mdp_hash), true);
+  assert.equal((await appel(progressionGet, { jeton: a.jeton })).statut, 200, 'cet appareil reste connecté');
+  erreurFr(await appel(progressionGet, { jeton: `${autre.corps.id}.${autre.corps.cle}` }), 401);
+  erreurFr(await connexion('greg', MDP), 401);
+  assert.equal((await connexion('greg', NOUVEAU)).statut, 200);
+  // Limite d'échecs par compte : une session volée ne sert pas à deviner le mot de passe.
+  for (let i = 0; i < 10; i++) erreurFr(await postCompte({ action: 'mdp', ancien: 'faux ' + i, nouveau: MDP }, { jeton: a.jeton }), 401);
+  erreurFr(await postCompte({ action: 'mdp', ancien: NOUVEAU, nouveau: MDP }, { jeton: a.jeton }), 429);
+  assert.equal(await verifierMdp(NOUVEAU, ligneJoueur(a.id).mdp_hash), true);
+  // Un ancien profil n'a pas de mot de passe à changer.
+  const vieux = await creerJoueur('Vieux');
+  erreurFr(await postCompte({ action: 'mdp', ancien: 'x', nouveau: NOUVEAU }, { jeton: vieux.jeton }), 400, /compte/);
+});
+
+test('compte supprimer : mot de passe exigé (401 sinon, 10 échecs puis 429), efface compte, sessions, progression, amitiés, demandes ; les formations restent, anonymes', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Ami');
+  const c = await creerCompte('Autre');
+  const d = await creerCompte('Etranger');
+  // Du contenu lié à Greg : progression, formation, sujet, duel et scores, groupe, partie, amitiés, demande, invitation, code, brouillon, signalement.
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: { xp: 99, parcours: { x: { fait: [1] } } } } }));
+  db.base.prepare("INSERT INTO parcours (id, titre, contenu, auteur, vues, cree) VALUES ('la-mer', 'La mer', '{}', ?, 0, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO sujets (id, titre, parent, niveau, contenu, auteur, vues, cree) VALUES ('s1', 'Sujet', NULL, 1, '{}', ?, 0, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO brouillons (joueur, sujet, contenu, cree) VALUES (?, 's', '{}', '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO signalements (joueur, chapitre, exercice, message, cree) VALUES (?, 'hg-01', 0, 'oups', '2026-10-20')").run(a.id);
+  const scores = [{ joueur: a.id, pseudo: 'Greg', justes: 1, n: 5, points: 10, date: '2026-10-20' }, { joueur: b.id, pseudo: 'Ami', justes: 3, n: 5, points: 30, date: '2026-10-20' }];
+  db.base.prepare("INSERT INTO duels (id, createur, questions, scores, cree) VALUES ('duelaaaa', ?, '[]', ?, '2026-10-20')").run(a.id, JSON.stringify(scores));
+  db.base.prepare("INSERT INTO duels (id, createur, questions, scores, cree) VALUES ('duelbbbb', ?, '[]', ?, '2026-10-20')").run(b.id, JSON.stringify(scores));
+  db.base.prepare("INSERT INTO groupes (id, nom, parcours, createur, cree) VALUES ('grpseul1', 'Seul', 'la-mer', ?, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO groupe_membres (groupe, joueur, rejoint) VALUES ('grpseul1', ?, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO groupes (id, nom, parcours, createur, cree) VALUES ('grpduo01', 'Duo', 'la-mer', ?, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO groupe_membres (groupe, joueur, rejoint) VALUES ('grpduo01', ?, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO groupe_membres (groupe, joueur, rejoint) VALUES ('grpduo01', ?, '2026-10-20')").run(b.id);
+  db.base.prepare("INSERT INTO parties (id, createur, titre, questions, etat, indice, debut_question, cree) VALUES ('PARTAA', ?, 't', '[]', 'attente', 0, 0, '2026-10-20')").run(a.id);
+  db.base.prepare("INSERT INTO parties_joueurs (partie, joueur, points) VALUES ('PARTAA', ?, 0)").run(a.id);
+  db.base.prepare("INSERT INTO parties_joueurs (partie, joueur, points) VALUES ('PARTAA', ?, 0)").run(b.id);
+  db.base.prepare("INSERT INTO parties_reponses (partie, joueur, indice, choix, ms, juste) VALUES ('PARTAA', ?, 0, 1, 100, 1)").run(b.id);
+  db.base.prepare("INSERT INTO parties (id, createur, titre, questions, etat, indice, debut_question, cree) VALUES ('PARTBB', ?, 't', '[]', 'attente', 0, 0, '2026-10-20')").run(b.id);
+  db.base.prepare("INSERT INTO parties_joueurs (partie, joueur, points) VALUES ('PARTBB', ?, 0)").run(a.id);
+  db.base.prepare("INSERT INTO parties_reponses (partie, joueur, indice, choix, ms, juste) VALUES ('PARTBB', ?, 0, 1, 100, 1)").run(a.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(a.id, b.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'demande', '2026-10-20')").run(c.id, a.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'demande', '2026-10-20')").run(a.id, d.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(b.id, c.id);
+  db.base.prepare("INSERT INTO invitations (jeton_hash, joueur_id, cree, expire, usages_max, usages) VALUES ('h', ?, '2026-10-20', '2099-01-01', 5, 0)").run(a.id);
+  db.base.prepare("INSERT INTO codes (code, bonus, jours, usages_max, usages, cree, revoque) VALUES ('abcdefgh', 3, 30, 5, 1, '2026-10-20', 0)").run();
+  db.base.prepare("INSERT INTO codes_utilises (code, joueur_id, expire) VALUES ('abcdefgh', ?, '2099-01-01')").run(a.id);
+  ok200(await appel(amisGet, { jeton: a.jeton }));
+  const jetonAutre = (await connexion('greg')).corps;
+  const quotasAvant = lignes('SELECT cle FROM quotas').length;
+  assert.ok(quotasAvant > 0);
+
+  // Refus : pas de session, pas de mot de passe, mauvais mot de passe.
+  erreurFr(await postCompte({ action: 'supprimer', mdp: MDP }), 401);
+  erreurFr(await postCompte({ action: 'supprimer' }, { jeton: a.jeton }), 401, /Mot de passe incorrect/);
+  erreurFr(await postCompte({ action: 'supprimer', mdp: 'faux' }, { jeton: a.jeton }), 401, /Mot de passe incorrect/);
+  erreurFr(await postCompte({ action: 'supprimer', mdp: NOUVEAU_SANS }, { jeton: a.jeton }), 401);
+  assert.ok(ligneJoueur(a.id), 'rien n’est effacé après un refus');
+  for (let i = 0; i < 7; i++) erreurFr(await postCompte({ action: 'supprimer', mdp: 'faux ' + i }, { jeton: a.jeton }), 401);
+  erreurFr(await postCompte({ action: 'supprimer', mdp: MDP }, { jeton: a.jeton }), 429);
+  assert.ok(ligneJoueur(a.id), '10 échecs : même le bon mot de passe est refusé');
+  db.base.prepare("UPDATE quotas SET jour = '2000-01-01' WHERE cle LIKE 'echec:mdp:%'").run();
+
+  const r = await postCompte({ action: 'supprimer', mdp: MDP }, { jeton: a.jeton });
+  assert.deepEqual(r.corps, { ok: true });
+  // Plus rien du compte.
+  assert.equal(ligneJoueur(a.id), undefined);
+  erreurFr(await appel(progressionGet, { jeton: a.jeton }), 401);
+  erreurFr(await appel(progressionGet, { jeton: `${jetonAutre.id}.${jetonAutre.cle}` }), 401);
+  erreurFr(await connexion('greg'), 401);
+  const tout = toutLeTexte();
+  assert.ok(!tout.includes(a.id), 'identifiant retrouvé quelque part');
+  assert.ok(!/"pseudo":"Greg"/.test(tout) && !tout.includes('Greg'), 'pseudo retrouvé quelque part');
+  assert.ok(!tout.includes(await sha256Hex(a.cle)));
+  assert.equal(lignes('SELECT * FROM amities').length, 1, 'seule l’amitié entre deux autres comptes reste');
+  assert.equal(lignes('SELECT * FROM invitations').length, 0);
+  assert.equal(lignes('SELECT * FROM codes_utilises').length, 0);
+  assert.equal(lignes('SELECT * FROM brouillons').length + lignes('SELECT * FROM signalements').length, 0);
+  assert.deepEqual(lignes('SELECT id, auteur FROM parcours'), [{ id: 'la-mer', auteur: null }], 'la formation reste, sans auteur');
+  assert.deepEqual(lignes('SELECT id, auteur FROM sujets'), [{ id: 's1', auteur: null }]);
+  // Duels : la ligne de score de Greg part, celle des autres reste ; le duel créé par lui reste, sans créateur.
+  assert.deepEqual(lignes('SELECT id, createur, scores FROM duels ORDER BY id').map((x) => [x.id, x.createur === null || x.createur === b.id, JSON.parse(x.scores).map((s) => s.pseudo)]), [['duelaaaa', true, ['Ami']], ['duelbbbb', true, ['Ami']]]);
+  assert.equal((await appel(duelGet, { requete: '?id=duelaaaa' })).corps.duel.createur, 'Un joueur');
+  // Groupes : le groupe sans autre membre disparaît, l'autre reste.
+  assert.deepEqual(lignes('SELECT id, createur FROM groupes'), [{ id: 'grpduo01', createur: null }]);
+  assert.deepEqual(lignes('SELECT groupe, joueur FROM groupe_membres'), [{ groupe: 'grpduo01', joueur: b.id }]);
+  // Parties : celles qu'il a créées disparaissent avec leurs lignes, sa participation aux autres aussi.
+  assert.deepEqual(lignes('SELECT id FROM parties').map((x) => x.id), ['PARTBB']);
+  assert.deepEqual(lignes('SELECT partie, joueur FROM parties_joueurs'), []);
+  assert.deepEqual(lignes('SELECT * FROM parties_reponses'), []);
+  // Quotas à son nom effacés ; les autres comptes ne sont pas touchés.
+  assert.ok(!lignes('SELECT cle FROM quotas').some((q) => q.cle.endsWith(':' + a.id)));
+  for (const autreCompte of [b, c, d]) assert.ok(ligneJoueur(autreCompte.id));
+  assert.equal((await appel(progressionGet, { jeton: b.jeton })).statut, 200);
+  // Les demandes envoyées ou reçues ont disparu ; le pseudo est de nouveau libre.
+  assert.deepEqual((await appel(amisGet, { jeton: c.jeton })).corps.recues, []);
+  assert.deepEqual((await appel(amisGet, { jeton: d.jeton })).corps.recues, []);
+  assert.equal((await postCompte({ action: 'inscrire', prenom: 'G', nom: 'M', pseudo: 'greg', mdp: MDP })).statut, 200);
+});
+const NOUVEAU_SANS = 'le bon mot de passe est ' + MDP.length;
+
+test('compte supprimer : un ancien profil confirme avec confirmer: true ; sinon 400', async () => {
+  toutVider();
+  const vieux = await creerJoueur('Vieux');
+  erreurFr(await postCompte({ action: 'supprimer' }, { jeton: vieux.jeton }), 400, /Confirme/);
+  erreurFr(await postCompte({ action: 'supprimer', confirmer: 'oui' }, { jeton: vieux.jeton }), 400);
+  assert.ok(ligneJoueur(vieux.id));
+  assert.deepEqual((await postCompte({ action: 'supprimer', confirmer: true }, { jeton: vieux.jeton })).corps, { ok: true });
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+});
+
+// --- Google -------------------------------------------------------------------------------------------------------
+
+const CLIENT_GOOGLE = 'client-test.apps.googleusercontent.com';
+const envGoogle = { DB: db, GOOGLE_CLIENT_ID: CLIENT_GOOGLE };
+const JETON_GOOGLE = 'eyJhbGciOiJSUzI1NiJ9.' + 'a'.repeat(60) + '.' + 'b'.repeat(40);
+const infoGoogle = (autre = {}) => ({
+  aud: CLIENT_GOOGLE, iss: 'https://accounts.google.com', sub: '110248495921238986420', email: 'greg@example.com', email_verified: 'true', exp: String(Math.floor(Date.now() / 1000) + 3000), ...autre,
+});
+const reponseGoogle = (obj, statut = 200) => () => new Response(JSON.stringify(obj), { status: statut, headers: { 'content-type': 'application/json' } });
+const postGoogle = (corps, options = {}) => appel(comptePost, { env: envGoogle, methode: 'POST', ip: nouvelleIp(), corps: { action: 'google', jeton: JETON_GOOGLE, ...corps }, ...options });
+
+test('compte google : refusé sans GOOGLE_CLIENT_ID ; le jeton est vérifié (aud, iss, email_verified, exp) avant toute création', async () => {
+  toutVider();
+  reinitExt();
+  ext.google = reponseGoogle(infoGoogle());
+  erreurFr(await appel(comptePost, { methode: 'POST', corps: { action: 'google', jeton: JETON_GOOGLE } }), 404, /Google/);
+  assert.equal(ext.appels.length, 0, 'sans identifiant client, Google n’est même pas appelé');
+  for (const mauvais of [
+    infoGoogle({ aud: 'un-autre-client' }), infoGoogle({ iss: 'https://evil.example' }), infoGoogle({ email_verified: 'false' }), infoGoogle({ email_verified: undefined }),
+    infoGoogle({ exp: String(Math.floor(Date.now() / 1000) - 10) }), infoGoogle({ exp: 'demain' }), infoGoogle({ sub: undefined }), infoGoogle({ sub: 'pas-un-nombre' }),
+  ]) {
+    ext.google = reponseGoogle(mauvais);
+    erreurFr(await postGoogle({}), 401, /Google refusée/);
+  }
+  ext.google = reponseGoogle({ error: 'invalid_token' }, 400);
+  erreurFr(await postGoogle({}), 401, /Google refusée/);
+  ext.google = () => new Response('<html>pas du json</html>', { status: 200 });
+  erreurFr(await postGoogle({}), 401);
+  ext.google = () => { throw new Error('réseau coupé'); };
+  erreurFr(await postGoogle({}), 503, /Google ne répond pas/);
+  // Jetons mal formés : refusés sans appeler Google.
+  ext.appels = [];
+  for (const mauvais of [undefined, '', 'court', 'x'.repeat(3000) + '#', 'avec espace ' + 'a'.repeat(30), 12, { a: 1 }]) erreurFr(await postGoogle({ jeton: mauvais }), 401);
+  assert.equal(ext.appels.length, 0);
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+  // Ce qui part vers Google : le jeton, en paramètre id_token, en GET, et rien d'autre.
+  ext.google = reponseGoogle(infoGoogle());
+  ext.appels = [];
+  await postGoogle({});
+  assert.equal(ext.appels[0].url.origin + ext.appels[0].url.pathname, 'https://oauth2.googleapis.com/tokeninfo');
+  assert.equal(ext.appels[0].url.searchParams.get('id_token'), JETON_GOOGLE);
+  assert.ok(!ext.appels[0].init.method || ext.appels[0].init.method === 'GET');
+  reinitExt();
+});
+
+test('compte google : premier passage -> {aCompleter}, puis pseudo/prénom/nom créent le compte ; ensuite connexion directe ; compte bloqué 403', async () => {
+  toutVider();
+  reinitExt();
+  ext.google = reponseGoogle(infoGoogle());
+  const premier = await postGoogle({});
+  assert.deepEqual(premier.corps, { aCompleter: true });
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0, 'rien n’est créé avant le pseudo');
+  for (const mauvais of [{ pseudo: 'ab', prenom: 'G', nom: 'M' }, { pseudo: 'greg', prenom: '', nom: 'M' }, { pseudo: 'greg', prenom: 'G' }, { pseudo: 'greg', nom: 'M' }]) {
+    erreurFr(await postGoogle(mauvais), 400);
+  }
+  const cree = await postGoogle({ pseudo: 'GregG', prenom: 'Grégoire', nom: 'Muel' });
+  assert.equal(cree.statut, 200, JSON.stringify(cree.corps));
+  assert.deepEqual(Object.keys(cree.corps).sort(), ['cle', 'id', 'nom', 'prenom', 'pseudo', 'role']);
+  assert.ok(!('phrase' in cree.corps), 'pas de phrase de secours : pas de mot de passe');
+  const j = ligneJoueur(cree.corps.id);
+  assert.deepEqual([j.google_sub, j.pseudo_cle, j.mdp_hash, j.secours_hash], ['110248495921238986420', 'gregg', null, null]);
+  assert.equal((await appel(progressionGet, { jeton: `${cree.corps.id}.${cree.corps.cle}` })).statut, 200);
+  const g = (await appel(compteGet, { jeton: `${cree.corps.id}.${cree.corps.cle}` })).corps;
+  assert.deepEqual([g.google, g.motDePasse, g.compte], [true, false, true]);
+  // Retour : connexion directe, sans rien redemander.
+  const retour = await postGoogle({});
+  assert.equal(retour.statut, 200);
+  assert.equal(retour.corps.id, cree.corps.id);
+  assert.equal(lignes('SELECT * FROM sessions').length, 2);
+  // Pas de connexion par mot de passe ni par phrase pour ce compte.
+  erreurFr(await connexion('GregG', MDP), 401);
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'gregg', phrase: 'a b c', nouveauMdp: MDP }), 401);
+  erreurFr(await postCompte({ action: 'mdp', ancien: MDP, nouveau: 'un autre mot de passe' }, { jeton: `${cree.corps.id}.${cree.corps.cle}` }), 400, /Google/);
+  // Un autre compte Google ne peut pas prendre le même pseudo ; un pseudo de compte à mot de passe non plus.
+  ext.google = reponseGoogle(infoGoogle({ sub: '999999999999999999999' }));
+  erreurFr(await postGoogle({ pseudo: 'gregg', prenom: 'X', nom: 'Y' }), 409, /déjà pris/);
+  // Bloqué : 403.
+  ext.google = reponseGoogle(infoGoogle());
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(cree.corps.id);
+  erreurFr(await postGoogle({}), 403, /bloqué/);
+  reinitExt();
+});
+
+test('compte google : un ancien profil est complété avec Google (progression gardée) ; suppression avec un jeton Google frais', async () => {
+  toutVider();
+  reinitExt();
+  ext.google = reponseGoogle(infoGoogle());
+  const vieux = await creerJoueur('Vieux');
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: vieux.jeton, corps: { etat: { xp: 77 } } }));
+  const r = await postGoogle({ pseudo: 'vieux', prenom: 'V', nom: 'P' }, { jeton: vieux.jeton });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  assert.equal(r.corps.id, vieux.id);
+  const jeton = `${r.corps.id}.${r.corps.cle}`;
+  assert.equal((await appel(progressionGet, { jeton })).corps.etat.xp, 77);
+  erreurFr(await appel(progressionGet, { jeton: vieux.jeton }), 401);
+  // Suppression : exige un jeton Google qui désigne le même compte.
+  erreurFr(await postCompte({ action: 'supprimer' }, { jeton, env: envGoogle }), 401);
+  ext.google = reponseGoogle(infoGoogle({ sub: '555555555555' }));
+  erreurFr(await postCompte({ action: 'supprimer', jeton: JETON_GOOGLE }, { jeton, env: envGoogle }), 401);
+  assert.ok(ligneJoueur(vieux.id));
+  ext.google = reponseGoogle(infoGoogle());
+  assert.deepEqual((await postCompte({ action: 'supprimer', jeton: JETON_GOOGLE }, { jeton, env: envGoogle })).corps, { ok: true });
+  assert.equal(lignes('SELECT * FROM joueurs').length, 0);
+  reinitExt();
+});
+
+// --- Admin ------------------------------------------------------------------------------------------------------
+
+const CLE_ADMIN = 'cle-admin-de-test-' + 'x'.repeat(10);
+const envCle = { DB: db, ADMIN_KEY: CLE_ADMIN };
+const adminAvec = (handler, options = {}) => appel(handler, { env: envCle, ip: nouvelleIp(), ...options });
+const postAdmin = (corps, options = {}) => adminAvec(adminPost, { methode: 'POST', corps, ...options });
+
+test('admin par session : un compte admin entre sans clé ; un compte ordinaire, un anonyme, un profil sans compte reçoivent 403', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  const simple = await creerCompte('Simple');
+  const vieux = await creerJoueur('Vieux');
+  faireAdmin(chef);
+  assert.equal((await adminAvec(adminGet, { jeton: chef.jeton })).statut, 200);
+  assert.equal((await postAdmin({ action: 'pause' }, { jeton: chef.jeton })).statut, 200);
+  assert.equal((await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1' })).statut, 200);
+  for (const options of [{ jeton: simple.jeton }, {}, { jeton: vieux.jeton }, { jeton: `${chef.id}.${'z'.repeat(32)}` }, { jeton: simple.jeton, entetes: { 'x-admin-cle': 'mauvaise' } }]) {
+    erreurFr(await adminAvec(adminGet, options), 403, /Accès refusé/);
+    erreurFr(await adminAvec(adminGet, { ...options, requete: '?comptes=1' }), 403);
+    erreurFr(await adminAvec(adminGet, { ...options, requete: '?codes=1' }), 403);
+    erreurFr(await postAdmin({ action: 'bloquer', pseudo: 'simple' }, options), 403);
+    erreurFr(await postAdmin({ action: 'creer_code', bonus: 5, jours: 7, usages: 3 }, options), 403);
+    erreurFr(await postAdmin({ action: 'reinitialiser', pseudo: 'simple' }, options), 403);
+  }
+  assert.equal(ligneJoueur(simple.id).bloque, 0);
+  // La clé x-admin-cle reste acceptée (avec ou sans session), et la session d'un admin bloqué ne vaut plus rien.
+  assert.equal((await adminAvec(adminGet, { entetes: { 'x-admin-cle': CLE_ADMIN } })).statut, 200);
+  assert.equal((await adminAvec(adminGet, { jeton: simple.jeton, entetes: { 'x-admin-cle': CLE_ADMIN } })).statut, 200);
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(chef.id);
+  erreurFr(await adminAvec(adminGet, { jeton: chef.jeton }), 403);
+  assert.equal((await adminAvec(adminGet, { jeton: chef.jeton, entetes: { 'x-admin-cle': CLE_ADMIN } })).statut, 200, 'la clé reste valable');
+  // Un rôle ne s'obtient pas en le demandant : aucune route ne permet de se donner le rôle admin sans la clé.
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: simple.jeton }), 403);
+  assert.equal(ligneJoueur(simple.id).role, 'joueur');
+});
+
+test('admin promouvoir : exige un compte connecté ET la clé ADMIN_KEY (limitée à 20 essais par jour) ; le compte devient admin', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const vieux = await creerJoueur('Vieux');
+  const ip = '192.0.2.230';
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { entetes: { 'x-admin-cle': CLE_ADMIN }, ip }), 401, /Connecte-toi/);
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: vieux.jeton, entetes: { 'x-admin-cle': CLE_ADMIN }, ip }), 401);
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: a.jeton, ip }), 403);
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: a.jeton, entetes: { 'x-admin-cle': CLE_ADMIN + 'x' }, ip }), 403);
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: a.jeton, entetes: { 'x-admin-cle': '' }, ip }), 403);
+  erreurFr(await appel(adminPost, { env: { DB: db }, methode: 'POST', corps: { action: 'promouvoir' }, jeton: a.jeton, entetes: { 'x-admin-cle': 'x' }, ip }), 403, 'sans ADMIN_KEY : jamais accepté');
+  assert.equal(ligneJoueur(a.id).role, 'joueur');
+  const r = await postAdmin({ action: 'promouvoir' }, { jeton: a.jeton, entetes: { 'x-admin-cle': CLE_ADMIN }, ip });
+  assert.deepEqual(r.corps, { ok: true, role: 'admin' });
+  assert.equal(ligneJoueur(a.id).role, 'admin');
+  assert.equal((await appel(compteGet, { jeton: a.jeton })).corps.role, 'admin');
+  // Désormais, plus besoin de la clé.
+  assert.equal((await adminAvec(adminGet, { jeton: a.jeton, ip })).statut, 200);
+  // La limite de 20 mauvais essais par adresse bloque aussi la bonne clé.
+  const b = await creerCompte('Autre');
+  const ip2 = '192.0.2.231';
+  for (let i = 0; i < 20; i++) erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: b.jeton, entetes: { 'x-admin-cle': 'faux' + i }, ip: ip2 }), 403);
+  erreurFr(await postAdmin({ action: 'promouvoir' }, { jeton: b.jeton, entetes: { 'x-admin-cle': CLE_ADMIN }, ip: ip2 }), 403);
+  assert.equal(ligneJoueur(b.id).role, 'joueur');
+});
+
+test('admin comptes : liste (50 par page) avec pseudo, prénom, nom, créé, vu, leçons, XP, bloqué, rôle ; aucun hash, aucun identifiant ; recherche', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: chef.jeton, corps: { etat: { xp: 120, parcours: { a: { fait: [1, 2] } } } } }));
+  const ajout = db.base.prepare("INSERT INTO joueurs (id, pseudo, pseudo_cle, prenom, nom, mdp_hash, secours_hash, cree, role, bloque) VALUES (?, ?, ?, ?, ?, 'pbkdf2$100000$aa$bb', 'pbkdf2$100000$cc$dd', ?, 'joueur', ?)");
+  for (let i = 0; i < 55; i++) ajout.run('id' + String(i).padStart(10, '0'), 'Joueur' + i, 'joueur' + i, i === 7 ? 'Zoé' : 'Prénom' + i, i === 8 ? 'Du_Pont' : 'Nom' + i, `2026-10-1${i % 10}T10:00:00Z`, i === 3 ? 1 : 0);
+  db.base.prepare("INSERT INTO joueurs (id, pseudo) VALUES ('profilsanscompte', 'Ancien')").run();
+  const p1 = (await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1' })).corps;
+  assert.deepEqual([p1.page, p1.parPage, p1.total, p1.comptes.length], [0, 50, 56, 50]);
+  const p2 = (await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1&page=1' })).corps;
+  assert.deepEqual([p2.page, p2.comptes.length], [1, 6]);
+  const tous = [...p1.comptes, ...p2.comptes];
+  assert.equal(new Set(tous.map((c) => c.pseudo)).size, 56, 'pas de doublon entre les pages');
+  assert.ok(!tous.some((c) => c.pseudo === 'Ancien'), 'les profils sans compte ne sont pas des comptes');
+  const moi = tous.find((c) => c.pseudo === 'Chef');
+  assert.deepEqual(Object.keys(moi).sort(), ['bloque', 'cree', 'lecons', 'nom', 'prenom', 'pseudo', 'role', 'vu', 'xp']);
+  assert.deepEqual([moi.prenom, moi.nom, moi.role, moi.bloque, moi.lecons, moi.xp], ['Grégoire', 'Muel', 'admin', false, 2, 120]);
+  assert.equal(tous.find((c) => c.pseudo === 'Joueur3').bloque, true);
+  const texte = JSON.stringify([p1, p2]);
+  assert.ok(!/pbkdf2|hash|secours|reinit|id0000/i.test(texte), 'ni hash, ni identifiant, ni secret');
+  // Recherche : pseudo, prénom ou nom, sans casse ; les caractères % et _ ne sont pas des jokers.
+  const q = async (terme) => (await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1&q=' + encodeURIComponent(terme) })).corps;
+  assert.deepEqual((await q('joueur1')).comptes.map((c) => c.pseudo).sort(), ['Joueur1', 'Joueur10', 'Joueur11', 'Joueur12', 'Joueur13', 'Joueur14', 'Joueur15', 'Joueur16', 'Joueur17', 'Joueur18', 'Joueur19']);
+  assert.deepEqual((await q('ZOÉ')).comptes.map((c) => c.pseudo), ['Joueur7']);
+  assert.equal((await q('zoé')).total, 1);
+  assert.equal((await q('du_pont')).total, 1);
+  assert.equal((await q('du%pont')).total, 0);
+  assert.equal((await q('%')).total, 0);
+  assert.equal((await q('_')).total, 1, 'le tiret bas est cherché tel quel (Du_Pont)');
+  assert.equal((await q('introuvable')).total, 0);
+  assert.deepEqual((await q('introuvable')).comptes, []);
+  // Page absurde : vide, sans erreur.
+  assert.deepEqual((await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1&page=abc' })).corps.page, 0);
+  assert.deepEqual((await adminAvec(adminGet, { jeton: chef.jeton, requete: '?comptes=1&page=99999' })).corps.comptes, []);
+});
+
+test('admin bloquer / débloquer : par pseudo exact ; efface les sessions ; 404 si inconnu ; jamais soi-même ; « debloquer » avec une formation reste la génération', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  const cible = await creerCompte('Cible');
+  const cible2 = await connexion('cible');
+  erreurFr(await postAdmin({ action: 'bloquer', pseudo: 'inconnu' }, { jeton: chef.jeton }), 404);
+  erreurFr(await postAdmin({ action: 'bloquer' }, { jeton: chef.jeton }), 404);
+  erreurFr(await postAdmin({ action: 'bloquer', pseudo: 'cib' }, { jeton: chef.jeton }), 404);
+  erreurFr(await postAdmin({ action: 'bloquer', pseudo: 'chef' }, { jeton: chef.jeton }), 400, /propre compte/);
+  assert.equal(ligneJoueur(chef.id).bloque, 0);
+  const r = await postAdmin({ action: 'bloquer', pseudo: 'CIBLE' }, { jeton: chef.jeton });
+  assert.deepEqual(r.corps, { ok: true, pseudo: 'Cible', bloque: true });
+  assert.equal(ligneJoueur(cible.id).bloque, 1);
+  assert.equal(lignes('SELECT * FROM sessions WHERE joueur_id = ?', cible.id).length, 0, 'sessions effacées');
+  erreurFr(await appel(progressionGet, { jeton: cible.jeton }), 401);
+  erreurFr(await appel(progressionGet, { jeton: `${cible2.corps.id}.${cible2.corps.cle}` }), 401);
+  erreurFr(await connexion('cible'), 403);
+  const d = await postAdmin({ action: 'debloquer', pseudo: 'cible' }, { jeton: chef.jeton });
+  assert.deepEqual(d.corps, { ok: true, pseudo: 'Cible', bloque: false });
+  assert.equal((await connexion('cible')).statut, 200);
+  // Avec la clé seule (sans compte), on peut bloquer ; « debloquer » avec parcours met toujours une formation en file.
+  assert.equal((await postAdmin({ action: 'bloquer', pseudo: 'cible' }, { entetes: { 'x-admin-cle': CLE_ADMIN } })).statut, 200);
+  assert.equal(ligneJoueur(cible.id).bloque, 1);
+  const gen = await postAdmin({ action: 'debloquer', parcours: 'formation-inexistante' }, { jeton: chef.jeton });
+  assert.notEqual(gen.corps.bloque, true);
+  assert.equal(ligneJoueur(cible.id).bloque, 1, 'la génération ne débloque aucun compte');
+});
+
+test('admin reinitialiser : code temporaire de 8 caractères valable 24 h, gardé haché ; il sert de phrase dans secours, une seule fois', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  const cible = await creerCompte('Cible');
+  erreurFr(await postAdmin({ action: 'reinitialiser', pseudo: 'inconnu' }, { jeton: chef.jeton }), 404);
+  const r = await postAdmin({ action: 'reinitialiser', pseudo: 'cible' }, { jeton: chef.jeton });
+  assert.equal(r.statut, 200);
+  assert.deepEqual(Object.keys(r.corps).sort(), ['code', 'expire', 'ok', 'pseudo']);
+  assert.match(r.corps.code, /^[a-z0-9]{8}$/);
+  const duree = Date.parse(r.corps.expire) - Date.now();
+  assert.ok(duree > 23.9 * 3600000 && duree <= 24 * 3600000 + 1000, 'valable 24 h');
+  assert.ok(!toutLeTexte().includes(r.corps.code), 'le code n’est pas gardé en clair');
+  assert.match(ligneJoueur(cible.id).reinit_hash, /^pbkdf2\$/);
+  // Mauvais code : refusé. Bon code (même en majuscules) : nouveau mot de passe, sessions effacées, code consommé.
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'cible', phrase: 'abcd1234', nouveauMdp: 'un mot de passe tout neuf' }), 401);
+  const ok = await postCompte({ action: 'secours', pseudo: 'cible', phrase: r.corps.code.toUpperCase(), nouveauMdp: 'un mot de passe tout neuf' });
+  assert.equal(ok.statut, 200, JSON.stringify(ok.corps));
+  erreurFr(await appel(progressionGet, { jeton: cible.jeton }), 401);
+  assert.equal((await connexion('cible', 'un mot de passe tout neuf')).statut, 200);
+  assert.equal(ligneJoueur(cible.id).reinit_hash, null);
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'cible', phrase: r.corps.code, nouveauMdp: 'et encore un autre mot de passe' }), 401, 'usage unique');
+  // Un code expiré ne vaut plus rien ; le code d'un compte ne marche pas pour un autre.
+  const r2 = await postAdmin({ action: 'reinitialiser', pseudo: 'cible' }, { jeton: chef.jeton });
+  db.base.prepare('UPDATE joueurs SET reinit_fin = ? WHERE id = ?').run(new Date(Date.now() - 1000).toISOString(), cible.id);
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'cible', phrase: r2.corps.code, nouveauMdp: 'et encore un autre mot de passe' }), 401);
+  const r3 = await postAdmin({ action: 'reinitialiser', pseudo: 'cible' }, { jeton: chef.jeton });
+  erreurFr(await postCompte({ action: 'secours', pseudo: 'chef', phrase: r3.corps.code, nouveauMdp: 'et encore un autre mot de passe' }), 401);
+  // La phrase de secours d'origine reste valable tant que le code n'est pas utilisé.
+  assert.equal((await postCompte({ action: 'secours', pseudo: 'cible', phrase: cible.phrase, nouveauMdp: 'et encore un autre mot de passe' })).statut, 200);
+});
+
+// --- Codes d'amis et limites de création --------------------------------------------------------------------------
+
+test('admin codes : création validée (bonus, jours, usages), liste, révocation ; 403 hors admin', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  for (const mauvais of [{ bonus: 0 }, { bonus: 501 }, { bonus: 1.5 }, { bonus: '5' }, { bonus: undefined }, { jours: 0 }, { jours: 366 }, { jours: undefined }, { usages: 0 }, { usages: 1001 }, { usages: null }]) {
+    erreurFr(await postAdmin({ action: 'creer_code', bonus: 5, jours: 30, usages: 10, ...mauvais }, { jeton: chef.jeton }), 400);
+  }
+  assert.equal(lignes('SELECT * FROM codes').length, 0);
+  const r = await postAdmin({ action: 'creer_code', bonus: 5, jours: 30, usages: 10 }, { jeton: chef.jeton });
+  assert.equal(r.statut, 200);
+  assert.match(r.corps.code, /^[a-z0-9]{8}$/);
+  assert.deepEqual([r.corps.bonus, r.corps.jours, r.corps.usages], [5, 30, 10]);
+  const liste = (await adminAvec(adminGet, { jeton: chef.jeton, requete: '?codes=1' })).corps.codes;
+  assert.deepEqual(liste.map(({ cree, ...x }) => x), [{ code: r.corps.code, bonus: 5, jours: 30, usagesMax: 10, usages: 0, revoque: false }]);
+  const rev = await postAdmin({ action: 'revoquer_code', code: r.corps.code.toUpperCase() }, { jeton: chef.jeton });
+  assert.equal(rev.statut, 200);
+  assert.equal(rev.corps.codes[0].revoque, true);
+  erreurFr(await postAdmin({ action: 'revoquer_code', code: 'inconnu12' }, { jeton: chef.jeton }), 404);
+  erreurFr(await postAdmin({ action: 'revoquer_code' }, { jeton: chef.jeton }), 404);
+  const simple = await creerCompte('Simple');
+  erreurFr(await postAdmin({ action: 'revoquer_code', code: r.corps.code }, { jeton: simple.jeton }), 403);
+});
+
+test('compte code : le joueur utilise un code (une fois), le plafond d’usages tient, un code faux ou révoqué reçoit 404 et 10 essais ratés bloquent', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea');
+  const c = await creerCompte('Cyril');
+  const { corps: { code } } = await postAdmin({ action: 'creer_code', bonus: 4, jours: 10, usages: 2 }, { jeton: chef.jeton });
+  erreurFr(await postCompte({ action: 'code', code }), 401);
+  const r = await postCompte({ action: 'code', code: code.toUpperCase().replace(/^(.{4})/, '$1-') }, { jeton: a.jeton });
+  assert.equal(r.statut, 200, JSON.stringify(r.corps));
+  assert.deepEqual([r.corps.ok, r.corps.bonus, r.corps.total], [true, 4, 4]);
+  const duree = Date.parse(r.corps.expire) - Date.now();
+  assert.ok(duree > 9.9 * unJourEnMs && duree <= 10 * unJourEnMs + 1000);
+  erreurFr(await postCompte({ action: 'code', code }, { jeton: a.jeton }), 409, /déjà utilisé/);
+  assert.deepEqual((await appel(compteGet, { jeton: a.jeton })).corps.codes.map((x) => x.bonus), [4]);
+  assert.equal((await appel(compteGet, { jeton: a.jeton })).corps.bonus, 4);
+  assert.equal((await postCompte({ action: 'code', code }, { jeton: b.jeton })).statut, 200);
+  erreurFr(await postCompte({ action: 'code', code }, { jeton: c.jeton }), 404, /pas valable/);
+  assert.equal(lignes('SELECT usages FROM codes')[0].usages, 2, 'le plafond tient');
+  // Faux code, code vide, code d'un autre format : 404 sans indice ; 10 essais ratés par jour puis 429.
+  const d = await creerCompte('Dora');
+  for (const faux of ['abcd1234', '', undefined, 12, 'x'.repeat(100), '../../etc']) erreurFr(await postCompte({ action: 'code', code: faux }, { jeton: d.jeton }), 404);
+  for (let i = 0; i < 4; i++) erreurFr(await postCompte({ action: 'code', code: 'faux' + i }, { jeton: d.jeton }), 404);
+  const { corps: { code: bon } } = await postAdmin({ action: 'creer_code', bonus: 1, jours: 1, usages: 5 }, { jeton: chef.jeton });
+  erreurFr(await postCompte({ action: 'code', code: bon }, { jeton: d.jeton }), 429);
+  assert.equal(lignes('SELECT * FROM codes_utilises WHERE joueur_id = ?', d.id).length, 0);
+  // Révoqué : plus utilisable, et son bonus disparaît chez ceux qui l'avaient.
+  const e = await creerCompte('Eva');
+  await postAdmin({ action: 'revoquer_code', code }, { jeton: chef.jeton });
+  erreurFr(await postCompte({ action: 'code', code }, { jeton: e.jeton }), 404);
+  assert.equal((await appel(compteGet, { jeton: a.jeton })).corps.bonus, 0);
+  assert.equal(await bonusActif(env, a.id), 0);
+});
+
+test('limites de création : limite de base + bonus des codes actifs ; sans bonus après expiration ou révocation ; un admin n’a pas de limite', async () => {
+  toutVider();
+  const chef = await creerCompte('Chef');
+  faireAdmin(chef);
+  const a = await creerCompte('Greg');
+  const ia = fauxAI([enReponse(valide())]);
+  const e = { DB: db, AI: ia };
+  const libre = (joueur, i) => appel(librePost, { env: e, methode: 'POST', jeton: joueur.jeton, corps: { sujet: 'Sujet ' + i } });
+  for (let i = 0; i < 5; i++) assert.equal((await libre(a, i)).statut, 200);
+  erreurFr(await libre(a, 6), 429);
+  // Un code de +3 : la limite passe de 5 à 8 (le compteur du jour est conservé).
+  const { corps: { code } } = await postAdmin({ action: 'creer_code', bonus: 3, jours: 5, usages: 5 }, { jeton: chef.jeton });
+  assert.equal((await postCompte({ action: 'code', code }, { jeton: a.jeton })).statut, 200);
+  db.base.prepare("UPDATE quotas SET n = 5 WHERE cle = ?").run('libre:joueur:' + a.id);
+  for (let i = 0; i < 3; i++) assert.equal((await libre(a, 10 + i)).statut, 200, 'bonus ' + i);
+  erreurFr(await libre(a, 20), 429);
+  // Les bonus s'ajoutent entre eux.
+  const { corps: { code: code2 } } = await postAdmin({ action: 'creer_code', bonus: 2, jours: 5, usages: 5 }, { jeton: chef.jeton });
+  assert.equal((await postCompte({ action: 'code', code: code2 }, { jeton: a.jeton })).statut, 200);
+  db.base.prepare("UPDATE quotas SET n = 8 WHERE cle = ?").run('libre:joueur:' + a.id);
+  for (let i = 0; i < 2; i++) assert.equal((await libre(a, 30 + i)).statut, 200);
+  erreurFr(await libre(a, 40), 429);
+  // Expiré : retour à la limite de base.
+  db.base.prepare('UPDATE codes_utilises SET expire = ?').run(new Date(Date.now() - 1000).toISOString());
+  db.base.prepare("UPDATE quotas SET n = 5 WHERE cle = ?").run('libre:joueur:' + a.id);
+  erreurFr(await libre(a, 50), 429);
+  assert.equal(await bonusActif(env, a.id), 0);
+  // Le bonus d'un joueur ne profite pas aux autres.
+  const b = await creerCompte('Bea');
+  for (let i = 0; i < 5; i++) assert.equal((await libre(b, 60 + i)).statut, 200);
+  erreurFr(await libre(b, 70), 429);
+  // Admin : pas de limite par joueur (au-delà de 5, aucune erreur) ; la limite globale reste.
+  for (let i = 0; i < 12; i++) assert.equal((await libre(chef, 80 + i)).statut, 200, 'admin ' + i);
+  assert.equal(lignes("SELECT * FROM quotas WHERE cle = ?", 'libre:joueur:' + chef.id).length, 0, 'pas de compteur pour un admin');
+});
+
+test('limites de création : toutes les routes qui créent avec l’IA passent par quotaJoueur (limite de base + bonus, admin sans limite)', async () => {
+  toutVider();
+  const source = (f) => readFileSync(new URL('../functions/api/' + f, import.meta.url), 'utf8');
+  for (const f of ['libre.js', 'parcours.js', 'sujet.js', 'chapitre-ia.js', 'palier.js', 'quiz-direct.js', 'quiz-general.js', 'variante.js']) {
+    const texte = source(f);
+    assert.ok(/quotaJoueur\(env, joueur, '[a-z]+:joueur:'/.test(texte), f);
+    assert.ok(!/await quota\(env, '[a-z]+:joueur:'/.test(texte), f + ' : un quota par joueur échappe aux codes');
+  }
+  const a = await creerCompte('Greg');
+  const ligne = { id: a.id, role: 'joueur' };
+  for (let i = 0; i < 3; i++) assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), true);
+  assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), false);
+  db.base.prepare("INSERT INTO codes (code, bonus, jours, usages_max, usages, cree, revoque) VALUES ('bonus001', 2, 1, 9, 1, '2026-10-20', 0)").run();
+  db.base.prepare("INSERT INTO codes_utilises (code, joueur_id, expire) VALUES ('bonus001', ?, ?)").run(a.id, new Date(Date.now() + unJourEnMs).toISOString());
+  assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), true); // 5e appel : 5 <= 3 + 2
+  assert.equal(await quotaJoueur(env, ligne, 'essai:joueur:x', 3), false);
+  for (let i = 0; i < 10; i++) assert.equal(await quotaJoueur(env, { id: a.id, role: 'admin' }, 'essai:joueur:y', 1), true);
+});
+
+// --- Amis : recherche du pseudo exact, demandes, invitations --------------------------------------------------------
+
+const postAmis = (corps, jeton, options = {}) => appel(amisPost, { methode: 'POST', jeton, corps, ...options });
+const amitie = (x, y) => lignes('SELECT a, b, etat FROM amities WHERE (a = ? AND b = ?) OR (a = ? AND b = ?)', x.id, y.id, y.id, x.id);
+
+test('amis : réservé aux comptes (401 sans session, 403 pour un ancien profil), actions inconnues 400', async () => {
+  toutVider();
+  const vieux = await creerJoueur('Vieux');
+  const a = await creerCompte('Greg');
+  erreurFr(await appel(amisGet), 401);
+  erreurFr(await postAmis({ action: 'inviter' }), 401);
+  erreurFr(await appel(amisGet, { jeton: vieux.jeton }), 403, /compte/);
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'greg' }, vieux.jeton), 403);
+  erreurFr(await postAmis({ action: 'inviter' }, vieux.jeton), 403);
+  erreurFr(await postAmis({ action: 'inconnue' }, a.jeton), 400, /Action inconnue/);
+  erreurFr(await postAmis({}, a.jeton), 400);
+  erreurFr(await appel(amisPost, { methode: 'POST', jeton: a.jeton, brut: 'pas du json' }), 400);
+  assert.deepEqual((await appel(amisGet, { jeton: a.jeton })).corps, { amis: [], recues: [], envoyees: [] });
+});
+
+test('amis demander : le pseudo EXACT (sans casse) envoie une demande ; un pseudo partiel, inconnu ou le sien est refusé ; rien ne révèle d’autre pseudo', async () => {
+  toutVider();
+  const a = await creerCompte('Greg_M');
+  const b = await creerCompte('Beatrice');
+  await creerCompte('Beatrix');
+  // Pas de recherche partielle : « beat », « Beatri », « be%» ne trouvent rien.
+  for (const partiel of ['beat', 'Beatri', 'be%', '%', '_', 'Bea*', '', '   ', undefined, 12, ['Beatrice'], { pseudo: 'Beatrice' }]) {
+    erreurFr(await postAmis({ action: 'demander', pseudo: partiel }, a.jeton), 404, /Aucun joueur/);
+  }
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'greg_m' }, a.jeton), 400, /propre pseudo/);
+  assert.equal(lignes('SELECT * FROM amities').length, 0);
+  const r = await postAmis({ action: 'demander', pseudo: 'bEATRICE' }, a.jeton);
+  assert.deepEqual(r.corps, { ok: true, etat: 'demande', pseudo: 'Beatrice' });
+  assert.deepEqual(amitie(a, b), [{ a: a.id, b: b.id, etat: 'demande' }]);
+  // La même demande refaite ne change rien.
+  assert.deepEqual((await postAmis({ action: 'demander', pseudo: 'beatrice' }, a.jeton)).corps, { ok: true, etat: 'demande', pseudo: 'Beatrice' });
+  assert.equal(lignes('SELECT * FROM amities').length, 1);
+  // L'un voit la demande envoyée, l'autre la demande reçue ; aucun n'est « ami » ; personne d'autre n'apparaît.
+  assert.deepEqual((await appel(amisGet, { jeton: a.jeton })).corps, { amis: [], recues: [], envoyees: [{ pseudo: 'Beatrice' }] });
+  assert.deepEqual((await appel(amisGet, { jeton: b.jeton })).corps, { amis: [], recues: [{ pseudo: 'Greg_M' }], envoyees: [] });
+  const cercleB = (await appel(cercleGet, { jeton: b.jeton })).corps.joueurs;
+  assert.deepEqual(cercleB.map((x) => x.pseudo), ['Beatrice'], 'une demande en attente ne donne pas accès au classement');
+  // Compte bloqué : introuvable comme un pseudo inconnu.
+  db.base.prepare("UPDATE joueurs SET bloque = 1 WHERE pseudo_cle = 'beatrix'").run();
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'beatrix' }, a.jeton), 404);
+  // Un ancien profil (sans pseudo de compte) ne se trouve pas non plus par son nom.
+  await creerJoueur('Vieux');
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'Vieux' }, a.jeton), 404);
+});
+
+test('amis demander : 30 recherches par jour, puis 429 ; 50 demandes en attente au plus', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  for (let i = 0; i < 30; i++) erreurFr(await postAmis({ action: 'demander', pseudo: 'inconnu' + i }, a.jeton), 404);
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'inconnu' }, a.jeton), 429);
+  const b = await creerCompte('Bea');
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'bea' }, a.jeton), 429, 'la limite compte aussi les pseudos trouvés');
+  assert.equal((await postAmis({ action: 'demander', pseudo: 'greg' }, b.jeton)).statut, 200, 'une autre personne a sa propre limite');
+  // 50 demandes en attente.
+  toutVider();
+  const c = await creerCompte('Cyril');
+  const ajout = db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'demande', '2026-10-20')");
+  for (let i = 0; i < 50; i++) ajout.run(c.id, 'cible' + String(i).padStart(7, '0'));
+  const e = await creerCompte('Eva');
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'eva' }, c.jeton), 409, /en attente/);
+  assert.equal(amitie(c, e).length, 0);
+});
+
+test('amis accepter / refuser / retirer : seul le destinataire accepte ou refuse ; l’amitié est réciproque ; retirer supprime dans les deux sens', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea');
+  const c = await creerCompte('Cyril');
+  await postAmis({ action: 'demander', pseudo: 'bea' }, a.jeton);
+  // L'auteur de la demande ne peut pas l'accepter lui-même, un tiers non plus.
+  erreurFr(await postAmis({ action: 'accepter', pseudo: 'bea' }, a.jeton), 404);
+  erreurFr(await postAmis({ action: 'accepter', pseudo: 'greg' }, c.jeton), 404);
+  erreurFr(await postAmis({ action: 'refuser', pseudo: 'greg' }, c.jeton), 404);
+  erreurFr(await postAmis({ action: 'accepter', pseudo: 'inconnu' }, b.jeton), 404);
+  erreurFr(await postAmis({ action: 'accepter' }, b.jeton), 404);
+  assert.equal(amitie(a, b)[0].etat, 'demande');
+  assert.deepEqual((await postAmis({ action: 'accepter', pseudo: 'GREG' }, b.jeton)).corps, { ok: true });
+  assert.equal(amitie(a, b)[0].etat, 'ami');
+  assert.equal(amitie(a, b).length, 1);
+  erreurFr(await postAmis({ action: 'accepter', pseudo: 'greg' }, b.jeton), 404, 'déjà acceptée');
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'bea' }, a.jeton), 409, /déjà amis/);
+  erreurFr(await postAmis({ action: 'demander', pseudo: 'greg' }, b.jeton), 409, /déjà amis/);
+  const amisA = (await appel(amisGet, { jeton: a.jeton })).corps;
+  const amisB = (await appel(amisGet, { jeton: b.jeton })).corps;
+  assert.deepEqual(amisA, { amis: [{ pseudo: 'Bea', points: 0, valides: 0 }], recues: [], envoyees: [] });
+  assert.deepEqual(amisB.amis, [{ pseudo: 'Greg', points: 0, valides: 0 }]);
+  assert.ok(!JSON.stringify([amisA, amisB]).includes(a.id), 'jamais d’identifiant');
+  assert.deepEqual((await appel(amisGet, { jeton: c.jeton })).corps, { amis: [], recues: [], envoyees: [] });
+  // Refuser : la demande disparaît (et peut être refaite).
+  await postAmis({ action: 'demander', pseudo: 'cyril' }, b.jeton);
+  assert.deepEqual((await postAmis({ action: 'refuser', pseudo: 'bea' }, c.jeton)).corps, { ok: true });
+  assert.equal(amitie(b, c).length, 0);
+  erreurFr(await postAmis({ action: 'refuser', pseudo: 'bea' }, c.jeton), 404);
+  // Demandes croisées : la seconde accepte la première.
+  await postAmis({ action: 'demander', pseudo: 'cyril' }, b.jeton);
+  assert.deepEqual((await postAmis({ action: 'demander', pseudo: 'bea' }, c.jeton)).corps, { ok: true, etat: 'ami', pseudo: 'Bea' });
+  assert.deepEqual(amitie(b, c).map((x) => x.etat), ['ami']);
+  // Retirer : un ami disparaît des deux côtés ; annuler une demande envoyée aussi ; 404 sinon.
+  assert.deepEqual((await postAmis({ action: 'retirer', pseudo: 'Greg' }, b.jeton)).corps, { ok: true });
+  assert.equal(amitie(a, b).length, 0);
+  assert.deepEqual((await appel(amisGet, { jeton: a.jeton })).corps.amis, []);
+  erreurFr(await postAmis({ action: 'retirer', pseudo: 'greg' }, b.jeton), 404);
+  erreurFr(await postAmis({ action: 'retirer', pseudo: 'inconnu' }, b.jeton), 404);
+  await postAmis({ action: 'demander', pseudo: 'greg' }, b.jeton);
+  assert.deepEqual((await postAmis({ action: 'retirer', pseudo: 'greg' }, b.jeton)).corps, { ok: true });
+  assert.equal(amitie(a, b).length, 0);
+});
+
+test('amis invitation : lien aléatoire de 24 caractères (seule l’empreinte est gardée), 7 jours, 5 usages ; on devient ami de celui qui invite', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea');
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: 'a'.repeat(24) }, b.jeton), 404, /plus valable/);
+  const r = await postAmis({ action: 'inviter' }, a.jeton);
+  assert.equal(r.statut, 200);
+  assert.deepEqual(Object.keys(r.corps).sort(), ['expire', 'jeton', 'usagesMax']);
+  assert.match(r.corps.jeton, /^[a-z0-9]{24}$/);
+  assert.equal(r.corps.usagesMax, 5);
+  const duree = Date.parse(r.corps.expire) - Date.now();
+  assert.ok(duree > 6.99 * unJourEnMs && duree <= 7 * unJourEnMs + 1000, '7 jours');
+  const [ligne] = lignes('SELECT * FROM invitations');
+  assert.equal(ligne.jeton_hash, await sha256Hex(r.corps.jeton));
+  assert.equal(ligne.joueur_id, a.id);
+  assert.ok(!toutLeTexte().includes(r.corps.jeton), 'le jeton n’est pas gardé en clair');
+  // Deux liens différents.
+  assert.notEqual((await postAmis({ action: 'inviter' }, a.jeton)).corps.jeton, r.corps.jeton);
+  // Utilisation.
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, a.jeton), 400, /propre lien/);
+  const ok = await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, b.jeton);
+  assert.deepEqual(ok.corps, { ok: true, pseudo: 'Greg' });
+  assert.deepEqual(amitie(a, b).map((x) => x.etat), ['ami']);
+  assert.equal(lignes('SELECT usages FROM invitations WHERE jeton_hash = ?', ligne.jeton_hash)[0].usages, 1);
+  assert.deepEqual((await appel(amisGet, { jeton: b.jeton })).corps.amis.map((x) => x.pseudo), ['Greg']);
+  // Déjà amis : pas d'usage de plus.
+  assert.deepEqual((await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, b.jeton)).corps, { ok: true, dejaAmis: true, pseudo: 'Greg' });
+  assert.equal(lignes('SELECT usages FROM invitations WHERE jeton_hash = ?', ligne.jeton_hash)[0].usages, 1);
+  // Une demande en attente entre eux devient une amitié sans doublon.
+  const c = await creerCompte('Cyril');
+  await postAmis({ action: 'demander', pseudo: 'greg' }, c.jeton);
+  assert.equal((await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, c.jeton)).statut, 200);
+  assert.deepEqual(amitie(a, c).map((x) => x.etat), ['ami']);
+  // Un ancien profil ne peut pas rejoindre ; sans session non plus.
+  const vieux = await creerJoueur('Vieux');
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }, vieux.jeton), 403);
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: r.corps.jeton }), 401);
+});
+
+test('amis invitation : 5 usages au plus, expirée = refusée, format et jeton inconnu = 404, 20 refus par jour puis 429, 10 liens par jour', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const { corps: { jeton } } = await postAmis({ action: 'inviter' }, a.jeton);
+  const invites = [];
+  for (let i = 0; i < 6; i++) invites.push(await creerCompte('Invite' + i));
+  for (let i = 0; i < 5; i++) assert.equal((await postAmis({ action: 'rejoindre', jeton }, invites[i].jeton)).statut, 200, 'invité ' + i);
+  erreurFr(await postAmis({ action: 'rejoindre', jeton }, invites[5].jeton), 404, /plus valable/);
+  assert.equal(amitie(a, invites[5]).length, 0);
+  assert.equal((await appel(amisGet, { jeton: a.jeton })).corps.amis.length, 5);
+  // Expirée.
+  const { corps: { jeton: vieux } } = await postAmis({ action: 'inviter' }, a.jeton);
+  db.base.prepare('UPDATE invitations SET expire = ? WHERE jeton_hash = ?').run(new Date(Date.now() - 1000).toISOString(), await sha256Hex(vieux));
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: vieux }, invites[5].jeton), 404);
+  // Formats refusés sans toucher à la base ; refus comptés.
+  const b = invites[5];
+  for (const mauvais of [undefined, '', 'court', 'A'.repeat(24), 'a'.repeat(25), 12, ['x'], { a: 1 }, 'a'.repeat(23) + '-']) erreurFr(await postAmis({ action: 'rejoindre', jeton: mauvais }, b.jeton), 404);
+  // 11 refus plus haut (usages épuisés, expirée, 9 formats) + 9 ici = 20 ; puis 429, même avec un lien valable.
+  const { corps: { jeton: bon } } = await postAmis({ action: 'inviter' }, a.jeton);
+  for (let i = 0; i < 9; i++) erreurFr(await postAmis({ action: 'rejoindre', jeton: 'z'.repeat(23) + String(i) }, b.jeton), 404);
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: bon }, b.jeton), 429);
+  assert.equal(amitie(a, b).length, 0);
+  // 10 liens par jour.
+  toutVider();
+  const c = await creerCompte('Cyril');
+  for (let i = 0; i < 10; i++) assert.equal((await postAmis({ action: 'inviter' }, c.jeton)).statut, 200);
+  erreurFr(await postAmis({ action: 'inviter' }, c.jeton), 429);
+  // Le lien d'un compte bloqué ne marche plus.
+  const d = await creerCompte('Dora');
+  const e = await creerCompte('Eva');
+  const lien = (await postAmis({ action: 'inviter' }, d.jeton)).corps.jeton;
+  db.base.prepare('UPDATE joueurs SET bloque = 1 WHERE id = ?').run(d.id);
+  erreurFr(await postAmis({ action: 'rejoindre', jeton: lien }, e.jeton), 404);
+});
+
+// --- Vie privée : rien n'est listé à un non-admin -------------------------------------------------------------------
+
+test('cercle : toi et tes amis seulement, par XP ; 401 sans session ; jamais d’identifiant, de clé ni de joueur inconnu', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea');
+  const c = await creerCompte('Cyril');
+  const etranger = await creerCompte('Etranger');
+  const vieux = await creerJoueur('Vieux');
+  for (const [j, xp] of [[a, 100], [b, 300], [c, 50], [etranger, 9999], [vieux, 5000]]) {
+    ok200(await appel(progressionPut, { methode: 'PUT', jeton: j.jeton, corps: { etat: { xp, parcours: { p: { fait: [1, 2] } } } } }));
+  }
+  erreurFr(await appel(cercleGet), 401);
+  erreurFr(await appel(cercleGet, { jeton: `${a.id}.${'z'.repeat(32)}` }), 401);
+  // Seul : lui-même.
+  assert.deepEqual((await appel(cercleGet, { jeton: a.jeton })).corps, { joueurs: [{ pseudo: 'Greg', points: 100, valides: 2, moi: true }] });
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(a.id, b.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(c.id, a.id);
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'demande', '2026-10-20')").run(etranger.id, a.id);
+  const r = await appel(cercleGet, { jeton: a.jeton });
+  assert.deepEqual(r.corps.joueurs.map((x) => [x.pseudo, x.points, x.moi === true]), [['Bea', 300, false], ['Greg', 100, true], ['Cyril', 50, false]]);
+  for (const j of r.corps.joueurs) assert.ok(Object.keys(j).every((k) => ['pseudo', 'points', 'valides', 'moi'].includes(k)));
+  const texte = JSON.stringify(r.corps);
+  for (const interdit of [a.id, b.id, a.cle, 'Etranger', 'Vieux', 'hash']) assert.ok(!texte.includes(interdit), interdit);
+  // L'amitié est réciproque mais pas transitive : Bea voit Greg, pas Cyril.
+  assert.deepEqual((await appel(cercleGet, { jeton: b.jeton })).corps.joueurs.map((x) => x.pseudo), ['Bea', 'Greg']);
+  // Un ancien profil ne voit que lui.
+  assert.deepEqual((await appel(cercleGet, { jeton: vieux.jeton })).corps.joueurs.map((x) => x.pseudo), ['Vieux']);
+  // Plus d'amitié, plus de classement.
+  await postAmis({ action: 'retirer', pseudo: 'bea' }, a.jeton);
+  assert.deepEqual((await appel(cercleGet, { jeton: a.jeton })).corps.joueurs.map((x) => x.pseudo), ['Greg', 'Cyril']);
+});
+
+test('vie privée : aucune route publique ne liste les joueurs ni ne renvoie d’identifiant, de clé ou de hash à un non-admin', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea');
+  db.base.prepare("INSERT INTO amities (a, b, etat, cree) VALUES (?, ?, 'ami', '2026-10-20')").run(a.id, b.id);
+  ok200(await appel(progressionPut, { methode: 'PUT', jeton: a.jeton, corps: { etat: { xp: 10 } } }));
+  const hashes = lignes('SELECT mdp_hash, secours_hash FROM joueurs').flatMap((x) => [x.mdp_hash, x.secours_hash]);
+  const lectures = [
+    [cercleGet, { jeton: a.jeton }], [amisGet, { jeton: a.jeton }], [compteGet, { jeton: a.jeton }], [progressionGet, { jeton: a.jeton }],
+    [duelsGet, { jeton: a.jeton }], [groupeGet, { jeton: a.jeton }], [tournoiGet, { jeton: a.jeton }], [sujetsGet, {}], [parcoursGet, {}], [melangeGet, {}],
+    [adminGet, { jeton: a.jeton, requete: '?comptes=1' }], [adminGet, { jeton: a.jeton, requete: '?codes=1' }], [adminGet, { jeton: a.jeton }],
+    [adminGet, { requete: '?comptes=1&q=greg' }],
+  ];
+  for (const [handler, options] of lectures) {
+    const r = await appel(handler, { env: { DB: db, ADMIN_KEY: CLE_ADMIN }, ...options });
+    const texte = JSON.stringify(r.corps);
+    for (const secret of [a.id, b.id, a.cle, b.cle, ...hashes, 'pbkdf2']) assert.ok(!texte.includes(secret), `${handler.name || 'route'} : ${secret.slice(0, 12)}`);
+    assert.ok(![200, 401, 403, 503].every((s) => s !== r.statut), 'statut attendu');
+    if (options.requete && options.requete.includes('comptes')) erreurFr(r, 403);
+  }
+  // Seules routes qui listent des joueurs hors du cercle : l'admin (comptes) et les jeux par lien ou par code (salon, groupe, partie).
+  const source = (f) => readFileSync(new URL('../functions/api/' + f, import.meta.url), 'utf8');
+  assert.ok(!/FROM joueurs[^`']*ORDER BY[^`']*LIMIT 50/.test(source('cercle.js')), 'plus de liste globale');
+  assert.ok(source('cercle.js').includes('amities'));
+});
+
+test('duel, salon, groupe et partie restent fonctionnels avec des comptes : le lien ou le code ouvre le jeu, sans être ami', async () => {
+  toutVider();
+  const a = await creerCompte('Greg');
+  const b = await creerCompte('Bea'); // pas amie de Greg
+  semerBlocP('sujet-test:1');
+  // Salon (lien) : créé par Greg, joué par Bea, visible de tous ceux qui ont le lien.
+  const cree = await appel(duelPost, { methode: 'POST', jeton: a.jeton, corps: { questions: refsP(5), type: 'salon', titre: 'Salon privé' } });
+  ok200(cree);
+  ok200(await appel(duelPut, { methode: 'PUT', jeton: a.jeton, corps: { id: cree.corps.id, score: { justes: 3, n: 5, points: 30 } } }));
+  ok200(await appel(duelPut, { methode: 'PUT', jeton: b.jeton, corps: { id: cree.corps.id, score: { justes: 4, n: 5, points: 40 } } }));
+  const vu = (await appel(duelGet, { requete: '?id=' + cree.corps.id, jeton: b.jeton })).corps.duel;
+  assert.deepEqual(vu.classement.map((x) => [x.rang, x.pseudo]), [[1, 'Bea'], [2, 'Greg']]);
+  assert.equal(vu.createur, 'Greg');
+  assert.equal(vu.dejaJoue, true);
+  assert.ok(!JSON.stringify(vu).includes(a.id));
+  assert.deepEqual((await appel(duelsGet, { jeton: a.jeton })).corps.duels.map((x) => x.id), [cree.corps.id]);
+  // Groupe (lien) : créé par Greg, rejoint par Bea.
+  semerFormation();
+  const g = await postGroupe(a, { nom: 'Les marins', parcours: 'les-phares' });
+  ok200(g);
+  ok200(await postGroupe(b, { id: g.corps.id, rejoindre: true }));
+  const gg = (await getGroupe(g.corps.id, b)).corps.groupe;
+  assert.deepEqual(gg.classement.map((x) => x.pseudo).sort(), ['Bea', 'Greg']);
+  assert.deepEqual([gg.dejaMembre, gg.membres, gg.createur], [true, 2, 'Greg']);
+  assert.deepEqual((await appel(groupeGet, { jeton: b.jeton })).corps.groupes.map((x) => x.id), [g.corps.id]);
+  assert.ok(!JSON.stringify(gg).includes(b.id));
+  // Partie (code) : Bea la rejoint avec le code, sans être amie.
+  const code = await nouvellePartie(a);
+  ok200(await postPartie(b, { action: 'rejoindre', id: code }));
+  const pv = await getPartie(code, b);
+  assert.deepEqual(pv.joueurs.map((x) => x.pseudo).sort(), ['Bea', 'Greg']);
+  assert.deepEqual(pv.moi, { joueur: true, createur: false });
+  assert.equal(pv.createur, 'Greg');
+  assert.ok(!JSON.stringify(pv).includes(a.id));
+  const anonyme = await getPartie(code);
+  assert.deepEqual(anonyme.moi, { joueur: false, createur: false });
+  assert.ok(!('question' in anonyme));
+});
+
+// --- Migration d'une base plus ancienne ----------------------------------------------------------------------------
+
+test('migrerBase : une base d’avant les comptes reçoit les colonnes et les index sans perdre un joueur ; deuxième passage sans effet', async () => {
+  const ancienne = fauxD1();
+  ancienne.base.exec(`CREATE TABLE joueurs (id TEXT PRIMARY KEY, cle_hash TEXT, pseudo TEXT, ton TEXT DEFAULT 'taquin', etat TEXT DEFAULT '{}', points INTEGER DEFAULT 0, valides INTEGER DEFAULT 0, cree TEXT, maj TEXT)`);
+  ancienne.base.prepare("INSERT INTO joueurs (id, cle_hash, pseudo, points, valides, cree) VALUES ('ancien000001', 'hash-ancien', 'Vieux', 42, 3, '2026-10-01')").run();
+  const e = { DB: ancienne };
+  await migrerBase(e);
+  const colonnes = ancienne.base.prepare("SELECT name FROM pragma_table_info('joueurs')").all().map((c) => c.name);
+  assert.deepEqual(colonnes, ['id', 'cle_hash', 'pseudo', 'ton', 'etat', 'points', 'valides', 'cree', 'maj', ...COLONNES_COMPTE.map((c) => c[0])]);
+  const vieux = ancienne.base.prepare("SELECT * FROM joueurs WHERE id = 'ancien000001'").get();
+  assert.deepEqual([vieux.cle_hash, vieux.pseudo, vieux.points, vieux.valides, vieux.role, vieux.bloque, vieux.pseudo_cle, vieux.mdp_hash], ['hash-ancien', 'Vieux', 42, 3, 'joueur', 0, null, null]);
+  const index = ancienne.base.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'joueurs' AND name LIKE 'idx_%' ORDER BY name").all().map((i) => i.name);
+  assert.deepEqual(index, ['idx_joueurs_google_sub', 'idx_joueurs_pseudo_cle']);
+  await migrerBase(e);
+  assert.equal(ancienne.base.prepare('SELECT COUNT(*) AS n FROM joueurs').get().n, 1);
+  // L'index unique est actif : deux pseudo_cle identiques refusés, plusieurs nuls acceptés.
+  ancienne.base.prepare("UPDATE joueurs SET pseudo_cle = 'vieux' WHERE id = 'ancien000001'").run();
+  assert.throws(() => ancienne.base.prepare("INSERT INTO joueurs (id, pseudo_cle) VALUES ('autre0000001', 'vieux')").run(), /UNIQUE/);
+  ancienne.base.prepare("INSERT INTO joueurs (id) VALUES ('nul000000001')").run();
+  ancienne.base.prepare("INSERT INTO joueurs (id) VALUES ('nul000000002')").run();
+  // Une colonne ajoutée entre-temps par un autre isolat ne fait pas échouer la migration.
+  const concurrente = { DB: { prepare: (sql) => (/^ALTER/.test(sql) ? { run: async () => { throw new Error('duplicate column name: prenom'); } } : ancienne.prepare(sql)) } };
+  ancienne.base.exec('DROP INDEX idx_joueurs_google_sub');
+  await migrerBase(concurrente);
+});
+
+// --- Journaux ---------------------------------------------------------------------------------------------------
+
+test('aucun mot de passe, phrase de secours, code ni jeton dans les journaux ou les messages d’erreur', async () => {
+  toutVider();
+  const journal = [];
+  const gardes = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+  for (const k of Object.keys(gardes)) console[k] = (...args) => { journal.push(args.map((x) => (x instanceof Error ? x.stack : typeof x === 'string' ? x : JSON.stringify(x))).join(' ')); };
+  const secrets = ['sécret-de-journal-123', 'phrase tres secrete', 'abcd1234secret'];
+  try {
+    const a = await creerCompte('Greg', { mdp: secrets[0] });
+    await connexion('greg', secrets[1]);
+    await postCompte({ action: 'secours', pseudo: 'greg', phrase: secrets[1], nouveauMdp: secrets[2] + 'xxxx' });
+    await postCompte({ action: 'mdp', ancien: secrets[1], nouveau: secrets[2] + 'yyyy' }, { jeton: a.jeton });
+    await postCompte({ action: 'code', code: secrets[2] }, { jeton: a.jeton });
+    await postCompte({ action: 'supprimer', mdp: secrets[1] }, { jeton: a.jeton });
+    await postAmis({ action: 'rejoindre', jeton: secrets[2] }, a.jeton);
+    // Une panne de base pendant une connexion : message générique, rien du mot de passe.
+    const cassee = { prepare() { throw new Error('D1 injoignable'); }, batch: async () => [] };
+    const panne = await appel(comptePost, { env: { DB: cassee }, methode: 'POST', corps: { action: 'connecter', pseudo: 'greg', mdp: secrets[0] } });
+    assert.equal(panne.statut, 503);
+    assert.ok(!JSON.stringify(panne.corps).includes(secrets[0]));
+    ext.google = reponseGoogle(infoGoogle());
+    await postGoogle({});
+    ext.google = null;
+  } finally {
+    Object.assign(console, gardes);
+  }
+  for (const ligne of journal) for (const s of secrets) assert.ok(!ligne.includes(s), 'secret dans le journal : ' + ligne.slice(0, 80));
+  const sources = ['compte.js', 'amis.js', 'admin.js'].map((f) => readFileSync(new URL('../functions/api/' + f, import.meta.url), 'utf8')).join('\n');
+  assert.ok(!/console\.(log|warn|error|info)/.test(sources), 'les routes de comptes n’écrivent rien dans les journaux');
 });
 
 // --- Exécution -------------------------------------------------------------

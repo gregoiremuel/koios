@@ -191,6 +191,7 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
   await exigerBase(env);
   const id = new URL(request.url).searchParams.get('id');
   if (!id || !ID_DUEL.test(id)) throw new ErreurHttp(400, 'Identifiant de duel attendu : 8 caractères.');
+  const lecteur = await authOptionnelle(request, env);
   const ligne = await env.DB.prepare(
     `SELECT d.id, d.questions, d.scores, j.pseudo AS createur, s.titre, s.type, s.fin
      FROM duels d LEFT JOIN joueurs j ON j.id = d.createur LEFT JOIN salons s ON s.id = d.id WHERE d.id = ?`,
@@ -199,7 +200,6 @@ export const onRequestGet = enveloppe(async ({ request, env }) => {
     .first();
   if (!ligne) throw new ErreurHttp(404, 'Duel introuvable.');
   const couples = lireJSONColonne(ligne.questions, []);
-  const lecteur = await authOptionnelle(request, env);
   const brut = lireJSONColonne(ligne.scores, []);
   // Le tournoi est public : sa liste ne montre que toi et tes amis (rangs réels). Un duel ou un salon se joue par lien : tous ceux qui l'ont s'y voient.
   const visibles = ligne.type === 'tournoi' ? new Set(lecteur ? [lecteur.id, ...(await idsAmis(env, lecteur.id))] : []) : null;

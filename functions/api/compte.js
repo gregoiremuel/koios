@@ -15,7 +15,7 @@ import {
 } from '../../lib/api.js';
 import {
   ECHECS_PAR_JOUR, ECHECS_PSEUDO_PAR_JOUR, cleDePseudo, effacerEchecs, exigerPasBloque, motDePasse, noterEchec, nomPropre,
-  normaliserPhrase, phraseDeSecours, pseudoCompte, supprimerJoueur,
+  normaliserCode, normaliserPhrase, phraseDeSecours, pseudoCompte, supprimerJoueur,
 } from '../../lib/comptes.js';
 
 const INSCRIPTIONS_PAR_JOUR = 20;
@@ -121,7 +121,8 @@ async function secours(env, request, corps) {
   // Les deux vérifications sont toujours faites (même durée, quel que soit le cas).
   const parPhrase = ligne && ligne.secours_hash && phrase ? await verifierMdp(phrase, ligne.secours_hash) : await verifierContreLeurre(phrase);
   const reinitActif = !!(ligne && ligne.reinit_hash && Date.parse(ligne.reinit_fin) > Date.now());
-  const parCode = reinitActif && phrase ? await verifierMdp(phrase, ligne.reinit_hash) : await verifierContreLeurre(phrase);
+  const code = normaliserCode(corps.phrase); // le code temporaire de l'admin (8 caractères) se tape sans soin particulier
+  const parCode = reinitActif && code ? await verifierMdp(code, ligne.reinit_hash) : await verifierContreLeurre(code);
   if (!parPhrase && !parCode) {
     await noterEchec(env, limites);
     throw new ErreurHttp(401, 'Pseudo ou phrase de secours incorrect.');
@@ -193,7 +194,7 @@ async function supprimer(env, request, corps) {
 
 async function utiliserCode(env, request, corps) {
   const joueur = await joueurConnecte(env, request);
-  const code = normaliserPhrase(corps.code);
+  const code = normaliserCode(corps.code);
   const limites = [[`echec:code:${joueur.id}`, ECHECS_CODE_PAR_JOUR]];
   await exigerPasBloque(env, limites);
   const ligne = code && code.length <= 40 ? await env.DB.prepare('SELECT code, bonus, jours FROM codes WHERE code = ? AND revoque = 0').bind(code).first() : null;
